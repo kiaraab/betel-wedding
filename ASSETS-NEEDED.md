@@ -4,7 +4,7 @@ Send as **SVG or transparent PNG** (or photo). Drop in `assets/`.
 
 | # | What | Where it goes | Status |
 |---|------|---------------|--------|
-| 1 | Lace oval frame (transparent PNG/SVG) | Home banner, around the couple photo (optional) | needed |
+| 1 | Lace oval frame (transparent PNG/SVG) — the file did not arrive, please resend | Home banner, around the couple photo | needed |
 | 2 | Lace border strip for the header (optional) | Header/nav bar | optional |
 | 3 | Dove (transparent PNG/SVG) | Home banner accent (optional) | optional |
 | 4 | Toast / notification style to copy | Pop-up messages at the bottom | needed |

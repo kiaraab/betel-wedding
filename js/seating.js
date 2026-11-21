@@ -51,7 +51,7 @@ const rotHandle = (x, y, x0, y0) => `<line class="rot-stalk" x1="${x0}" y1="${y0
 const ROT_STEP = 15;
 
 /* ---------------- each space's own real photo behind the plan (clear, flat light overlay; drawn as a data URL so Share PNG gets it too) ---------------- */
-const SPACE_PHOTO = { reception: 'assets/venue/ballroom.jpg', cocktail: 'assets/venue/tasting-room.jpg', ceremony: 'assets/venue/courtyard.jpg' };
+const SPACE_PHOTO = { reception: 'assets/venue/ballroom.jpg', cocktail: 'assets/venue/tasting-room.jpg', ceremony: 'assets/venue/courtyard-ceremony.png' };
 const bgPhotos = {}, bgAspects = {};
 function spacePhoto(sp) {
   const src = SPACE_PHOTO[sp];
