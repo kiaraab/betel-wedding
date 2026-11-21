@@ -8,6 +8,7 @@ export const TABLE_STYLES = {
   round8: { label: 'Rounds · 8', shape: 'round', size: 8 },
   round10: { label: 'Rounds · 10', shape: 'round', size: 10 },
   family: { label: 'Family rows · 20', shape: 'rect', size: 20, rot: 90 },
+  open: { label: 'Open floor', shape: 'round', size: 8, open: true }, // big dance floor, rounds on the perimeter, 2 long tables up front
 };
 
 export const seatCount = (t) => (t.shape === 'round' || t.shape === 'row' ? t.seats : Object.values(t.sides).reduce((a, b) => a + b, 0));
@@ -55,7 +56,7 @@ export function rotatedHalf(hw, hh, deg) {
 export function chairPositions(t) {
   const pts = [];
   if (t.shape === 'round') {
-    const R = roundRadius(t.seats) + 1.15;
+    const R = roundRadius(t.seats) + 1.4;
     for (let i = 0; i < t.seats; i++) {
       const a = (i / t.seats) * Math.PI * 2 - Math.PI / 2;
       pts.push([Math.cos(a) * R, Math.sin(a) * R]);
@@ -65,14 +66,14 @@ export function chairPositions(t) {
   if (t.shape === 'row') return Array.from({ length: t.seats }, (_, i) => [(i - (t.seats - 1) / 2) * ROW_PITCH, 0]);
   const { L, D } = rectDims(t);
   const along = (n, len) => Array.from({ length: n }, (_, i) => -len / 2 + (len / n) * (i + 0.5));
-  const top = along(t.sides.top, L).map((x) => [x, -(D / 2 + 1.05)]);
-  const bottom = along(t.sides.bottom, L).map((x) => [x, D / 2 + 1.05]);
+  const top = along(t.sides.top, L).map((x) => [x, -(D / 2 + 1.3)]);
+  const bottom = along(t.sides.bottom, L).map((x) => [x, D / 2 + 1.3]);
   for (let i = 0; i < Math.max(top.length, bottom.length); i++) {
     if (top[i]) pts.push(top[i]);
     if (bottom[i]) pts.push(bottom[i]);
   }
-  along(t.sides.left, D).forEach((y) => pts.push([-(L / 2 + 1.05), y]));
-  along(t.sides.right, D).forEach((y) => pts.push([L / 2 + 1.05, y]));
+  along(t.sides.left, D).forEach((y) => pts.push([-(L / 2 + 1.3), y]));
+  along(t.sides.right, D).forEach((y) => pts.push([L / 2 + 1.3, y]));
   return pts;
 }
 
@@ -125,6 +126,7 @@ function makeTable(style, x, y) {
  */
 export function suggestTables(room, guestCount, style = 'round8', head) {
   const s = TABLE_STYLES[style];
+  if (s.open) return suggestOpen(room, guestCount, head);
   const needed = Math.max(1, Math.ceil(Math.max(0, guestCount - 2) / s.size));
   const fp = footprint(makeTable(style, 0, 0));
   const blocked = blockers(room, head ? [head] : [], { areaPad: 2 }); // chairs already in the footprint; +2 ft walkway
@@ -153,6 +155,60 @@ export function suggestTables(room, guestCount, style = 'round8', head) {
     needed,
     tables: best.map((p, i) => ({ ...makeTable(style, p.x, p.y), id: 't' + Math.random().toString(36).slice(2, 9), name: String(i + 1), o: i + 1 })),
   };
+}
+
+/**
+ * "Open floor" (from the owner's reference photo at Morais): a big open dance floor mid-room, rounds of 8 hugging the
+ * walls and the far (arched doors) side, two long banquet tables at the near end by the dance floor, sweetheart
+ * table on the far wall. Mutates room's dance area (callers pass a clone). The near end stays an arrival lounge.
+ */
+function suggestOpen(room, guestCount, head) {
+  const { w, h } = room, cx = w / 2;
+  const lounge = room.fixed?.balcony ? room.fixed.balcony.depth + 10 : 0, maxY = h - Math.max(lounge, 3);
+  const dance = (room.areas || []).find((a) => a.preset === 'dance');
+  const seatsLeft = Math.max(1, guestCount - 2);
+  if (dance) { dance.w = seatsLeft > 90 ? 22 : 18; dance.h = seatsLeft > 90 ? 24 : 20; dance.x = cx - dance.w / 2; dance.y = Math.round(Math.min(head ? head.y + 11 : 18, 20)); }
+  const longN = seatsLeft >= 36 ? 2 : seatsLeft >= 20 ? 1 : 0, per = 4; // 9 ft long tables (8 seats)
+  const longT = () => ({ shape: 'rect', sides: { top: per, bottom: per, left: 0, right: 0 }, rot: 0 });
+  const rem = seatsLeft - longN * per * 2;
+  const size = guestCount > 110 ? 10 : 8;
+  const roundN = Math.max(0, Math.ceil(rem / size));
+  const placed = []; // {t,x,y}
+  const blockedNow = () => blockers(room, [...(head ? [head] : []), ...placed.map((p) => ({ ...p.t, x: p.x, y: p.y }))], { areaPad: 0.5 }); // chairs may sit right at the dance floor's edge
+  // long tables: near end of the dance floor, either side of center
+  const lf = footprint(longT());
+  const ly0 = dance ? dance.y + dance.h + lf.hh + 3 : h * 0.6;
+  for (let i = 0; i < longN; i++) {
+    const x = cx + (i ? 1 : -1) * (lf.hw + 2.1), want = longN === 1 ? cx : x;
+    let ok = false;
+    for (let y = ly0; y <= maxY - lf.hh && !ok; y += 0.5) {
+      if (!blockedNow().some((z) => overlap(box(want, y, lf.hw, lf.hh), z))) { placed.push({ t: longT(), x: want, y }); ok = true; }
+    }
+  }
+  // rounds: hug the walls / far side, nearest the wall first, mirrored for symmetry where the stage allows
+  const rt = () => ({ shape: 'round', seats: size, rot: 0 });
+  const fp = footprint(rt()), sx = fp.hw * 2 + 3.5, sy = fp.hh * 2 + 3.5;
+  const cands = [];
+  const blocked = blockedNow();
+  for (let y = Math.ceil(fp.hh + 2.5); y + fp.hh <= maxY; y++) for (let x = fp.hw + 2; x + fp.hw <= w - 2; x += 0.5) {
+    if (!blocked.some((z) => overlap(box(x, y, fp.hw, fp.hh), z))) cands.push({ x, y, d: Math.min(x, w - x, y) });
+  }
+  cands.sort((a, b) => Math.round(a.d / 3) - Math.round(b.d / 3) || a.y - b.y || a.d - b.d); // wall band first, packed from the far end so rows stay tight
+  const rounds = [];
+  const clear = (p) => rounds.every((q) => Math.abs(p.x - q.x) >= sx - 0.01 || Math.abs(p.y - q.y) >= sy - 0.01);
+  const free = (p) => cands.some((c) => c.x === p.x && c.y === p.y);
+  for (const c of cands) {
+    const left = roundN - rounds.length;
+    if (left <= 0) break;
+    if (!clear(c)) continue;
+    const m = { x: 2 * cx - c.x, y: c.y };
+    rounds.push(c);
+    if (left >= 2 && Math.abs(m.x - c.x) >= sx && free(m) && [c].every((q) => Math.abs(m.x - q.x) >= sx - 0.01 || Math.abs(m.y - q.y) >= sy - 0.01) && clear(m)) rounds.push(m);
+  }
+  const all = [...placed.map((p) => ({ ...p.t, x: p.x, y: p.y })), ...rounds.map((p) => ({ ...rt(), x: p.x, y: p.y }))];
+  all.sort((a, b) => a.y - b.y || a.x - b.x);
+  const needed = longN + roundN;
+  return { fits: all.length >= needed, needed, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h }, tables: all.map((t, i) => ({ ...t, id: 't' + Math.random().toString(36).slice(2, 9), name: String(i + 1), o: i + 1 })) };
 }
 
 /** Rounds: a U around the dance floor, filled outward from the sweetheart table, mirrored for symmetry. */

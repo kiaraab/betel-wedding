@@ -138,12 +138,15 @@ export const BOARD_SECTIONS = [
 /* ---------- Reception floor plan (units: feet) ----------
    Morais ballroom, drawn the way guests see it walking in: entrance under the balcony at the bottom,
    5 arched French doors on the far wall at the top, round tiered stage in the near-left corner.
-   Shape and openings come from Morais' album + venue page; exact dimensions are still to be confirmed
-   (~4,000 sq ft → 50 × 80 working size). Fixed features are locked; areas are Betel's to place. */
+   PUBLISHED: ~4,000 sq ft, Palladian windows, a columned stage with painted tile, six chandeliers, hardwood.
+   OBSERVED (album): 5 arched doors far wall; long-wall door/window order; round tiered stage near-left; balcony at the near end.
+   ESTIMATE: 50 × 80 ft (4,000 sq ft at the photo's ~1.6:1), door pitch/widths, window positions, balcony depth 12 ft.
+   Fixed features are locked; areas are Betel's to place. See VENUE.md. */
 const opening = (wall, at, kind, w = 4, style) => ({ wall, at, kind, w, ...(style && { style }) });
 export function seedRoom() {
   const w = 50, h = 80;
-  const far = [1, 2, 3, 4, 5].map((i) => opening('top', (w * i) / 6, 'french'));
+  // OBSERVED: 5 arched French doors, evenly pitched, centered on the far wall. ESTIMATE: ~9 ft pitch, ~5 ft wide (from the balcony photo vs 5 ft round tables)
+  const far = [-2, -1, 0, 1, 2].map((i) => opening('top', w / 2 + i * 9, 'french', 5));
   // Long walls as the balcony photo shows them (far → near). They differ: left has a square-top door + one
   // Palladian window; right has a plain window, one arched French door, then two Palladian windows.
   const sides = [
@@ -192,7 +195,7 @@ export const SPACES = [
 const sid = (p, i) => `${p}${i + 1}`;
 /** Ceremony rows for ~60: 6 rows a side × 5 chairs, 6 ft center aisle, 3 ft row pitch, altar at the far end. */
 function seedCeremony() {
-  const w = 40, h = 60, cx = w / 2, aisle = 6, perRow = 5, rows = 6, pitch = 3, y0 = 15;
+  const w = 40, h = 60, cx = w / 2, aisle = 6, perRow = 5, rows = 6, pitch = 3, y0 = 19; // rows start below the standing wedding party
   const half = (perRow * 2) / 2 + 0.5;                 // row half-width (2 ft per chair) + a little air
   const xs = [cx - aisle / 2 - half, cx + aisle / 2 + half];
   const tables = [];
@@ -202,6 +205,7 @@ function seedCeremony() {
   return {
     room: {
       name: 'Garden courtyard', w, h, approx: true, floor: 'pavers',
+      party: { grooms: 0, order: { b: SEED_PEOPLE.map((p) => p.id), g: [] } }, // bridesmaids = the team
       fixed: {
         openings: [{ wall: 'bottom', at: cx, kind: 'entrance', w: 6 }],
         decor: [
@@ -240,6 +244,13 @@ function seedCocktail() {
   };
 }
 export const seedSpaces = () => ({ ceremony: seedCeremony(), cocktail: seedCocktail() });
+
+/* ---------- Morais' own album (shown beside the 3D view; order is Betel's, saved as state.morais) ---------- */
+export const MORAIS_PHOTOS = [
+  { id: 'ballroom', src: 'assets/venue/ballroom.jpg', name: 'Ballroom' },
+  { id: 'tasting-room', src: 'assets/venue/tasting-room.jpg', name: 'Tasting room' },
+  { id: 'tasting-room-2', src: 'assets/venue/tasting-room-2.jpg', name: 'Tasting room' },
+];
 
 export const headTable = () => ({ id: 'head', name: 'Mr. & Mrs. Griffin', shape: 'rect', x: 25, y: 7, sides: { top: 2, bottom: 0, left: 0, right: 0 }, rot: 0, o: 0 });
 

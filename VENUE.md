@@ -4,7 +4,10 @@ Only what we've **seen** (Morais' shared album: 3 photos + 4 videos) or what the
 
 ## Published by the venue
 - Ballroom ~4,000 sq ft; standard capacity 250, max 300 — [Palacio package](https://moraisvineyards.com/weddings-events/the-palacio-package/)
-- Hardwood floors, Palladian-style windows, a stage, a dance floor, two outdoor terraces; balcony holds up to 50
+- Hardwood floors, Palladian-style windows, six champagne-leaf grand chandeliers, a dance floor, two private terraces (pond + vineyard views)
+- Stage "anchored by columns" with painted Portuguese tile
+- Balcony is listed as its own space (holds up to 50), reached by a **spiral staircase**
+- "Can be arranged in several floor plans"
 - All reception furniture included
 - No public floor plan or dimensions → **ask Morais for the floor plan PDF**
 
@@ -44,11 +47,34 @@ These show *how the room has been used*, not fixed features:
 - Grass-grid stone pavers, classical statues on plinths, clipped hedges, Italian cypress
 - Likely ceremony / cocktail-hour option — **confirm with Morais**
 
+## ESTIMATES used in the plan (not venue facts)
+Derived from the balcony photo (ballroom.jpg) using 5 ft round tables as a ruler. Confidence in brackets.
+- Room **50 × 80 ft** — only the ~4,000 sq ft is published; the aspect (~1.6:1) is from the photo [medium; width could be 46–54]
+- Far wall: 5 arched doors, **~9 ft pitch, ~5 ft wide, centered** (wide-angle lens stretches the edges, so the apparent 8–11 ft pitch is read as uniform) [medium]
+- Ceiling **~20 ft** to the coffers (arched doors ≈ 10 ft; about half the wall height) [low-medium]
+- Long-wall window/door positions: order is observed, exact feet are placed by eye [low]
+- Balcony depth 12 ft overhead the near end [low]; stage radius 9 ft, 3 steps [low-medium]
+- Open middle floor ~16 × 18 ft default dance area — typical for ~60 guests in other couples' photos, not a venue rule
+- Instagram (@morais_weddings) could not be read by automated fetch (login wall) — nothing taken from it
+
 ## Still unknown (ask Morais)
 - Exact ballroom dimensions (and balcony depth)
 - Confirm the doors under the balcony are the guest entrance
 - Where the bar, DJ/band and cake table normally go
 - Ceremony location options and rain plan
+
+## Questions for Morais
+1. Can you send the **floor plan PDF** with room dimensions (ballroom, balcony, stage, tasting room)?
+2. Exact ballroom length × width and ceiling height?
+3. Where are the **outlets** (DJ, band, lighting, cake)?
+4. **Load-in**: when can vendors and decor arrive, and where do they park / enter?
+5. **End time** for music and for the venue?
+6. **Candle rules**: open flame, tapers, votives, or LED only?
+7. Is the balcony usable for guests/photographers, and is the spiral staircase the only way up?
+8. Are the doors under the balcony the guest entrance? Which doors can stay open in June?
+9. Can the stage be used (and which tables fit on it), or is it fixed decor?
+10. Ceremony options (courtyard, terrace, ballroom) and the rain plan?
+11. Can tables and chairs be pre-set the day before?
 
 ## Design rule (from Kiara)
 The appeal of the reference site (wedding.wawasensei.dev/plan) is **interactivity and animation**. Keep motion meaningful and present: items glide into place, seats fill with a pop, smooth zoom, a 3D view. Minimal copy, but never a static page.

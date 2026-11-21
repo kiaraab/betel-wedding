@@ -3,6 +3,7 @@
 import { state, commit, undoable } from './store.js';
 import { esc, toast } from './util.js';
 import { relationOf } from './layout.js';
+import { openPerson } from './person.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const SIDE_COLOR = { Betel: '#6b1f2a', Carter: '#3e4a2e', Both: '#b08d57' };
@@ -16,22 +17,45 @@ const REL_SPOT = { Parent: [0.14, -0.16], 'Close relative': [0.28, -0.24], Relat
 const SIDE_DIR = { Betel: -1, Carter: 1, Both: 0 };
 const relKey = (r) => (r || 'none').toLowerCase().replace(/[^a-z]+/g, '-');
 
-/** Obvious 'together' pairs not linked yet: same household, a guest + their plus-one, parents + the couple. */
+const GROUP_CAP = 10; // a table's worth: bigger wedding parties are suggested as several groups
+
+/**
+ * Obvious 'together' suggestions not already covered by existing links:
+ * the bridesmaids (and groomsmen) as ONE group each, plus household, plus-one and parent↔couple pairs.
+ * Each item: { ids, why, pairs: [[a, b]…] } — pairs are the links it would add (a group = a star of links).
+ */
 export function suggestLinks(guests) {
-  const out = [], seen = new Set((state.links || []).map((l) => key(l.a, l.b)));
-  const add = (a, b, why) => { if (!a || !b || a.id === b.id) return; const k = key(a.id, b.id); if (seen.has(k)) return; seen.add(k); out.push({ a: a.id, b: b.id, why }); };
+  // union-find over current 'together' links, so people already grouped aren't suggested again
+  const parent = new Map(guests.map((g) => [g.id, g.id]));
+  const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+  const join = (a, b) => parent.set(find(a), find(b));
+  (state.links || []).filter((l) => l.type === 'together' && parent.has(l.a) && parent.has(l.b)).forEach((l) => join(l.a, l.b));
+  const apart = new Set((state.links || []).filter((l) => l.type === 'apart').map((l) => key(l.a, l.b)));
+  const out = [];
+  const suggest = (members, why) => {
+    const m = members.filter(Boolean);
+    if (m.length < 2) return;
+    const hub = m[0], pairs = [];
+    m.slice(1).forEach((g) => { if (find(g.id) !== find(hub.id) && !apart.has(key(hub.id, g.id))) { pairs.push([hub.id, g.id]); join(hub.id, g.id); } });
+    if (pairs.length) out.push({ ids: m.map((g) => g.id), why, pairs });
+  };
+  // wedding party first: they all know each other
+  [['Bridesmaid', 'Bridesmaids'], ['Groomsman', 'Groomsmen']].forEach(([rel, why]) => {
+    const party = guests.filter((g) => g.party !== 'couple' && relationOf(g) === rel);
+    for (let i = 0; i < party.length; i += GROUP_CAP) suggest(party.slice(i, i + GROUP_CAP), why);
+  });
   const norm = (s) => String(s || '').trim().toLowerCase();
   const homes = new Map();
   guests.filter((g) => norm(g.household)).forEach((g) => { const h = norm(g.household); if (!homes.has(h)) homes.set(h, []); homes.get(h).push(g); });
-  homes.forEach((m) => m.slice(1).forEach((g) => add(m[0], g, 'Household')));
-  guests.filter((g) => norm(g.plusOne)).forEach((g) => {
+  homes.forEach((m) => suggest(m.slice(0, GROUP_CAP), 'Household'));
+  guests.filter((g) => norm(g.plusOne) && norm(g.plusOne) !== '+1').forEach((g) => {
     const p = norm(g.plusOne);
-    add(g, guests.find((o) => o.id !== g.id && (norm(o.name) === p || norm(o.name).split(' ')[0] === p)), 'Plus-one');
+    suggest([g, guests.find((o) => o.id !== g.id && (norm(o.name) === p || norm(o.name).split(' ')[0] === p))], 'Plus-one');
   });
   const bride = guests.find((g) => g.personId === 'bride'), groom = guests.find((g) => g.personId === 'groom');
   guests.filter((g) => relationOf(g) === 'Parent').forEach((g) => {
-    if (g.side !== 'Carter') add(g, bride, 'Parent');
-    if (g.side !== 'Betel') add(g, groom, 'Parent');
+    if (g.side !== 'Carter') suggest([g, bride], 'Parent');
+    if (g.side !== 'Betel') suggest([g, groom], 'Parent');
   });
   return out;
 }
@@ -194,6 +218,8 @@ export function renderConnections(host) {
     if (n) nodeLayer.querySelector(`[data-id="${CSS.escape(n.g.id)}"]`)?.classList.add('drop-target');
     nodeLayer.querySelector(`[data-id="${CSS.escape(dragging?.g.id || '')}"]`)?.classList.toggle('carrying', !!n);
   };
+  // double-click / double-tap a bubble to open that person's card
+  svg.addEventListener('dblclick', (e) => { const el = e.target.closest('.node'); if (el) { chooser.hidden = true; picked = null; drawNodes(); openPerson(el.dataset.id); } });
   svg.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     const p = toSvg(e);
@@ -259,19 +285,23 @@ export function renderConnections(host) {
   host.querySelector('#suggestBtn').onclick = () => {
     const list = suggestLinks(guests);
     if (!list.length) { sug.hidden = true; return toast('Nothing new to suggest'); }
-    const nm = (id) => esc(byId.get(id).g.name);
+    const first = (id) => esc(byId.get(id).g.name.split(' ')[0]);
+    const who = (s) => (s.ids.length === 2 ? `${esc(byId.get(s.ids[0]).g.name)} &amp; ${esc(byId.get(s.ids[1]).g.name)}`
+      : `${s.ids.slice(0, 3).map(first).join(', ')}${s.ids.length > 3 ? ` +${s.ids.length - 3}` : ''}`);
+    const total = (items) => items.reduce((n, s) => n + s.pairs.length, 0);
+    const addLabel = (items) => { const n = total(items); return n ? `Add ${n} link${n === 1 ? '' : 's'}` : 'Add'; };
     sug.innerHTML = `
       <div class="gs-head"><b>Sit together?</b><button class="x" data-gs-close aria-label="Close">×</button></div>
-      <ul>${list.map((l, i) => `<li style="animation-delay:${Math.min(i, 12) * 30}ms"><label><input type="checkbox" checked data-i="${i}"/><span>${nm(l.a)} &amp; ${nm(l.b)}</span><em>${l.why}</em></label></li>`).join('')}</ul>
-      <div class="gs-btns"><button class="btn moss sm" data-gs-add>Add ${list.length}</button><button class="btn line sm" data-gs-close>Not now</button></div>`;
+      <ul>${list.map((s, i) => `<li style="animation-delay:${Math.min(i, 12) * 30}ms"><label${s.ids.length > 2 ? ' class="grp"' : ''}><input type="checkbox" checked data-i="${i}"/><span>${who(s)}</span><em>${s.ids.length > 2 ? `${s.why} · ${s.ids.length}` : s.why}</em></label></li>`).join('')}</ul>
+      <div class="gs-btns"><button class="btn moss sm" data-gs-add>${addLabel(list)}</button><button class="btn line sm" data-gs-close>Not now</button></div>`;
     sug.hidden = false;
     sug.classList.remove('in'); void sug.offsetWidth; sug.classList.add('in');
     const addBtn = sug.querySelector('[data-gs-add]');
     const picks = () => [...sug.querySelectorAll('input:checked')].map((c) => list[+c.dataset.i]);
-    sug.querySelectorAll('input').forEach((c) => c.onchange = () => { const n = picks().length; addBtn.textContent = n ? `Add ${n}` : 'Add'; addBtn.disabled = !n; });
+    sug.querySelectorAll('input').forEach((c) => c.onchange = () => { const p = picks(); addBtn.textContent = addLabel(p); addBtn.disabled = !p.length; });
     sug.querySelectorAll('[data-gs-close]').forEach((b) => b.onclick = () => { sug.hidden = true; });
     addBtn.onclick = () => {
-      const chosen = picks();
+      const chosen = picks().flatMap((s) => s.pairs.map(([a, b]) => ({ a, b })));
       if (!chosen.length) return;
       const before = state.links.slice();
       chosen.forEach((l) => state.links.push({ a: l.a, b: l.b, type: 'together' }));

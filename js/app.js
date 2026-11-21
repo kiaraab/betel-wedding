@@ -5,6 +5,11 @@ import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
 import { enableAddressLookup } from './address.js';
 import { esc, toast, daysUntil, fmtDate } from './util.js';
+import { openPerson } from './person.js';
+import { renderAgenda } from './agenda.js';
+import { initGuide, refreshGuide } from './guide.js';
+import { initHistory } from './history.js';
+import { mountPaste, openPaste, pasteIsOpen } from './guest-paste.js';
 
 const view = document.getElementById('view');
 let guestFilter = 'all';
@@ -27,33 +32,75 @@ function milestoneList() {
   return state.milestones.slice().sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** Timeline with spacing proportional to real time; H is the height the dates spread over. */
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dayOf = (s) => new Date(s + 'T12:00:00');
+const weddingDay = () => WEDDING.date.slice(0, 10);
+/** "Mar 3" — no year; the timeline only spans this year and next. */
+const shortDate = (s) => dayOf(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+/**
+ * Typed date → ISO. Accepts "Mar 3", "March 3", "3 Mar", "3/3", "3/3/27", "2027-03-03".
+ * Without a year it becomes the next Mar 3 from today; if that would be after the wedding, the one before (already past).
+ */
+function parseDay(str) {
+  const t = String(str || '').trim().toLowerCase().replace(/(\d)(st|nd|rd|th)\b/g, '$1').replace(/[,.]/g, ' ');
+  let m, d, y = null;
+  let r;
+  if ((r = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) [y, m, d] = [+r[1], +r[2], +r[3]];
+  else if ((r = t.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/))) [m, d, y] = [+r[1], +r[2], r[3] ? +r[3] : null];
+  else if ((r = t.match(/^([a-z]{3,})\s+(\d{1,2})(?:\s+(\d{2,4}))?$/))) [m, d, y] = [MONTHS.indexOf(r[1].slice(0, 3)) + 1, +r[2], r[3] ? +r[3] : null];
+  else if ((r = t.match(/^(\d{1,2})\s+([a-z]{3,})(?:\s+(\d{2,4}))?$/))) [d, m, y] = [+r[1], MONTHS.indexOf(r[2].slice(0, 3)) + 1, r[3] ? +r[3] : null];
+  else return null;
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null;
+  if (y !== null && y < 100) y += 2000;
+  const make = (yy) => { const x = new Date(yy, m - 1, d, 12); return x.getMonth() === m - 1 ? x : null; };
+  if (y !== null) { const x = make(y); return x ? iso(x) : null; }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const wed = dayOf(weddingDay());
+  let x = make(today.getFullYear());
+  if (!x || x < today) x = make(today.getFullYear() + 1);
+  if (!x) return null;
+  if (x > wed) x = make(x.getFullYear() - 1) || x;
+  return iso(x);
+}
+
+/**
+ * Timeline from today to the wedding: what's already happened sits greyed and compact at the start,
+ * then Today, then the rest spaced in proportion to the time left. H is the height the dates spread over.
+ */
 function milestonesHTML(H = 420) {
   const list = milestoneList();
   if (!list.length) return '<p class="mtl-empty">No dates yet</p>';
-  const t = (d) => new Date(d + 'T12:00:00').getTime();
   const now = Date.now();
-  const pts = list.map((m) => ({ m, at: t(m.date) }));
-  // Today takes part in the spacing so its line never lands on a label
-  if (now <= pts.at(-1).at) pts.push({ today: true, at: now });
-  pts.sort((a, b) => a.at - b.at || (a.today ? -1 : 1));
-  const start = pts[0].at, span = Math.max(1, pts.at(-1).at - start);
-  pts.forEach((p, i) => {
-    const prev = pts[i - 1];
-    const raw = ((p.at - start) / span) * H;
-    p.y = prev ? Math.max(raw, prev.y + (prev.today ? 16 : p.today ? 44 : 46)) : 0;
+  const pts = list.map((m) => ({ m, at: dayOf(m.date).getTime() }));
+  const past = pts.filter((p) => p.at < now), next = pts.filter((p) => p.at >= now);
+  const GAP = 40;
+  let y = 0;
+  past.forEach((p) => { p.y = y; y += GAP; });
+  const todayY = past.length ? y - GAP + 48 : 0;
+  const end = Math.max(dayOf(weddingDay()).getTime(), ...next.map((p) => p.at), now + 1);
+  const top = todayY + 16, room = Math.max(H - top, next.length * GAP);
+  let prev = null;
+  next.forEach((p) => {
+    const raw = top + ((p.at - now) / (end - now)) * room;
+    p.y = prev === null ? raw : Math.max(raw, prev + GAP);
+    prev = p.y;
   });
+  const showToday = now <= end;
   let i = 0;
-  return `
-    <div class="mtl" style="height:${pts.at(-1).y + 48}px">
-      <div class="mtl-line"></div>
-      ${pts.map((p) => p.today
-        ? `<div class="mtl-today" style="top:${p.y}px"><span>Today</span></div>`
-        : `<div class="mtl-item ${p.at < now ? 'past' : ''} ${p.m.id === 'wedding' ? 'big' : ''} ${p.m.id === justAddedMs ? 'fresh' : ''}" style="top:${p.y}px;--i:${i++}">
+  const item = (p) => `<div class="mtl-item ${p.at < now ? 'past' : ''} ${p.m.id === 'wedding' ? 'big' : ''} ${p.m.id === justAddedMs ? 'fresh' : ''}" style="top:${p.y}px;--i:${i++}">
             <div class="what" title="${esc(p.m.label)}">${esc(p.m.label)}</div>
-            <div class="when">${fmtDate(p.m.date)}</div>
+            <div class="when">${shortDate(p.m.date)}</div>
             ${p.m.id !== 'wedding' ? `<button class="x mtl-x" data-delms="${esc(p.m.id)}" aria-label="Remove ${esc(p.m.label)}">×</button>` : ''}
-          </div>`).join('')}
+          </div>`;
+  const last = Math.max(todayY, ...pts.map((p) => p.y));
+  return `
+    <div class="mtl" style="height:${last + 44}px">
+      <div class="mtl-line"></div>
+      ${past.map(item).join('')}
+      ${showToday ? `<div class="mtl-today" style="top:${todayY}px"><span>Today</span></div>` : ''}
+      ${next.map(item).join('')}
     </div>`;
 }
 
@@ -76,6 +123,31 @@ function drawMilestones() {
 let msResize;
 addEventListener('resize', () => { clearTimeout(msResize); msResize = setTimeout(drawMilestones, 120); });
 
+/**
+ * Invitation-style photo: an oval with a lace-doily edge (scallops with eyelet holes, a stitched inner ring).
+ * Drawn here, no artwork from the pin. Scallops bloom in one after another.
+ */
+function laceOval(src) {
+  const cx = 150, cy = 200, rx = 118, ry = 165, n = 54;
+  let lace = '', holes = '';
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const x = cx + Math.cos(a) * (rx + 12), y = cy + Math.sin(a) * (ry + 12);
+    lace += `<circle class="sc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="11" style="--d:${(i * 14) % 700}ms"/>`;
+    const hx = cx + Math.cos(a) * (rx + 13), hy = cy + Math.sin(a) * (ry + 13);
+    holes += `<circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="2.1"/>`;
+    if (i % 2 === 0) { const px = cx + Math.cos(a) * (rx + 4), py = cy + Math.sin(a) * (ry + 4); holes += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="1.2"/>`; }
+  }
+  return `<svg class="lace" viewBox="0 0 300 400" role="img" aria-label="Betel and Carter">
+    <defs><clipPath id="ovalClip"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/></clipPath></defs>
+    <g class="lace-edge">${lace}<ellipse cx="${cx}" cy="${cy}" rx="${rx + 12}" ry="${ry + 12}" class="lace-fill"/></g>
+    <g class="lace-holes">${holes}</g>
+    <image href="${esc(src)}" x="${cx - rx}" y="${cy - ry}" width="${rx * 2}" height="${ry * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#ovalClip)"/>
+    <ellipse class="lace-stitch" cx="${cx}" cy="${cy}" rx="${rx - 5}" ry="${ry - 5}"/>
+    <ellipse class="lace-rim" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/>
+  </svg>`;
+}
+
 function overview() {
   const days = Math.max(0, daysUntil(WEDDING.date));
   const done = state.roles.filter((r) => r.status === 'Done').length;
@@ -87,15 +159,13 @@ function overview() {
 
   view.innerHTML = `
     <div class="ov">
-      <section class="hero">
-        <div class="hero-text">
-          <h1 class="hero-names">Betel <span class="amp">&amp;</span> Carter</h1>
-          <p class="hero-meta">June 17, 2027 · Morais Vineyards</p>
+      <section class="hero invite">
+        <div class="inv-oval">${laceOval(WEDDING.heroImage)}</div>
+        <div class="inv-text">
+          <h1 class="inv-names">Betel <span class="amp">&amp;</span> Carter</h1>
+          <p class="inv-script">are getting married</p>
+          <p class="inv-meta">June 17, 2027 · Morais Vineyards</p>
           <div class="hero-count"><b class="countup" data-to="${days}">0</b><span>days to go</span></div>
-        </div>
-        <div class="hero-photo">
-          <img src="${esc(WEDDING.heroImage)}" alt="Betel and Carter" onerror="this.parentElement.classList.add('empty');this.remove()"/>
-          <div class="photo-empty">assets/hero.jpg</div>
         </div>
       </section>
 
@@ -112,8 +182,8 @@ function overview() {
             <h2>Milestones</h2>
             <div class="ov-scroll mtl-host"></div>
             <form class="mtl-add" autocomplete="off">
-              <input type="date" name="date" required aria-label="Date"/>
-              <input name="label" required maxlength="60" placeholder="Add a date" aria-label="Milestone"/>
+              <input name="date" required placeholder="Mar 3" aria-label="Date (month and day)" class="mtl-date"/>
+              <input name="label" required maxlength="60" placeholder="Add a milestone" aria-label="Milestone"/>
               <button class="mtl-plus" aria-label="Add milestone">+</button>
             </form>
           </section>
@@ -133,8 +203,8 @@ function overview() {
   const f = view.querySelector('.mtl-add');
   f.onsubmit = (e) => {
     e.preventDefault();
-    const date = f.date.value, label = f.label.value.trim();
-    if (!date) { f.date.focus(); return; }
+    const date = parseDay(f.date.value), label = f.label.value.trim();
+    if (!date) { f.date.focus(); f.date.classList.remove('bad'); void f.date.offsetWidth; f.date.classList.add('bad'); return; }
     if (!label) { f.label.focus(); return; }
     const m = { id: uid(), date, label };
     state.milestones = [...milestoneList(), m];
@@ -160,125 +230,190 @@ const linkChip = (l, del) => {
   return `<a class="lchip ${m.cls}" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(m.host)}">${esc(l.label || m.host)}<span aria-hidden="true">↗</span>${del ? `<button class="lx" data-dellink="${del}" aria-label="Remove link">×</button>` : ''}</a>`;
 };
 
+/* Bridesmaid colors (Betel's groups). New people get the least-used color unless one is set. */
+const TEAM_COLORS = { pink: 'Pink', burgundy: 'Burgundy', green: 'Green' };
+const COLOR_OF = { kiara: 'pink', monica: 'pink', ashlyn: 'burgundy', eden: 'burgundy', noella: 'burgundy', noemi: 'green', morgan: 'green', isabele: 'green' };
+const colorOf = (p) => p.color || COLOR_OF[p.id] || 'green';
+const ST_SHORT = { 'Not started': 'To do', 'In progress': 'Doing', 'Waiting on bride': 'Waiting', Done: 'Done' };
+let teamColor = 'all', teamStatus = 'all';
+let confirmDel = null; // person id showing the inline "Remove X?"
+let freshPerson = null;
+let teamRO = null;
+
+/** Interleave the color groups so cards of one color don't clump together. */
+function spreadByColor(people) {
+  const groups = Object.keys(TEAM_COLORS).map((c) => people.filter((p) => colorOf(p) === c)).sort((a, b) => b.length - a.length);
+  const out = [];
+  for (let i = 0; out.length < people.length; i++) groups.forEach((g) => { if (g[i]) out.push(g[i]); });
+  return out;
+}
+
+const statusPills = (r) => `
+  <div class="stp" role="radiogroup" aria-label="Status for ${esc(r.title)}" data-role="${r.id}">
+    ${STATUSES.map((s) => `<button type="button" role="radio" aria-checked="${s === r.status}" class="stp-o ${statusKey(s)}${s === r.status ? ' on' : ''}" data-st="${s}" title="${s}"><i></i><span>${ST_SHORT[s] || s}</span></button>`).join('')}
+  </div>`;
+
 function personCard(p) {
   const rs = rolesOf(p.id);
   const doneN = rs.filter((r) => r.status === 'Done').length;
+  const asking = confirmDel === p.id;
   return `
-    <article class="person" data-pid="${p.id}">
+    <article class="person tint-${colorOf(p)}${p.id === freshPerson ? ' fresh' : ''}" data-pid="${p.id}" data-color="${colorOf(p)}">
       <header class="p-head">
-        <div>
-          <h3>${esc(p.name)}</h3>
+        <div class="p-id">
+          <button class="p-name" data-openperson="${p.id}">${esc(p.name)}</button>
           ${p.tag ? `<span class="p-tag">${esc(p.tag)}</span>` : ''}
         </div>
-        <span class="p-count" title="Roles done">${doneN}/${rs.length}</span>
+        ${rs.length ? `<span class="p-count" title="Roles done">${doneN}/${rs.length}</span>` : ''}
         <button class="x p-del" data-delperson="${p.id}" aria-label="Remove ${esc(p.name)}">×</button>
       </header>
-
-      <div class="roles">
+      ${asking ? `<div class="p-confirm" role="alertdialog" aria-label="Remove ${esc(p.name)}?">
+        <span>Remove ${esc(p.name)}?</span>
+        <button class="pc-yes" data-confirmdel="${p.id}">Remove</button><button class="pc-no" data-canceldel>Keep</button>
+      </div>` : ''}
+      <ul class="roles">
         ${rs.map((r) => `
-          <div class="role">
-            <div class="role-top">
-              <button class="role-title" aria-expanded="false" data-toggle-role>${esc(r.title)}</button>
-              <label class="st ${statusKey(r.status)}"><i></i><select data-status="${r.id}" aria-label="Status for ${esc(r.title)}">${STATUSES.map((s) => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
-            </div>
+          <li class="role" data-status="${statusKey(r.status)}">
+            <div class="role-title">${esc(r.title)}</div>
             ${r.people.length > 1 || r.with ? `<div class="with">with ${esc([...r.people.filter((x) => x !== p.id).map(personName), r.with].filter(Boolean).join(' & '))}</div>` : ''}
-            <div class="role-more"><div>
-              <ul class="brief">${r.details.map((d) => `<li>${esc(d)}</li>`).join('')}</ul>
-              ${r.links.length ? `<div class="lrow">${r.links.map((l) => linkChip(l)).join('')}</div>` : ''}
-            </div></div>
-          </div>`).join('')}
-      </div>
-
-      <div class="p-foot">
-        ${p.links.length ? `<div class="lrow">${p.links.map((l, i) => linkChip(l, `${p.id}:${i}`)).join('')}</div>` : ''}
-        ${p.updates.length ? `<ol class="feed">${p.updates.slice().reverse().map((u) => `
-          <li><time>${relDate(u.at)}</time><p>${esc(u.text)}</p><button class="x" data-delupdate="${p.id}:${u.id}" aria-label="Delete update">×</button></li>`).join('')}</ol>` : ''}
-        <form class="quick" data-addupdate="${p.id}">
-          <input name="text" autocomplete="off" placeholder="Add an update or paste a link…" aria-label="Add an update or link for ${esc(p.name)}"/>
-        </form>
-        <details class="add-role"><summary>+ Role</summary>
-          <form data-addrole="${p.id}">
-            <input class="input" name="title" placeholder="Role" required/>
-            <textarea class="input" name="details" rows="2" placeholder="Details, one per line"></textarea>
-            <button class="btn moss sm">Add</button>
-          </form>
-        </details>
-      </div>
+            ${statusPills(r)}
+          </li>`).join('')}
+      </ul>
+      <form class="add-role-inline" data-addrole="${p.id}" autocomplete="off">
+        <input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/>
+      </form>
     </article>`;
 }
 
+/** Packed masonry: each card drops into the shortest column; positions glide when filters or sizes change. */
+function layoutTeam() {
+  const box = view.querySelector('.people');
+  if (!box) return;
+  const cards = [...box.children].filter((c) => !c.classList.contains('gone'));
+  const W = box.clientWidth, gap = 14;
+  const cols = Math.max(1, Math.floor((W + gap) / (264 + gap)));
+  const cw = (W - gap * (cols - 1)) / cols;
+  cards.forEach((c) => { c.style.width = cw + 'px'; });
+  const hs = Array(cols).fill(0);
+  cards.forEach((c) => {
+    const k = hs.indexOf(Math.min(...hs));
+    c.style.transform = `translate(${(k * (cw + gap)).toFixed(1)}px, ${hs[k]}px)`;
+    hs[k] += c.offsetHeight + gap;
+  });
+  box.style.height = Math.max(0, Math.max(...hs) - gap) + 'px';
+  if (!box.classList.contains('ready')) requestAnimationFrame(() => box.classList.add('ready'));
+}
+
+function applyTeamFilter() {
+  view.querySelectorAll('.people > .person[data-pid]').forEach((c) => {
+    const p = state.people.find((x) => x.id === c.dataset.pid);
+    const okColor = teamColor === 'all' || colorOf(p) === teamColor;
+    const okStatus = teamStatus === 'all' || rolesOf(p.id).some((r) => statusKey(r.status) === teamStatus);
+    c.classList.toggle('gone', !(okColor && okStatus));
+  });
+  view.querySelectorAll('[data-tcolor]').forEach((b) => b.classList.toggle('on', b.dataset.tcolor === teamColor));
+  view.querySelectorAll('[data-tstatus]').forEach((b) => b.classList.toggle('on', b.dataset.tstatus === teamStatus));
+  layoutTeam();
+}
+
 function team() {
+  const people = spreadByColor(state.people);
   view.innerHTML = `
-    <div class="page-head"><h1>Team</h1></div>
-    <div class="people">
-      ${state.people.map(personCard).join('')}
-      <form class="person add-person" id="addPerson">
-        <input name="name" placeholder="+ Add someone" aria-label="Name" required autocomplete="off"/>
+    <div class="page-head team-head">
+      <h1>Team</h1>
+      <div class="team-filters">
+        <div class="tf" role="group" aria-label="Color">
+          <button data-tcolor="all">All</button>
+          ${Object.entries(TEAM_COLORS).map(([k, l]) => `<button data-tcolor="${k}" class="sw-${k}" aria-label="${l}"><i></i></button>`).join('')}
+        </div>
+        <div class="tf" role="group" aria-label="Status">
+          <button data-tstatus="all">Any</button>
+          ${STATUSES.map((s) => `<button data-tstatus="${statusKey(s)}" class="${statusKey(s)}" title="${s}"><i></i>${ST_SHORT[s]}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="people packed">
+      ${people.map(personCard).join('')}
+      <form class="person add-person" id="addPerson" autocomplete="off">
+        <input name="who" placeholder="+ Add someone" aria-label="New team member's name"/>
       </form>
     </div>`;
+  freshPerson = null;
 
   const P = (id) => state.people.find((p) => p.id === id);
-  // Role details fold away; tap the title to open (remembered while you stay on the page)
-  view.querySelectorAll('[data-toggle-role]').forEach((b) => {
-    const role = b.closest('.role');
-    const key = b.closest('.person').dataset.pid + ':' + b.textContent;
-    if (openRoles.has(key)) { role.classList.add('open'); b.setAttribute('aria-expanded', 'true'); }
-    b.onclick = () => {
-      const open = role.classList.toggle('open');
-      b.setAttribute('aria-expanded', String(open));
-      open ? openRoles.add(key) : openRoles.delete(key);
-    };
-  });
-  view.querySelectorAll('[data-status]').forEach((s) => s.onchange = () => {
-    state.roles.find((r) => r.id === s.dataset.status).status = s.value;
-    view.querySelectorAll(`[data-status="${s.dataset.status}"]`).forEach((x) => { x.value = s.value; x.parentElement.className = `st ${statusKey(s.value)}`; });
+  // Status pills: change in place (no re-render) so the highlight can slide
+  view.querySelectorAll('.stp-o').forEach((b) => b.onclick = () => {
+    const rid = b.closest('.stp').dataset.role, st = b.dataset.st;
+    const r = state.roles.find((x) => x.id === rid);
+    if (!r || r.status === st) return;
+    r.status = st;
+    view.querySelectorAll(`.stp[data-role="${CSS.escape(rid)}"]`).forEach((g) => {
+      g.querySelectorAll('.stp-o').forEach((o) => { const on = o.dataset.st === st; o.classList.toggle('on', on); o.setAttribute('aria-checked', String(on)); });
+      g.closest('.role').dataset.status = statusKey(st);
+    });
+    view.querySelectorAll('.p-count').forEach((c) => {
+      const pid = c.closest('.person').dataset.pid, rs = rolesOf(pid);
+      c.textContent = `${rs.filter((x) => x.status === 'Done').length}/${rs.length}`;
+    });
     commit({ silent: true });
+    if (teamStatus !== 'all') applyTeamFilter();
   });
-  // One box for both: a URL becomes a link chip, anything else becomes an update
-  view.querySelectorAll('[data-addupdate]').forEach((f) => f.onsubmit = (e) => {
-    e.preventDefault();
-    const text = f.text.value.trim();
-    if (!text) return;
-    const p = P(f.dataset.addupdate);
-    if (/^https?:\/\/\S+$/i.test(text)) p.links.push({ url: text, label: '' });
-    else p.updates.push({ id: uid(), text, at: new Date().toISOString() });
-    commit();
-    view.querySelector(`[data-addupdate="${p.id}"] input`)?.focus();
-  });
-  view.querySelectorAll('[data-delupdate]').forEach((b) => b.onclick = () => {
-    const [pid, id] = b.dataset.delupdate.split(':');
-    const p = P(pid); p.updates = p.updates.filter((u) => u.id !== id); commit();
-  });
-  view.querySelectorAll('[data-dellink]').forEach((b) => b.onclick = (e) => {
-    e.preventDefault(); e.stopPropagation();
-    const [pid, i] = b.dataset.dellink.split(':');
-    P(pid).links.splice(+i, 1); commit();
-  });
+  view.querySelectorAll('[data-openperson]').forEach((b) => b.onclick = () => openPerson(b.dataset.openperson));
   view.querySelectorAll('[data-addrole]').forEach((f) => f.onsubmit = (e) => {
     e.preventDefault();
-    const d = new FormData(f);
-    state.roles.push({ id: uid(), title: d.get('title').trim(), people: [f.dataset.addrole], status: 'Not started',
-      details: d.get('details').split('\n').map((s) => s.trim()).filter(Boolean), links: [] });
+    const title = f.elements.title.value.trim();
+    if (!title) return;
+    state.roles.push({ id: uid(), title, people: [f.dataset.addrole], status: 'Not started', details: [], links: [] });
     commit();
+    view.querySelector(`[data-addrole="${CSS.escape(f.dataset.addrole)}"] input`)?.focus();
   });
-  view.querySelectorAll('[data-delperson]').forEach((b) => b.onclick = () => {
-    const p = P(b.dataset.delperson);
-    undoable(`${p.name} removed`, () => {
+  // × asks first (inline), then removes with Undo
+  view.querySelectorAll('[data-delperson]').forEach((b) => b.onclick = () => { confirmDel = confirmDel === b.dataset.delperson ? null : b.dataset.delperson; team(); });
+  view.querySelector('[data-canceldel]')?.addEventListener('click', () => { confirmDel = null; team(); });
+  view.querySelector('[data-confirmdel]')?.addEventListener('click', (e) => {
+    const p = P(e.currentTarget.dataset.confirmdel);
+    confirmDel = null;
+    if (!p) return team();
+    const card = e.currentTarget.closest('.person');
+    card.classList.add('leaving');
+    setTimeout(() => undoable(`${p.name} removed`, () => {
       state.people = state.people.filter((x) => x.id !== p.id);
       state.roles = state.roles.filter((r) => { r.people = r.people.filter((x) => x !== p.id); return r.people.length; });
-    }, toast);
+    }, toast), 200);
   });
+  // Add someone: name + Enter → a new card (and a guest)
   view.querySelector('#addPerson').onsubmit = (e) => {
     e.preventDefault();
-    const name = e.target.name.value.trim();
+    const name = e.target.elements.who.value.trim();
     if (!name) return;
-    state.people.push({ id: uid(), name, tag: '', links: [], updates: [] });
-    ensureAutoGuests(); commit();
+    const used = (c) => state.people.filter((p) => colorOf(p) === c).length;
+    const color = Object.keys(TEAM_COLORS).sort((a, b) => used(a) - used(b))[0];
+    const p = { id: uid(), name, tag: '', color, links: [], updates: [] };
+    state.people.push(p);
+    ensureAutoGuests();
+    freshPerson = p.id;
+    commit();
+    toast(`${name} added`);
+    view.querySelector('#addPerson input')?.focus();
   };
+  view.querySelectorAll('[data-tcolor]').forEach((b) => b.onclick = () => { teamColor = b.dataset.tcolor; applyTeamFilter(); });
+  view.querySelectorAll('[data-tstatus]').forEach((b) => b.onclick = () => { teamStatus = b.dataset.tstatus; applyTeamFilter(); });
+
+  teamRO?.disconnect();
+  let raf = 0;
+  teamRO = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(layoutTeam); });
+  const box = view.querySelector('.people');
+  teamRO.observe(box);
+  [...box.children].forEach((c) => teamRO.observe(c));
+  applyTeamFilter();
+  if (confirmDel) view.querySelector('.pc-no')?.focus();
 }
 
 /* ---------------- Guests ---------------- */
-const RSVP = ['Invited', 'Yes', 'Maybe', 'Declined'];
+const RSVP = ['Not invited yet', 'Invited', 'Yes', 'Maybe', 'Declined'];
+const needsAddress = (g) => !g.street && g.party !== 'couple';
+// small map-pin: the row's address & details button
+const PIN = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>';
 const SIDES = ['Betel', 'Carter', 'Both'];
 const MEALS = ['Chicken', 'Beef', 'Fish', 'Vegetarian', 'Vegan', 'Kids meal'];
 const DETAIL_FIELDS = [
@@ -299,28 +434,34 @@ function guestsCSV() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-/* One filter menu: status, side, relation */
+/* One filter menu: status, side, relation, table */
 const going = (g) => g.rsvp !== 'Declined';
 const GUEST_FILTERS = [
   [['all', 'Everyone', () => true],
    ['unseated', 'Still to seat', (g) => going(g) && !g.tableId && g.party !== 'couple'],
    ['reception', 'Reception guests', going],
+   ['notinvited', 'Not invited yet', (g) => g.rsvp === 'Not invited yet'],
    ['awaiting', 'Awaiting RSVP', (g) => g.rsvp === 'Invited' || g.rsvp === 'Maybe'],
+   ['yes', 'Said yes', (g) => g.rsvp === 'Yes'],
    ['declined', 'Declined', (g) => g.rsvp === 'Declined'],
-   ['noaddr', 'No address', (g) => !g.street && g.party !== 'couple']],
+   ['noaddr', 'Need address', needsAddress]],
   [['couple', 'The couple', (g) => g.party === 'couple'],
    ['Betel', 'Betel’s side', (g) => g.side === 'Betel' && g.party !== 'couple'],
    ['Carter', 'Carter’s side', (g) => g.side === 'Carter' && g.party !== 'couple'],
    ['Both', 'Shared', (g) => g.side === 'Both']],
   RELATIONS.map((r) => ['rel:' + r, r === 'Plus-one' ? 'Partner / plus-one' : r, (g) => g.party !== 'couple' && relationOf(g) === r]),
 ];
-const filterDef = (k) => GUEST_FILTERS.flat().find((f) => f[0] === k) || GUEST_FILTERS[0][0];
+const FILTER_HEADS = ['Side', 'Relation', 'Table'];
+// tables change, so their group is built fresh each time
+const guestFilters = () => [...GUEST_FILTERS, state.tables.map((t) => ['t:' + t.id, t.id === 'head' ? 'Sweetheart' : /^\d+$/.test(t.name) ? `Table ${t.name}` : t.name, (g) => g.tableId === t.id])];
+const filterDef = (k) => guestFilters().flat().find((f) => f[0] === k) || GUEST_FILTERS[0][0];
 const guestFilterMenu = () => {
   const cur = filterDef(guestFilter);
   return `
     <div class="gfilter" id="gFilter">
       <button class="gf-btn ${guestFilter === 'all' ? '' : 'set'}" aria-haspopup="listbox" aria-expanded="false"><span>${esc(cur[1])}</span><b>${state.guests.filter(cur[2]).length}</b><i aria-hidden="true"></i></button>
-      <div class="gf-menu" role="listbox">${GUEST_FILTERS.map((grp) => `<div class="gf-grp">${grp.map(([k, l, fn]) => {
+      ${guestFilter === 'all' ? '' : '<button class="gf-clear" data-gf="all" aria-label="Show everyone">×</button>'}
+      <div class="gf-menu" role="listbox">${guestFilters().map((grp, gi) => `<div class="gf-grp">${gi ? `<div class="gf-h">${FILTER_HEADS[gi - 1]}</div>` : ''}${grp.map(([k, l, fn]) => {
         const n = state.guests.filter(fn).length;
         return `<button role="option" data-gf="${esc(k)}" class="${k === guestFilter ? 'on' : ''} ${n ? '' : 'none'}" aria-selected="${k === guestFilter}">${esc(l)}<span>${n}</span></button>`;
       }).join('')}</div>`).join('')}</div>
@@ -386,7 +527,9 @@ function guests() {
       <input class="input" name="name" placeholder="Add guests" required/>
       <select class="select" name="side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
       <button class="btn moss">Add</button>
+      <button type="button" class="btn line paste-btn" id="pasteBtn" aria-expanded="false">Paste a list</button>
     </form>
+    <div id="pasteHost"></div>
 
     <div class="guest-tools">
       <input class="input search" id="gSearch" type="search" placeholder="Search" value="${esc(guestQuery)}"/>
@@ -398,14 +541,14 @@ function guests() {
         <thead><tr><th>Name</th><th>Side</th><th>Relation</th><th>RSVP</th><th>Meal</th><th>Table</th><th><span class="sr">Details</span></th></tr></thead>
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
-            <td class="c-name"><input class="input" data-k="name" value="${esc(g.name)}" aria-label="Name"/></td>
+            <td class="c-name"><div class="name-cell"><button class="g-name" data-person="${g.id}" title="Open ${esc(g.name)}">${esc(g.name)}</button>${needsAddress(g) ? `<button class="need-addr" data-open="${g.id}" title="Add their address">Need address</button>` : ''}</div></td>
             <td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
             <td class="rel-td">${relCell(g)}</td>
             <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
             <td class="c-meal"><input class="input" data-k="meal" list="meals" value="${esc(g.meal)}" placeholder="Meal" aria-label="Meal"/></td>
             <td class="c-table" data-t="${tableWord(g.tableId)}"><select class="select" data-k="tableId" aria-label="Table">${tableOpts(g.tableId)}</select></td>
             <td class="row-actions">
-              <button class="more ${g.street ? '' : 'warn'}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details">${openGuests.has(g.id) ? '−' : '+'}</button>
+              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details" aria-label="Address & details for ${esc(g.name)}">${PIN}</button>
               ${g.party === 'couple' ? '' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
             </td>
           </tr>
@@ -416,17 +559,29 @@ function guests() {
       : `<p class="muted" style="margin:0;padding:20px">No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.</p>`}
     </section>`;
 
-  const add = (name, side = 'Both') => state.guests.push({ id: uid(), name, side, rsvp: 'Invited', diet: '', tableId: null });
+  const add = (name, side = 'Both') => state.guests.push({ id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null });
   view.querySelector('#csv').onclick = () => guestsCSV();
   wireGuestViewToggle();
   const gForm = view.querySelector('#gForm');
+  // a multi-name paste into "Add guests" opens the list preview instead of adding blindly
+  const pasteHost = view.querySelector('#pasteHost');
+  const drawPaste = () => {
+    mountPaste(pasteHost, { defaultSide: gForm.side.value });
+    const b = view.querySelector('#pasteBtn'); b.classList.toggle('on', pasteIsOpen()); b.setAttribute('aria-expanded', pasteIsOpen());
+  };
   gForm.name.addEventListener('paste', (e) => {
     const text = e.clipboardData.getData('text');
-    if (!text.includes('\n')) return;
+    if (!/[\n;,\t]/.test(text.trim())) return;
     e.preventDefault();
-    const names = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-    names.forEach((n) => add(n, gForm.side.value)); commit(); toast(`Added ${names.length}`);
+    openPaste(text); drawPaste();
   });
+  view.querySelector('#pasteBtn').onclick = () => {
+    if (pasteIsOpen()) pasteHost.querySelector('[data-paste-cancel]')?.click();
+    else { openPaste(gForm.name.value.trim()); gForm.name.value = ''; }
+    drawPaste();
+  };
+  pasteHost.addEventListener('click', (e) => { if (e.target.closest('[data-paste-cancel]')) setTimeout(drawPaste); });
+  drawPaste();
   gForm.onsubmit = (e) => {
     e.preventDefault();
     const n = gForm.name.value.trim();
@@ -467,6 +622,7 @@ function guests() {
       };
     });
   });
+  view.querySelectorAll('[data-person]').forEach((b) => b.onclick = () => openPerson(b.dataset.person));
   view.querySelectorAll('[data-delg]').forEach((b) => b.onclick = () => {
     const g = state.guests.find((x) => x.id === b.dataset.delg);
     undoable(`${g.name} removed`, () => { state.guests = state.guests.filter((x) => x.id !== g.id); }, toast);
@@ -526,7 +682,7 @@ document.fonts?.ready.then(moveInk);
 document.fonts?.addEventListener?.('loadingdone', moveInk);
 setTimeout(moveInk, 400);
 // Mood palettes stay internal (branding) — no page; old #mood links fall back to the overview
-const ROUTES = { overview, team, seating: () => renderSeating(view), guests };
+const ROUTES = { overview, team, seating: () => renderSeating(view), guests, agenda: () => renderAgenda(view) };
 function route(opts = {}) {
   const name = location.hash.slice(1) || 'overview';
   const fn = ROUTES[name] || overview;
@@ -536,14 +692,16 @@ function route(opts = {}) {
   // Keep scroll position when re-rendering the same page (e.g. after posting an update)
   const y = window.scrollY;
   fn();
+  refreshGuide();
   if (opts.enter) { view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter'); clearTimeout(enterTimer); enterTimer = setTimeout(() => view.classList.remove('enter'), 600); countUp(); }
   else { window.scrollTo(0, y); view.querySelectorAll('.countup').forEach((el) => { el.textContent = el.dataset.to; }); }
 }
 window.addEventListener('hashchange', () => { route({ enter: true }); window.scrollTo(0, 0); view.focus({ preventScroll: true }); });
 subscribe(() => route());
 
-function tickCountdown() {
-  document.getElementById('countdown').innerHTML = `<b>${Math.max(0, daysUntil(WEDDING.date))}</b> days`;
+function tickCountdown() { // the header pill is gone (REQ-21); the count lives on the Overview hero
+  const el = document.getElementById('countdown');
+  if (el) el.innerHTML = `<b>${Math.max(0, daysUntil(WEDDING.date))}</b> days`;
 }
 
 document.getElementById('resetBtn').onclick = () => {
@@ -558,4 +716,6 @@ enableAddressLookup((k, v, row) => {
 });
 tickCountdown();
 setInterval(tickCountdown, 60_000);
+initGuide(() => document.body.dataset.route || 'overview');
+initHistory();
 route({ enter: true });

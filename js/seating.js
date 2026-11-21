@@ -1,7 +1,8 @@
 import { state, commit, uid, undoable, exportJSON, importJSON } from './store.js';
-import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces } from './data.js';
-import { TABLE_STYLES, seatCount, roundRadius, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers } from './layout.js';
+import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
+import { TABLE_STYLES, relationOf, seatCount, roundRadius, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers } from './layout.js';
 import { esc, toast } from './util.js';
+import { spaceToolsHTML, wireSpaceTools, partySVG } from './spaces.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const M = 3; // margin around the room (ft)
@@ -18,18 +19,21 @@ function SP() {
   state.spaces[space] ||= seedSpaces()[space];
   return state.spaces[space];
 }
-const spaceInfo = () => SPACES.find((x) => x.id === space);
+const spaceInfo = () => ({ ...SPACES.find((x) => x.id === space), label: SPACE_LABEL[space] || SPACES.find((x) => x.id === space).label });
+const TAB_ORDER = ['ceremony', 'reception', 'cocktail'];            // Hangout spot last
+const SPACE_LABEL = { cocktail: 'Hangout spot' };                  // data key stays 'cocktail'
+const tabList = () => TAB_ORDER.map((id) => SPACES.find((x) => x.id === id)).filter(Boolean).map((x) => ({ ...x, label: SPACE_LABEL[x.id] || x.label }));
 /** One quiet line under the tabs */
 function spaceLede() {
   const ts = SP().tables, seats = ts.reduce((n, t) => n + seatCount(t), 0);
-  if (space === 'ceremony') return `${seats} seats · ${ts.length} rows`;
+  if (space === 'ceremony') return `${seats} seats · ${new Set(ts.map((t) => t.y)).size} rows`; // rows = lines of chairs (left + right halves count once)
   if (space === 'cocktail') return `${ts.length} high-tops · ${seats} stools`;
   return `${state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
 }
 let enterAnim = false;   // play the "tables glide in" animation on next draw
 const lastFilled = new Map(); // tableId -> seated count last drawn (for the seat "pop")
 
-const guestsAt = (tid) => state.guests.filter((g) => g.tableId === tid);
+const guestsAt = (tid) => state.guests.filter((g) => (space === 'reception' ? g.tableId : g.cRow) === tid); // ceremony seats live in g.cRow
 const going = () => state.guests.filter((g) => g.rsvp !== 'Declined');
 const listFor = (kind) => (kind === 'area' ? SP().room.areas : SP().tables);
 const findItem = (s) => s && listFor(s.kind).find((x) => x.id === s.id);
@@ -40,23 +44,39 @@ const areaTransform = (a) => `translate(${a.x} ${a.y}) rotate(${a.rot || 0} ${a.
 const rotHandle = (x, y, x0, y0) => `<line class="rot-stalk" x1="${x0}" y1="${y0}" x2="${x}" y2="${y}"/><circle class="rot-knob" cx="${x}" cy="${y}" r=".9" data-rotate="1"><title>Drag to rotate</title></circle>`;
 const ROT_STEP = 15;
 
-/* ---------------- blurred venue photo (pre-blurred once, so it also exports) ---------------- */
+/* ---------------- blurred venue photo (blurred once at high res into a canvas, so it also exports) ---------------- */
 let blurredBg = null;
 function blurredBallroom() {
   blurredBg ??= new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      // Shrink to a few dozen pixels, then scale back up with smoothing = a soft natural blur
-      const small = document.createElement('canvas'); small.width = 110; small.height = Math.round(110 * img.height / img.width); // bigger = less blur
-      small.getContext('2d').drawImage(img, 0, 0, small.width, small.height);
-      const big = document.createElement('canvas'); big.width = 900; big.height = Math.round(900 * img.height / img.width);
-      const g = big.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(small, 0, 0, big.width, big.height);
-      resolve(big.toDataURL('image/jpeg', 0.7));
+      // Full-res photo -> 1400 px wide canvas, blurred ~7 px. Aspect is kept (no stretching).
+      const W = Math.min(1400, img.width), H = Math.round(W * img.height / img.width);
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+      if ('filter' in g) { // Chrome/Firefox/Edge: a real gaussian blur (bleed the edges so they don't fade)
+        g.filter = 'blur(7px)'; g.drawImage(img, -14, -14, W + 28, H + 28); g.filter = 'none';
+      } else { // Safari: no ctx.filter -> step down then up in halves (smooth, no visible blocks)
+        let cur = img, cw = W, ch = H;
+        for (let i = 0; i < 3; i++) { const t = document.createElement('canvas'); cw = Math.max(40, Math.round(cw / 2)); ch = Math.max(40, Math.round(ch / 2)); t.width = cw; t.height = ch; const tg = t.getContext('2d'); tg.imageSmoothingQuality = 'high'; tg.drawImage(cur, 0, 0, cw, ch); cur = t; }
+        for (let i = 0; i < 3; i++) { const t = document.createElement('canvas'); cw *= 2; ch *= 2; t.width = Math.min(W, cw); t.height = Math.min(H, ch); const tg = t.getContext('2d'); tg.imageSmoothingQuality = 'high'; tg.drawImage(cur, 0, 0, t.width, t.height); cur = t; }
+        g.drawImage(cur, 0, 0, W, H);
+      }
+      bgAspect = W / H;
+      resolve(c.toDataURL('image/jpeg', 0.85));
     };
     img.onerror = () => resolve(null);
     img.src = 'assets/venue/ballroom.jpg';
   });
   return blurredBg;
+}
+
+/** The photo, cover-fitted around the room outline: centered on the room, never distorted, large enough that it fills the margins at normal zoom. */
+let bgAspect = 0.75;
+function bgImage(bg, w, h) {
+  let iw = Math.max(w * 2, h * 1.5 * bgAspect), ih = iw / bgAspect;
+  if (ih < h * 1.5) { ih = h * 1.5; iw = ih * bgAspect; }
+  return `<image class="bg" href="${bg}" x="${w / 2 - iw / 2}" y="${h / 2 - ih / 2}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid meet"/>`;
 }
 
 /* ---------------- drawing ---------------- */
@@ -92,7 +112,7 @@ function tableSVG(t, mood, i) {
   const fs = Math.max(0.9, Math.min(1.7, room / Math.max(1, t.name.length * 0.58)));
   const isHead = t.id === 'head';
   const row = t.shape === 'row';
-  const ly = t.shape === 'round' ? fs * 0.35 : row ? 0 : (rot % 180 ? 0 : rectDims(t).D / 2 + (t.sides.bottom ? 3.3 : 1.6));
+  const ly = t.shape === 'round' ? fs * 0.35 : row ? 0 : (rot % 180 ? 0 : rectDims(t).D / 2 + (t.sides.bottom ? 3.6 : 1.6));
   const D0 = row ? 1.8 : t.shape === 'round' ? 0 : rectDims(t).D;
   const knob = sel?.id === t.id && t.shape !== 'round' ? `<g transform="rotate(${rot})">${rotHandle(0, -(D0 / 2 + 4.2), 0, -D0 / 2)}</g>` : '';
   const inner = `<g transform="rotate(${rot})">${chairs}${top}</g>
@@ -104,6 +124,26 @@ function tableSVG(t, mood, i) {
   return g;
 }
 
+/** Area titles: one line if it fits, else two balanced lines; the type shrinks until the whole label sits inside the rect. */
+function fitLabel(label, w, h) {
+  const text = String(label).trim(), cw = 0.56, maxW = Math.max(1, w - 1), maxH = Math.max(1, h - 0.6);
+  const words = text.split(/\s+/);
+  let split = null;
+  if (words.length > 1) { // most even break
+    let best = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' '), b = words.slice(i).join(' '), d = Math.max(a.length, b.length);
+      if (d < best) { best = d; split = [a, b]; }
+    }
+  }
+  for (let fs = 1.5; fs >= 0.7; fs -= 0.05) {
+    if (text.length * cw * fs <= maxW && fs <= maxH) return { fs, lines: [text] };
+    if (split && Math.max(split[0].length, split[1].length) * cw * fs <= maxW && fs * 2.2 <= maxH) return { fs, lines: split };
+  }
+  const fs = 0.7, per = Math.max(3, Math.floor(maxW / (cw * fs)));
+  return { fs, lines: split ? split.map((l) => (l.length > per ? l.slice(0, per - 1) + '…' : l)) : [text.length > per ? text.slice(0, per - 1) + '…' : text] };
+}
+
 function areaSVG(a) {
   const g = document.createElementNS(SVGNS, 'g');
   g.classList.add('area', `p-${a.preset || 'custom'}`);
@@ -111,9 +151,10 @@ function areaSVG(a) {
   g.dataset.kind = 'area';
   g.dataset.id = a.id;
   g.setAttribute('transform', areaTransform(a));
-  const fs = Math.max(0.9, Math.min(1.5, (a.w * 0.9) / Math.max(1, a.label.length * 0.55)));
-  g.innerHTML = `<rect width="${a.w}" height="${a.h}" rx=".5"/>
-    <text x="${a.w / 2}" y="${a.h / 2 + fs * 0.35}" style="font-size:${fs}px">${esc(a.label)}</text>
+  const { fs, lines } = fitLabel(a.label, a.w, a.h);
+  const lh = fs * 1.12, y0 = a.h / 2 - ((lines.length - 1) * lh) / 2 + fs * 0.35;
+  g.innerHTML = `<title>${esc(a.label)}</title><rect width="${a.w}" height="${a.h}" rx=".5"/>
+    <text x="${a.w / 2}" y="${y0}" style="font-size:${fs}px">${lines.map((l, i) => `<tspan x="${a.w / 2}"${i ? ` dy="${lh}"` : ''}>${esc(l)}</tspan>`).join('')}</text>
     ${sel?.id === a.id ? `<circle class="grip" cx="${a.w}" cy="${a.h}" r=".9" data-grip="1"/>${rotHandle(a.w / 2, -2.6, a.w / 2, 0)}` : ''}`;
   return g;
 }
@@ -149,6 +190,7 @@ function fixedSVG() {
       s += `<polygon class="dc-sunroom" points="${pts.map((p) => p.join(',')).join(' ')}"/><circle class="dc-skylight" cx="${mx}" cy="${my}" r="${c}"/>`;
     } else if (d.kind === 'bar') s += `<rect class="dc-bar" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx="1.1"/><text class="fixed-label" x="${mx}" y="${d.y + d.h + 1.6}">Bar</text>`;
   });
+  if (space === 'ceremony') s += partySVG(SP().room, state.people, enterAnim); // wedding party dots
   // Walls with openings cut in
   s += `<rect class="wall" x="0" y="0" width="${w}" height="${h}"/>`;
   fixed.openings.forEach((o) => {
@@ -176,6 +218,7 @@ function planSVG(bg) {
   const mood = moodNow();
   const svg = document.createElementNS(SVGNS, 'svg');
   svg.classList.add('plan');
+  svg.dataset.floor = SP().room.floor || '';
   const v = view || baseView();
   svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -198,7 +241,7 @@ function planSVG(bg) {
       </pattern>
       <clipPath id="roomClip"><rect x="0" y="0" width="${w}" height="${h}"/></clipPath>
     </defs>
-    ${bg ? `<image class="bg" href="${bg}" x="${-w}" y="${-h * 0.5}" width="${w * 3}" height="${h * 2}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+    ${bg ? bgImage(bg, w, h) : ''}
     <rect class="tint" x="${-w}" y="${-h * 0.5}" width="${w * 3}" height="${h * 2}"/>
     <rect class="floor" x="0" y="0" width="${w}" height="${h}"${floorFill ? ` style="fill:${floorFill}"` : ''}/>
     ${grid}`;
@@ -318,14 +361,14 @@ function clampView(v) {
   const b = baseView();
   const k = Math.min(1, Math.max(0.25, v.w / b.w)); // between 4x zoom and fit
   const w = b.w * k, h = b.h * k;
-  return { w, h, x: Math.min(Math.max(v.x, b.x), b.x + b.w - w), y: Math.min(Math.max(v.y, b.y), b.y + b.h - h) };
+  // zoomed in, the view may drift past the walls a little so any table can sit in the clear part beside its popover
+  const mx = (b.w - w) * 1.1, my = (b.h - h) * 1.1;
+  return { w, h, x: Math.min(Math.max(v.x, b.x - mx), b.x + b.w - w + mx), y: Math.min(Math.max(v.y, b.y - my), b.y + b.h - h + my) };
 }
 
 /* ---------------- popover ---------------- */
-const stepper = (key, label, v, min = 0, max = 20) => `
-  <div class="stepper"><span>${label}</span>
-    <div><button type="button" data-step="${key}" data-d="-1" ${v <= min ? 'disabled' : ''} aria-label="Less ${label}">−</button><b>${v}</b><button type="button" data-step="${key}" data-d="1" ${v >= max ? 'disabled' : ''} aria-label="More ${label}">+</button></div>
-  </div>`;
+const stepBtns = (key, label, v, min = 0, max = 20) => `<div><button type="button" data-step="${key}" data-d="-1" ${v <= min ? 'disabled' : ''} aria-label="Less ${label}">−</button><b>${v}</b><button type="button" data-step="${key}" data-d="1" ${v >= max ? 'disabled' : ''} aria-label="More ${label}">+</button></div>`;
+const stepper = (key, label, v, min = 0, max = 20) => `<div class="stepper"><span>${label}</span>${stepBtns(key, label, v, min, max)}</div>`;
 const SIDES = ['Betel', 'Both', 'Carter'];
 const rotateRow = (deg) => `
   <div class="stepper"><span>Rotate</span>
@@ -338,11 +381,8 @@ const wireTurn = (pop, item, refresh) => pop.querySelectorAll('[data-turn]').for
 function tablePop(t) {
   const here = guestsAt(t.id);
   const total = seatCount(t);
-  const unseated = going().filter((g) => !g.tableId);
-  const ctl = t.shape === 'round'
-    ? stepper('seats', 'Seats', t.seats, 1, 16)
-    : `${stepper('top', 'Far side', t.sides.top)}${stepper('bottom', 'Near side', t.sides.bottom)}${stepper('left', 'Left end', t.sides.left, 0, 6)}${stepper('right', 'Right end', t.sides.right, 0, 6)}
-       ${rotateRow(t.rot || 0)}`;
+  const round = t.shape === 'round';
+  const ctl = round ? '' : `<div class="pop-ctl compact">${stepper('top', 'Far side', t.sides.top)}${stepper('bottom', 'Near side', t.sides.bottom)}${stepper('left', 'Left end', t.sides.left, 0, 6)}${stepper('right', 'Right end', t.sides.right, 0, 6)}${rotateRow(t.rot || 0)}</div>`;
   return `
     <div class="pop-head">
       ${SP().tables.length > 1 ? '<button class="pop-nav" data-nav="-1" aria-label="Previous table">‹</button>' : ''}
@@ -350,22 +390,20 @@ function tablePop(t) {
       ${SP().tables.length > 1 ? '<button class="pop-nav" data-nav="1" aria-label="Next table">›</button>' : ''}
       <button class="x" data-close aria-label="Close">×</button>
     </div>
-    <div class="pop-count">${here.length} of ${total} seats</div>
+    <div class="pop-top"><div class="pop-count"><span>${here.length} of ${total} seats</span>${round ? `<span class="stepper mini">${stepBtns('seats', 'Seats', t.seats, 1, 16)}</span>` : ''}</div>${ctl}</div>
     <ol class="seat-list seat-slots">${Array.from({ length: Math.max(total, here.length) }, (_, i) => {
       const g = here[i];
       return g
         ? `<li class="taken" style="--i:${i}"><i aria-label="Seat ${i + 1}">${i + 1}</i><span>${esc(g.name)}</span>${g.party === 'couple' ? '' : `<button class="side-tag" data-side="${g.id}" title="Change side">${esc(g.side)}</button>`}${g.party === 'couple' ? '' : `<button class="x" data-unseat="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}</li>`
         : `<li class="empty" style="--i:${i}"><i aria-hidden="true">${i + 1}</i><button class="slot-add" data-slot="${i}" aria-label="Seat ${i + 1}: add a guest"><span>+</span></button></li>`;
     }).join('')}</ol>
-    ${here.length < total ? `<datalist id="unseatedList">${unseated.map((g) => `<option value="${esc(g.name)}"></option>`).join('')}</datalist>` : ''}
-    <div class="pop-ctl">${ctl}</div>
     ${t.id === 'head' ? '' : '<button class="linklike danger" id="tDel">Remove table</button>'}`;
 }
 
 function areaPop(a) {
   return `
     <div class="pop-head">
-      <label class="rename"><input class="pop-title" id="aName" value="${esc(a.label)}" aria-label="Area name" spellcheck="false"/><span aria-hidden="true">✎</span></label>
+      <label class="rename"><input class="pop-title" id="aName" value="${esc(a.label)}" aria-label="Area name" spellcheck="false" style="font-size:${a.label.length > 22 ? 14 : a.label.length > 15 ? 16 : 21}px"/><span aria-hidden="true">✎</span></label>
       <button class="x" data-close aria-label="Close">×</button>
     </div>
     <div class="pop-ctl">${stepper('w', 'Width', a.w, 2, 40)}${stepper('h', 'Length', a.h, 2, 40)}${rotateRow(a.rot || 0)}</div>
@@ -485,10 +523,11 @@ export function renderSeating(root) {
       <div>
         <h1 class="sr-only">${esc(info.label)}</h1>
         <div class="spaces" role="tablist" aria-label="Spaces">
-          ${SPACES.map((x) => `<button role="tab" data-space="${x.id}" aria-selected="${x.id === space}" class="${x.id === space ? 'on' : ''}">${x.label}</button>`).join('')}
+          ${tabList().map((x) => `<button role="tab" data-space="${x.id}" aria-selected="${x.id === space}" class="${x.id === space ? 'on' : ''}">${x.label}</button>`).join('')}
           <span class="spaces-ink" aria-hidden="true"></span>
         </div>
         <p class="lede" id="lede"></p>
+        ${space === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
       </div>
       ${rec ? `<div class="viewseg" role="tablist" aria-label="View">
         <button role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Floor plan</button>
@@ -529,26 +568,19 @@ export function renderSeating(root) {
       <aside class="side-panel">
         ${mode === '3d' ? moraisHTML() : ''}
         ${rec ? `<section class="card">
-          <h3>Suggest a layout</h3>
+          <h3>Plan tools</h3>
           <div class="field-row">
             <label class="field">Guests<input class="input" id="sCount" type="number" min="2" max="300" value="${state.guestTarget}"/></label>
             <label class="field">Tables<select class="select" id="sStyle">${Object.entries(TABLE_STYLES).map(([k, s]) => `<option value="${k}" ${state.lastStyle === k ? 'selected' : ''}>${s.label}</option>`).join('')}</select></label>
           </div>
           <p class="muted small" id="sPreview"></p>
-          <div class="btn-row">
-            <button class="btn moss sm" id="sGo">Suggest</button>
-            <button class="btn line sm" id="sSeat">Auto-seat</button>
+          <div class="acts">
+            <div class="act"><button class="btn moss sm" id="sGo">Suggest floor plan</button><span class="tip" tabindex="0" role="note" data-tip="Lays out tables for this guest count and style. Moves tables, then seats guests.">ⓘ</span></div>
+            <div class="act"><button class="btn gold sm" id="sSeat">Auto-seat guests</button><span class="tip" tabindex="0" role="note" data-tip="Seats guests at the current tables, keeping linked and related people together.">ⓘ</span></div>
           </div>
-        </section>` : ''}
-        <section class="card">
-          <h3>Plan file</h3>
-          <div class="btn-row">
-            <button class="btn line sm" id="exportBtn">Export</button>
-            <button class="btn line sm" id="importBtn">Import</button>
-            <input type="file" id="importFile" accept="application/json" hidden/>
-          </div>
-        </section>
+        </section>` : spaceToolsHTML(space, { state, SP })}
       </aside>
+      <div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>
     </div>`;
 
   const host = root.querySelector('#planHost');
@@ -596,7 +628,7 @@ export function renderSeating(root) {
     if (mode !== 'plan') return;
     host.replaceChildren(planSVG(bg));
     attachPointers(host.firstChild, {
-      onTap: (d) => { sel = d ? { kind: d.kind, id: d.item.id } : null; drawPlan(); openPop(); },
+      onTap: (d) => { sel = d ? { kind: d.kind, id: d.item.id } : null; drawPlan(); openPop(); if (d?.kind === 'table') zoomToTable(d.item); },
       // Rotating / resizing: redraw just that item so the drag keeps going smoothly
       onMove: (live, d) => {
         if (!live) return closePop(true);
@@ -620,21 +652,50 @@ export function renderSeating(root) {
     });
   };
 
+  // Click a table: glide in on it (remembering where we were); closing glides back out
+  let zoomTo = () => {}, zoomBack = null;
+  function zoomToTable(t, locked = false) {
+    navLock = locked ? t.id : null;
+    if (!zoomBack) zoomBack = { ...(view || baseView()) };
+    const b = baseView(), phone = matchMedia('(max-width: 760px)').matches;
+    // The popover sits beside the table: zoom just far enough that both fit side by side, with the table centred in the free part
+    const cr = wrap.getBoundingClientRect(), svg = host.querySelector('svg'), sr = svg ? svg.getBoundingClientRect() : cr;
+    const W = cr.width || 600, pw = phone ? 0 : (pop.offsetWidth || 300) + 24;
+    // the drawing is letterboxed inside the svg element: work in the drawn area so the table really lands where intended
+    const Weff = Math.min(sr.width, (sr.height * b.w) / b.h), Heff = (Weff * b.h) / b.w;
+    let free = Math.max(120, W - pw), cx = free / 2; // screen x (px in the card) to centre the table on
+    const fp = footprint(t), onLeftHalf = t.x < b.x + b.w / 2; // table in the left half: popover to its right, else to its left
+    if (!onLeftHalf) cx = W - free / 2;
+    if (locked && !phone) { // popover already open and pinned (stepping): centre in whatever it leaves clear, on its far side
+      const pl = parseFloat(pop.style.left) || 0, pr = pl + pop.offsetWidth, onLeft = pl + pop.offsetWidth / 2 < W / 2;
+      free = Math.max(120, onLeft ? W - pr - 12 : pl - 12);
+      cx = onLeft ? (pr + 12 + W) / 2 : (pl - 12) / 2;
+    }
+    if (phone) cx = W / 2;
+    const cy = phone ? cr.height * 0.3 : cr.height / 2;
+    const w = Math.min(b.w * 0.8, Math.max(b.w * 0.42, (fp.hw * 2.05 * Weff) / free)), h = w * (b.h / b.w);
+    const fx = (cx - (sr.left - cr.left) - (sr.width - Weff) / 2) / Weff, fy = (cy - (sr.top - cr.top) - (sr.height - Heff) / 2) / Heff;
+    zoomTo({ x: t.x - w * fx, y: t.y - h * fy, w, h });
+  }
+  function zoomOut() { if (!zoomBack) return; const v = zoomBack; zoomBack = null; zoomTo(v); }
+
   // Would this table sit on the stage, a door path, an area or another table?
   function collides(t) {
     const fp = footprint(t);
     const others = SP().tables.filter((o) => o.id !== t.id);
     const me = { x1: t.x - fp.hw, x2: t.x + fp.hw, y1: t.y - fp.hh, y2: t.y + fp.hh };
-    return blockers(SP().room, others, { areaPad: 0.5 }).some((z) => me.x1 < z.x2 - 0.5 && me.x2 > z.x1 + 0.5 && me.y1 < z.y2 - 0.5 && me.y2 > z.y1 + 0.5);
+    return blockers(SP().room, others, { areaPad: 0.5 }).some((z) => me.x1 < z.x2 && me.x2 > z.x1 && me.y1 < z.y2 && me.y2 > z.y1);
   }
 
+  let navLock = null; // stepping with ‹ ›: the popover stays exactly where it is while the plan glides underneath
   function placePop() {
+    if (navLock && navLock === sel?.id && popPinned) return;
     const g = host.querySelector(`[data-id="${CSS.escape(sel.id)}"]`);
     if (!g) return;
     const r = g.getBoundingClientRect(), c = wrap.getBoundingClientRect();
     const pw = pop.offsetWidth, ph = pop.offsetHeight, gap = 12;
-    let left = r.right - c.left + gap;
-    if (left + pw > c.width - 8) left = r.left - c.left - pw - gap;
+    const onRight = r.right - c.left + gap, onLeft = r.left - c.left - pw - gap;
+    let left = onRight + pw <= c.width - 8 ? onRight : onLeft >= 8 ? onLeft : (c.width - (r.right - c.left) > r.left - c.left ? onRight : onLeft);
     left = Math.max(8, Math.min(left, c.width - pw - 8));
     let top = r.top - c.top + r.height / 2 - ph / 2;
     if (popPinned?.id === sel.id && !popPinned.view) { left = popPinned.left; top = popPinned.top; }
@@ -660,8 +721,10 @@ export function renderSeating(root) {
   }
   function closePop(keepSel) {
     pop.hidden = true;
+    navLock = null;
     popPinned = null;
     backdrop.classList.remove('on');
+    if (!keepSel) zoomOut();
     if (!keepSel && sel) { sel = null; drawPlan(); }
   }
   const refresh = () => { commit({ silent: true }); drawPlan(); openPop(); lede(); };
@@ -676,6 +739,10 @@ export function renderSeating(root) {
 
   function wireTable(t) {
     wireRename(pop.querySelector('#tName'), () => t.name, (v) => { t.name = v; });
+    // long names (e.g. the sweetheart table) step the type down until they fit
+    const tName = pop.querySelector('#tName');
+    const fitTitle = () => { let fs = 21; tName.style.fontSize = fs + 'px'; while (tName.scrollWidth > tName.clientWidth + 1 && fs > 13) tName.style.fontSize = --fs + 'px'; };
+    fitTitle(); tName.addEventListener('input', fitTitle);
     pop.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => {
       const d = +b.dataset.d, k = b.dataset.step;
       if (k === 'seats') t.seats = Math.max(1, Math.min(16, t.seats + d));
@@ -696,18 +763,43 @@ export function renderSeating(root) {
     const openSlot = (b) => {
       const li = b.closest('li');
       li.classList.add('typing');
-      b.outerHTML = '<form class="add-seat slot-form" id="addSeat"><input class="input" name="name" list="unseatedList" placeholder="Name" autocomplete="off" aria-label="Guest name"/></form>';
+      b.outerHTML = '<form class="add-seat slot-form" id="addSeat"><input class="input" name="name" placeholder="Name" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-label="Guest name"/></form>';
       const form = li.querySelector('form'), input = form.name;
       input.focus();
-      input.onkeydown = (e) => { if (e.key === 'Escape') { e.stopPropagation(); input.onblur = null; openPop(); } };
-      input.onblur = () => setTimeout(() => { if (!input.value.trim() && pop.contains(input) && document.activeElement !== input) openPop(); }, 150);
+      // Custom suggestions, anchored right under the field (fixed to the page so the popover's scroll never clips it)
+      let list = null, items = [], at = -1;
+      const hide = () => { list?.remove(); list = null; items = []; at = -1; input.setAttribute('aria-expanded', 'false'); };
+      const pick = (g) => { input.value = g.name; hide(); form.requestSubmit(); };
+      const mark = () => list?.querySelectorAll('li').forEach((el, i) => { el.classList.toggle('on', i === at); if (i === at) el.scrollIntoView({ block: 'nearest' }); });
+      const show = () => {
+        const q = input.value.trim().toLowerCase();
+        items = going().filter((g) => !g.tableId && (!q || g.name.toLowerCase().includes(q)))
+          .sort((a, b) => (b.name.toLowerCase().startsWith(q) - a.name.toLowerCase().startsWith(q)) || a.name.localeCompare(b.name)).slice(0, 30);
+        at = -1;
+        if (!items.length) return hide();
+        if (!list) { list = document.createElement('ul'); list.className = 'suggest'; list.setAttribute('role', 'listbox'); document.body.append(list); }
+        list.innerHTML = items.map((g, i) => `<li role="option" data-i="${i}"><span>${esc(g.name)}</span><em>${esc([g.side, relationOf(g)].filter((x) => x && x !== 'none').join(' · '))}</em></li>`).join('');
+        const r = li.getBoundingClientRect();
+        Object.assign(list.style, { left: r.left + 'px', top: r.bottom + 2 + 'px', width: r.width + 'px' });
+        list.onpointerdown = (e) => { e.preventDefault(); const o = e.target.closest('li'); if (o) pick(items[+o.dataset.i]); };
+        list.onpointermove = (e) => { const o = e.target.closest('li'); if (o && +o.dataset.i !== at) { at = +o.dataset.i; mark(); } };
+        input.setAttribute('aria-expanded', 'true');
+      };
+      input.oninput = show; input.onfocus = show;
+      input.onkeydown = (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); if (list) return hide(); input.onblur = null; openPop(); }
+        else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!list) show(); if (list) { at = (at + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; mark(); } }
+        else if (e.key === 'Enter' && list && at >= 0) { e.preventDefault(); pick(items[at]); }
+      };
+      input.onblur = () => { hide(); setTimeout(() => { if (!input.value.trim() && pop.contains(input) && document.activeElement !== input) openPop(); }, 150); };
+      show();
       form.onsubmit = (e) => {
-        e.preventDefault();
+        e.preventDefault(); hide();
         const n = input.value.trim();
         if (!n) return;
         if (guestsAt(t.id).length >= seatCount(t)) return toast('Table is full');
         let g = going().find((x) => !x.tableId && x.name.toLowerCase() === n.toLowerCase());
-        if (!g) { g = { id: uid(), name: n, side: 'Both', rsvp: 'Invited', diet: '', tableId: null }; state.guests.push(g); toast(`${n} added to guests`); }
+        if (!g) { g = { id: uid(), name: n, side: 'Both', rsvp: 'Not invited yet', diet: '', tableId: null }; state.guests.push(g); toast(`${n} added to guests`); }
         g.tableId = t.id; input.onblur = null; refresh();
         const next = pop.querySelector('.slot-add');
         if (next) next.click();
@@ -723,7 +815,7 @@ export function renderSeating(root) {
       const keep = { left: parseFloat(pop.style.left) || 0, top: parseFloat(pop.style.top) || 0 };
       sel = { kind: 'table', id: next.id };
       popPinned = { id: next.id, ...keep };
-      drawPlan(); openPop();
+      drawPlan(); openPop(); zoomToTable(next, true);
       pop.style.setProperty('--swap-x', +b.dataset.nav > 0 ? '10px' : '-10px');
       pop.classList.remove('in', 'swap'); void pop.offsetWidth; pop.classList.add('swap');
       clearTimeout(pop._glide); pop._glide = setTimeout(() => pop.classList.remove('swap'), 420);
@@ -780,11 +872,13 @@ export function renderSeating(root) {
   /* ---- toolbar ---- */
   if (mode === 'plan') {
     // Glide the view (viewBox can't be CSS-animated, so tween it)
+    let tweenId = 0;
     const tweenTo = (target) => {
-      const svg = host.querySelector('svg'); if (!svg) return;
-      const from = { ...(view || baseView()) }, to = clampView(target), t0 = performance.now();
+      if (!host.querySelector('svg')) return;
+      const from = { ...(view || baseView()) }, to = clampView(target), t0 = performance.now(), id = ++tweenId;
       const step = (now) => {
-        const k = Math.min(1, (now - t0) / 260), e = 1 - Math.pow(1 - k, 3);
+        const svg = host.querySelector('svg'); if (!svg || id !== tweenId) return;
+        const k = Math.min(1, (now - t0) / 320), e = 1 - Math.pow(1 - k, 3);
         view = { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, w: from.w + (to.w - from.w) * e, h: from.h + (to.h - from.h) * e };
         svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
         svg.style.touchAction = isZoomed() ? 'none' : 'pan-y';
@@ -794,14 +888,15 @@ export function renderSeating(root) {
       };
       requestAnimationFrame(step);
     };
+    zoomTo = tweenTo;
     const zoomBy = (k) => {
       const v = view || baseView();
       const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
       tweenTo({ x: cx - (v.w * k) / 2, y: cy - (v.h * k) / 2, w: v.w * k, h: v.h * k });
     };
-    root.querySelector('#zIn').onclick = () => zoomBy(0.7);
-    root.querySelector('#zOut').onclick = () => zoomBy(1 / 0.7);
-    root.querySelector('#zFit').onclick = () => tweenTo(baseView());
+    root.querySelector('#zIn').onclick = () => { zoomBack = null; zoomBy(0.7); };
+    root.querySelector('#zOut').onclick = () => { zoomBack = null; zoomBy(1 / 0.7); };
+    root.querySelector('#zFit').onclick = () => { zoomBack = null; tweenTo(baseView()); };
 
     root.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
       const kind = b.dataset.add;
@@ -841,7 +936,7 @@ export function renderSeating(root) {
           const t = SP().tables.find((x) => x.id === tableId);
           if (!t || guestsAt(tableId).length >= seatCount(t)) { toast('Table is full'); return false; }
           let g = going().find((x) => !x.tableId && x.name.toLowerCase() === name.toLowerCase());
-          if (!g) { g = { id: uid(), name, side: 'Both', rsvp: 'Invited', diet: '', tableId: null }; state.guests.push(g); }
+          if (!g) { g = { id: uid(), name, side: 'Both', rsvp: 'Not invited yet', diet: '', tableId: null }; state.guests.push(g); }
           g.tableId = tableId;
           commit({ silent: true }); lede();
           toast(`${g.name} · ${tableId === 'head' ? t.name : 'Table ' + t.name}`);
@@ -898,7 +993,7 @@ export function renderSeating(root) {
     // Family rows run the long way, so the dance floor moves toward the lounge end
     const dance = room.areas.find((a) => a.preset === 'dance');
     if (style.value === 'family' && dance) { dance.x = (room.w - dance.w) / 2; dance.y = room.h - (room.fixed.balcony?.depth || 0) - 10 - dance.h - 1; }
-    if (style.value !== 'family' && dance) { dance.x = (room.w - dance.w) / 2; dance.y = 13; }
+    if (style.value !== 'family' && style.value !== 'open' && dance) { dance.x = (room.w - dance.w) / 2; dance.y = 13; }
     return { n, head, room, s: suggestTables(room, n, style.value, head) };
   };
   preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b style="color:var(--wine)">only ${s.tables.length} fit</b>`}`; };
@@ -921,6 +1016,8 @@ export function renderSeating(root) {
   };
 
   }
+
+  if (!rec) wireSpaceTools(root, space, { state, SP, commit, undoable, toast, draw: () => drawPlan(), lede: () => lede(), animate: () => { sel = null; enterAnim = true; lastFilled.clear(); } });
 
   /* ---- plan file ---- */
   root.querySelector('#exportBtn').onclick = () => { exportJSON(); toast('Plan file downloaded'); };
@@ -947,24 +1044,97 @@ export function renderSeating(root) {
 let bgCache;
 let threeInst = null; // live 3D scene, disposed on re-render / leaving the page
 
-/* ---- Morais reference photos beside the 3D view (tap to enlarge) ---- */
-const MORAIS = [
-  { src: 'assets/venue/ballroom.jpg', name: 'Ballroom' },
-  { src: 'assets/venue/tasting-room.jpg', name: 'Tasting room' },
-  { src: 'assets/venue/tasting-room-2.jpg', name: 'Tasting room' },
-];
+/* ---- Morais' photos beside the 3D view: drag to rearrange (saved), tap to see the whole photo ---- */
+function moraisOrder() {
+  const ids = MORAIS_PHOTOS.map((p) => p.id);
+  const saved = (Array.isArray(state.morais) ? state.morais : []).filter((id) => ids.includes(id));
+  return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => MORAIS_PHOTOS.find((p) => p.id === id));
+}
 function moraisHTML() {
   return `
     <section class="card morais" aria-label="Morais photos">
       <h3>Morais</h3>
       <div class="morais-grid">
-        ${MORAIS.map((p, i) => `<button class="morais-th" data-ph="${i}" style="--i:${i}" aria-label="${p.name}"><img src="${p.src}" alt="" loading="lazy"/></button>`).join('')}
+        ${moraisOrder().map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${p.name}"><img src="${p.src}" alt="" draggable="false" loading="lazy"/></button>`).join('')}
       </div>
     </section>`;
 }
 function wireMorais(root, signal) {
-  const thumbs = [...root.querySelectorAll('.morais-th')];
-  if (!thumbs.length) return;
+  const grid = root.querySelector('.morais-grid');
+  if (!grid) return;
+  const thumbs = () => [...grid.querySelectorAll('.morais-th')];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const saveOrder = () => { state.morais = thumbs().map((t) => t.dataset.ph); commit({ silent: true }); };
+
+  /* --- rearrange: drag a photo, the others glide out of its way --- */
+  const flip = (moveDom) => {
+    const others = thumbs(), before = new Map(others.map((t) => [t, t.getBoundingClientRect()]));
+    moveDom();
+    if (reduce) return;
+    others.forEach((t) => {
+      if (t.classList.contains('dragging')) return;
+      const a = before.get(t), b = t.getBoundingClientRect();
+      if (a.left !== b.left || a.top !== b.top) t.animate([{ transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)` }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    });
+  };
+  let drag = null, justDragged = false;
+  grid.addEventListener('pointerdown', (e) => {
+    const th = e.target.closest('.morais-th');
+    if (!th || e.button > 0) return;
+    const r = th.getBoundingClientRect();
+    drag = { th, id: e.pointerId, x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, on: false, order: thumbs().map((t) => t.dataset.ph).join() };
+  }, { signal });
+  const place = (e) => {
+    const g = grid.getBoundingClientRect();
+    drag.th.style.transform = `translate(${e.clientX - g.left - drag.ox - drag.th.offsetLeft}px, ${e.clientY - g.top - drag.oy - drag.th.offsetTop}px) scale(1.06)`;
+  };
+  // Hit-test against layout slots (offsets ignore the glide transforms, so photos don't flicker back and forth)
+  const hit = (t, e) => {
+    const g = grid.getBoundingClientRect(), x = e.clientX - g.left, y = e.clientY - g.top;
+    return x > t.offsetLeft && x < t.offsetLeft + t.offsetWidth && y > t.offsetTop && y < t.offsetTop + t.offsetHeight;
+  };
+  addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.on) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 10) return; // a tap that wobbles a little is still a tap
+      drag.on = true; drag.th.classList.add('dragging');
+    }
+    e.preventDefault();
+    const over = thumbs().find((t) => t !== drag.th && hit(t, e));
+    if (over) {
+      const list = thumbs(), from = list.indexOf(drag.th), to = list.indexOf(over);
+      flip(() => over[from < to ? 'after' : 'before'](drag.th));
+    }
+    place(e);
+  }, { signal, passive: false });
+  const drop = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    if (!d.on) return;
+    // Only a real rearrange (or a long drag) swallows the click; a small wobble still opens the photo
+    const moved = thumbs().map((t) => t.dataset.ph).join() !== d.order || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 24;
+    if (moved) { justDragged = true; setTimeout(() => { justDragged = false; }, 0); }
+    d.th.classList.remove('dragging');
+    const from = d.th.style.transform;
+    d.th.style.transform = '';
+    if (!reduce) d.th.animate([{ transform: from }, { transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    saveOrder();
+  };
+  addEventListener('pointerup', drop, { signal });
+  addEventListener('pointercancel', drop, { signal });
+  // Keyboard: arrows move the focused photo
+  grid.addEventListener('keydown', (e) => {
+    const th = e.target.closest('.morais-th');
+    if (!th || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    e.preventDefault();
+    const sib = e.key === 'ArrowLeft' ? th.previousElementSibling : th.nextElementSibling;
+    if (!sib) return;
+    flip(() => sib[e.key === 'ArrowLeft' ? 'before' : 'after'](th));
+    th.focus();
+    saveOrder();
+  }, { signal });
+
+  /* --- full view: the whole photo (no crop), zooming out of its thumbnail --- */
   const lb = document.createElement('div');
   lb.className = 'lb';
   lb.hidden = true;
@@ -975,32 +1145,38 @@ function wireMorais(root, signal) {
     <button class="lb-x" aria-label="Close">×</button>`;
   root.append(lb);
   const img = lb.querySelector('.lb-img'), name = lb.querySelector('.lb-name');
-  let at = -1, busy = false, closeTimer;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // Largest 4:3 box that fits the screen
+  let at = null, busy = false, closeTimer;
+  const cur = () => grid.querySelector(`[data-ph="${CSS.escape(at)}"]`);
+  // Largest box with the photo's own shape: viewport height on desktop, full width on phones
   const target = () => {
-    const w = Math.min(innerWidth * 0.9, (innerHeight * 0.82) * 4 / 3), h = w * 3 / 4;
+    const im = cur()?.querySelector('img');
+    const ratio = im?.naturalWidth ? im.naturalWidth / im.naturalHeight : 3 / 4;
+    const phone = innerWidth < 760;
+    const maxW = innerWidth * (phone ? 1 : 0.86), maxH = innerHeight * (phone ? 0.82 : 0.9);
+    let w = maxW, h = w / ratio;
+    if (h > maxH) { h = maxH; w = h * ratio; }
     return { left: (innerWidth - w) / 2, top: (innerHeight - h) / 2, width: w, height: h };
   };
-  const place = (r) => Object.assign(img.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
-  // Transform that makes the big image sit exactly on a thumbnail
+  const put = (r) => Object.assign(img.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
   const fromThumb = (el, r) => {
     const t = el.getBoundingClientRect();
     return `translate(${t.left - r.left}px, ${t.top - r.top}px) scale(${t.width / r.width}, ${t.height / r.height})`;
   };
-  const show = (i) => {
-    at = (i + MORAIS.length) % MORAIS.length; img.src = MORAIS[at].src; img.alt = MORAIS[at].name; name.textContent = MORAIS[at].name;
-    thumbs.forEach((t, j) => t.classList.toggle('lifted', j === at)); // the open photo 'leaves' its thumbnail
+  const show = (id) => {
+    at = id;
+    const p = MORAIS_PHOTOS.find((x) => x.id === id);
+    img.src = p.src; img.alt = p.name; name.textContent = p.name;
+    thumbs().forEach((t) => t.classList.toggle('lifted', t.dataset.ph === id)); // the open photo 'leaves' its thumbnail
   };
-  function open(i) {
+  function open(id) {
     clearTimeout(closeTimer); busy = false; // reopening cancels a close in progress
-    show(i);
+    show(id);
     const r = target();
-    place(r);
+    put(r);
     lb.hidden = false;
     if (reduce) { lb.classList.add('on'); return; }
     img.style.transition = 'none';
-    img.style.transform = fromThumb(thumbs[at], r);
+    img.style.transform = fromThumb(cur(), r);
     void img.offsetWidth;
     img.style.transition = '';
     lb.classList.add('on'); img.style.transform = 'none';
@@ -1008,9 +1184,9 @@ function wireMorais(root, signal) {
   }
   function close() {
     if (lb.hidden || busy) return;
-    const el = thumbs[at];
+    const el = cur();
     lb.classList.remove('on');
-    const done = () => thumbs.forEach((t) => t.classList.remove('lifted'));
+    const done = () => thumbs().forEach((t) => t.classList.remove('lifted'));
     if (reduce) { lb.hidden = true; done(); return; }
     busy = true;
     img.style.transform = fromThumb(el, target());
@@ -1018,10 +1194,15 @@ function wireMorais(root, signal) {
   }
   function step(d) {
     if (busy) return;
+    const ids = thumbs().map((t) => t.dataset.ph);
+    const next = ids[(ids.indexOf(at) + d + ids.length) % ids.length];
     img.classList.add('swap');
-    setTimeout(() => { show(at + d); img.classList.remove('swap'); }, 160);
+    setTimeout(() => { show(next); put(target()); img.classList.remove('swap'); }, 160);
   }
-  thumbs.forEach((b) => b.onclick = () => open(+b.dataset.ph));
+  grid.addEventListener('click', (e) => {
+    const th = e.target.closest('.morais-th');
+    if (th && !justDragged) open(th.dataset.ph);
+  }, { signal });
   lb.onclick = (e) => {
     if (e.target.closest('.lb-nav')) { e.stopPropagation(); step(e.target.closest('.prev') ? -1 : 1); return; }
     close();
@@ -1032,8 +1213,7 @@ function wireMorais(root, signal) {
     else if (e.key === 'ArrowRight') step(1);
     else if (e.key === 'ArrowLeft') step(-1);
   }, { signal });
-  addEventListener('resize', () => { if (!lb.hidden) place(target()); }, { signal });
-  // Swipe between photos on phones
+  addEventListener('resize', () => { if (!lb.hidden) put(target()); }, { signal });
   let sx = null;
   lb.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
   lb.addEventListener('touchend', (e) => {

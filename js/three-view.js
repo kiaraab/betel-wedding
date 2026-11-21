@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { seatCount, roundRadius, rectDims, chairPositions } from './layout.js';
 
-const WALL_H = 24;     // two-story ballroom; the balcony slab stays at ~11 ft
+const WALL_H = 20;     // ESTIMATE ~20 ft to the coffers (photo: arched doors ~10 ft = half the wall below the crown); not published. Balcony slab ~11 ft
 const _v = new THREE.Vector3();
 let allLabels = [];
 
@@ -267,7 +267,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   const goldMat = new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.75, roughness: 0.3 });
   const glowMat = new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb860', emissiveIntensity: 0.6, side: THREE.DoubleSide });
   const shadeGeo = new THREE.CylinderGeometry(0.2, 0.32, 0.5, 12, 1, true);
-  const HANG = 13.5; // chandelier body height (ft)
+  const HANG = 11.5; // chandelier body height (ft) — estimate
   const chandelier = (x, z) => {
     const ch = new THREE.Group();
     [[1.9, 0, 9], [1.25, 0.9, 7], [0.6, 1.75, 5]].forEach(([r, y, n]) => {
