@@ -363,12 +363,14 @@ function guests() {
   if (guestView === 'graph') return guestGraph();
   stopConnections();
   const tableOpts = (sel) => `<option value="">—</option>` + state.tables.map((t) => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${esc(t.id === 'head' ? 'Sweetheart' : t.name)}</option>`).join('');
+  // phones show "Table 3" in the card; named tables and the sweetheart table read fine alone
+  const tableWord = (id) => (/^\d+$/.test(state.tables.find((t) => t.id === id)?.name || '') ? 'Table' : '');
   const q = guestQuery.toLowerCase();
   const fil = filterDef(guestFilter)[2];
   const list = state.guests.filter((g) => fil(g)
     && (!q || [g.name, g.email, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
   const relCell = (g) => g.party === 'couple' ? '<span class="rel-fixed">Couple</span>'
-    : `<select class="select rel" data-k="relation" data-v="${esc(relationOf(g))}" aria-label="Relation"><option value="">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select>`;
+    : `<select class="select rel" data-k="relation" data-v="${esc(relationOf(g))}" aria-label="Relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select>`;
   const c = (fn) => state.guests.filter(fn).length;
 
   view.innerHTML = `
@@ -396,12 +398,12 @@ function guests() {
         <thead><tr><th>Name</th><th>Side</th><th>Relation</th><th>RSVP</th><th>Meal</th><th>Table</th><th><span class="sr">Details</span></th></tr></thead>
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
-            <td><input class="input" data-k="name" value="${esc(g.name)}" aria-label="Name"/></td>
-            <td><select class="select" data-k="side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+            <td class="c-name"><input class="input" data-k="name" value="${esc(g.name)}" aria-label="Name"/></td>
+            <td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
             <td class="rel-td">${relCell(g)}</td>
-            <td><select class="select rsvp" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-            <td><input class="input" data-k="meal" list="meals" value="${esc(g.meal)}" placeholder="—" aria-label="Meal"/></td>
-            <td><select class="select" data-k="tableId">${tableOpts(g.tableId)}</select></td>
+            <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+            <td class="c-meal"><input class="input" data-k="meal" list="meals" value="${esc(g.meal)}" placeholder="Meal" aria-label="Meal"/></td>
+            <td class="c-table" data-t="${tableWord(g.tableId)}"><select class="select" data-k="tableId" aria-label="Table">${tableOpts(g.tableId)}</select></td>
             <td class="row-actions">
               <button class="more ${g.street ? '' : 'warn'}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details">${openGuests.has(g.id) ? '−' : '+'}</button>
               ${g.party === 'couple' ? '' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
@@ -434,9 +436,14 @@ function guests() {
   };
   const search = view.querySelector('#gSearch');
   search.oninput = () => { guestQuery = search.value; guests(); const s = view.querySelector('#gSearch'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); };
-  const gf = view.querySelector('#gFilter');
-  gf.querySelector('.gf-btn').onclick = () => { const o = gf.classList.toggle('open'); gf.querySelector('.gf-btn').setAttribute('aria-expanded', o); };
-  view.querySelectorAll('[data-gf]').forEach((b) => b.onclick = () => { guestFilter = b.dataset.gf; guests(); });
+  const wireFilter = () => {
+    const gf = view.querySelector('#gFilter');
+    gf.querySelector('.gf-btn').onclick = () => { const o = gf.classList.toggle('open'); gf.querySelector('.gf-btn').setAttribute('aria-expanded', o); };
+    gf.querySelectorAll('[data-gf]').forEach((b) => b.onclick = () => { guestFilter = b.dataset.gf; guests(); });
+  };
+  // counts follow quiet edits (relation, table…) without redrawing the list
+  const refreshFilter = () => { const old = view.querySelector('#gFilter'); if (!old) return; old.outerHTML = guestFilterMenu(); wireFilter(); };
+  wireFilter();
   view.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => {
     const id = b.dataset.open;
     openGuests.has(id) ? openGuests.delete(id) : openGuests.add(id);
@@ -452,7 +459,10 @@ function guests() {
           if (state.guests.filter((x) => x.tableId === t.id && x.id !== g.id).length >= seatCount(t)) { toast('That table is full'); el.value = g.tableId || ''; return; }
         }
         g[k] = el.value || (k === 'tableId' ? null : '');
-        if (k === 'rsvp' || k === 'relation') el.dataset.v = el.value;
+        if (k === 'rsvp') el.dataset.v = el.value;
+        if (k === 'relation') el.dataset.v = relationOf(g);
+        if (k === 'tableId') el.parentElement.dataset.t = tableWord(g.tableId);
+        refreshFilter();
         commit({ silent: !['rsvp', 'side', 'street'].includes(k) });
       };
     });

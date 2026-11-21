@@ -1,5 +1,5 @@
 import { state, commit, uid, undoable, exportJSON, importJSON } from './store.js';
-import { MOODS, headTable, AREA_PRESETS } from './data.js';
+import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces } from './data.js';
 import { TABLE_STYLES, seatCount, roundRadius, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers } from './layout.js';
 import { esc, toast } from './util.js';
 
@@ -9,14 +9,31 @@ let sel = null;          // { kind: 'table' | 'area', id }
 let cleanup = null;      // AbortController for document listeners of the current render
 let view = null;         // current viewBox { x, y, w, h } — persists across re-renders
 let mode = 'plan';       // 'plan' | '3d'
+let space = 'reception'; // 'ceremony' | 'cocktail' | 'reception' — tabs above the plan
+let inkFrom = null;       // where the tab underline glides from after a space switch
+/** The space being edited: the reception lives at the top of the plan (room/tables), the others in state.spaces. */
+function SP() {
+  if (space === 'reception') return state;
+  state.spaces ||= {};
+  state.spaces[space] ||= seedSpaces()[space];
+  return state.spaces[space];
+}
+const spaceInfo = () => SPACES.find((x) => x.id === space);
+/** One quiet line under the tabs */
+function spaceLede() {
+  const ts = SP().tables, seats = ts.reduce((n, t) => n + seatCount(t), 0);
+  if (space === 'ceremony') return `${seats} seats · ${ts.length} rows`;
+  if (space === 'cocktail') return `${ts.length} high-tops · ${seats} stools`;
+  return `${state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
+}
 let enterAnim = false;   // play the "tables glide in" animation on next draw
 const lastFilled = new Map(); // tableId -> seated count last drawn (for the seat "pop")
 
 const guestsAt = (tid) => state.guests.filter((g) => g.tableId === tid);
 const going = () => state.guests.filter((g) => g.rsvp !== 'Declined');
-const listFor = (kind) => (kind === 'area' ? state.room.areas : state.tables);
+const listFor = (kind) => (kind === 'area' ? SP().room.areas : SP().tables);
 const findItem = (s) => s && listFor(s.kind).find((x) => x.id === s.id);
-const baseView = () => ({ x: -M, y: -M, w: state.room.w + M * 2, h: state.room.h + M * 2 });
+const baseView = () => ({ x: -M, y: -M, w: SP().room.w + M * 2, h: SP().room.h + M * 2 });
 const moodNow = () => MOODS.find((m) => m.id === state.mood) || MOODS[0];
 const areaTransform = (a) => `translate(${a.x} ${a.y}) rotate(${a.rot || 0} ${a.w / 2} ${a.h / 2})`;
 // Little rotate knob on a stalk, shown on the selected item
@@ -58,10 +75,14 @@ function tableSVG(t, mood, i) {
   const chairs = chairPositions(t).map(([x, y], k) => `<circle class="chair${k < n ? ' filled' : ''}${k < n && k >= before ? ' pop' : ''}" cx="${x}" cy="${y}" r=".75"${k < n && k >= before && enterAnim ? ` style="animation-delay:${delay(k)}ms"` : ''}/>`).join('');
   const [bloom, leaf] = [mood.swatches[3], mood.swatches[1]];
   let top, room;
-  if (t.shape === 'round') {
+  if (t.shape === 'row') {
+    const L = t.seats * 2;
+    room = 0;
+    top = `<rect class="row-hit" x="${-L / 2}" y="-1.1" width="${L}" height="2.2" rx="1.1"/>`;
+  } else if (t.shape === 'round') {
     const r = roundRadius(t.seats);
     room = r * 1.7;
-    top = `<circle class="top" r="${r}"/><circle cx="0" cy="${-r + .75}" r=".42" fill="${bloom}"/><circle cx=".55" cy="${-r + .95}" r=".26" fill="${leaf}"/><circle cx="-.55" cy="${-r + .95}" r=".24" fill="${leaf}"/>`;
+    top = `<circle class="top${t.high ? ' high' : ''}" r="${r}"/><circle cx="0" cy="${-r + .75}" r=".42" fill="${bloom}"/><circle cx=".55" cy="${-r + .95}" r=".26" fill="${leaf}"/><circle cx="-.55" cy="${-r + .95}" r=".24" fill="${leaf}"/>`;
   } else {
     const { L, D } = rectDims(t);
     room = (rot ? D : L) * 0.95;
@@ -70,13 +91,15 @@ function tableSVG(t, mood, i) {
   // Long names shrink to fit instead of being cut off
   const fs = Math.max(0.9, Math.min(1.7, room / Math.max(1, t.name.length * 0.58)));
   const isHead = t.id === 'head';
-  const ly = t.shape === 'round' ? fs * 0.35 : (rot % 180 ? 0 : rectDims(t).D / 2 + (t.sides.bottom ? 3.3 : 1.6));
-  const knob = sel?.id === t.id && t.shape !== 'round' ? `<g transform="rotate(${rot})">${rotHandle(0, -(rectDims(t).D / 2 + 4.2), 0, -rectDims(t).D / 2)}</g>` : '';
+  const row = t.shape === 'row';
+  const ly = t.shape === 'round' ? fs * 0.35 : row ? 0 : (rot % 180 ? 0 : rectDims(t).D / 2 + (t.sides.bottom ? 3.3 : 1.6));
+  const D0 = row ? 1.8 : t.shape === 'round' ? 0 : rectDims(t).D;
+  const knob = sel?.id === t.id && t.shape !== 'round' ? `<g transform="rotate(${rot})">${rotHandle(0, -(D0 / 2 + 4.2), 0, -D0 / 2)}</g>` : '';
   const inner = `<g transform="rotate(${rot})">${chairs}${top}</g>
-    <text class="${isHead ? 'head-label' : 'num'}" y="${ly}" style="font-size:${isHead ? 1.5 : fs}px">${esc(t.name)}</text>${knob}`;
+    ${row ? '' : `<text class="${isHead ? 'head-label' : 'num'}" y="${ly}" style="font-size:${isHead ? 1.5 : fs}px">${esc(t.name)}</text>`}${knob}`;
   // Fly in from the entrance doors when a layout is suggested (inner group animates; outer keeps its position)
   g.innerHTML = enterAnim && !isHead
-    ? `<g class="fly" style="--fx:${(state.room.w / 2 - t.x).toFixed(1)}px;--fy:${(state.room.h - t.y).toFixed(1)}px;animation-delay:${i * 45}ms">${inner}</g>`
+    ? `<g class="fly" style="--fx:${(SP().room.w / 2 - t.x).toFixed(1)}px;--fy:${(SP().room.h - t.y).toFixed(1)}px;animation-delay:${i * 45}ms">${inner}</g>`
     : inner;
   return g;
 }
@@ -96,7 +119,7 @@ function areaSVG(a) {
 }
 
 function fixedSVG() {
-  const { w, h, fixed } = state.room;
+  const { w, h, fixed } = SP().room;
   let s = '';
   // Balcony overhead (dashed — it's floor space underneath)
   if (fixed.balcony) {
@@ -112,10 +135,24 @@ function fixedSVG() {
     }
     s += `<text class="fixed-label" x="${cx + r * 0.42}" y="${cy + .5}">Stage</text>`;
   }
+  // Courtyard / tasting-room features (fixed, drawn from VENUE.md facts only)
+  (fixed.decor || []).forEach((d) => {
+    const mx = d.x + d.w / 2, my = d.y + d.h / 2;
+    if (d.kind === 'cypress') s += `<circle class="dc-cypress" cx="${mx}" cy="${my}" r="${d.w / 2}"/><circle class="dc-cypress-in" cx="${mx - d.w * 0.12}" cy="${my - d.w * 0.12}" r="${d.w / 4}"/>`;
+    else if (d.kind === 'hedge') s += `<rect class="dc-hedge" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx="${Math.min(d.w, d.h) / 2}"/>`;
+    else if (d.kind === 'statue') s += `<rect class="dc-plinth" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx=".2"/><circle class="dc-statue" cx="${mx}" cy="${my}" r="${d.w * 0.28}"/>`;
+    else if (d.kind === 'fireplace') s += `<rect class="dc-stone" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx=".3"/><rect class="dc-fire" x="${d.x + d.w - 0.9}" y="${my - 1.4}" width=".9" height="2.8" rx=".3"/><text class="fixed-label" x="${d.x + 0.4}" y="${d.y + d.h + 1.8}" style="text-anchor:start">${esc(d.label)}</text>`;
+    else if (d.kind === 'wine') { s += `<rect class="dc-wine" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}"/>`; for (let x = d.x + 1; x < d.x + d.w; x += 1) s += `<line class="dc-wine-cell" x1="${x}" y1="${d.y}" x2="${x}" y2="${d.y + d.h}"/>`; }
+    else if (d.kind === 'sunroom') {
+      const c = Math.min(d.w, d.h) * 0.29; // octagon corner cut
+      const pts = [[d.x + c, d.y], [d.x + d.w - c, d.y], [d.x + d.w, d.y + c], [d.x + d.w, d.y + d.h - c], [d.x + d.w - c, d.y + d.h], [d.x + c, d.y + d.h], [d.x, d.y + d.h - c], [d.x, d.y + c]];
+      s += `<polygon class="dc-sunroom" points="${pts.map((p) => p.join(',')).join(' ')}"/><circle class="dc-skylight" cx="${mx}" cy="${my}" r="${c}"/>`;
+    } else if (d.kind === 'bar') s += `<rect class="dc-bar" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx="1.1"/><text class="fixed-label" x="${mx}" y="${d.y + d.h + 1.6}">Bar</text>`;
+  });
   // Walls with openings cut in
   s += `<rect class="wall" x="0" y="0" width="${w}" height="${h}"/>`;
   fixed.openings.forEach((o) => {
-    const r = openingRect(state.room, o, 0.9);
+    const r = openingRect(SP().room, o, 0.9);
     const horiz = o.wall === 'top' || o.wall === 'bottom';
     s += `<rect class="gap" x="${r.x - (horiz ? 0 : .15)}" y="${r.y - (horiz ? .15 : 0)}" width="${horiz ? r.w : 1.2}" height="${horiz ? 1.2 : r.h}"/>`;
     if (o.kind === 'window') {
@@ -135,7 +172,7 @@ function fixedSVG() {
 }
 
 function planSVG(bg) {
-  const { w, h } = state.room;
+  const { w, h } = SP().room;
   const mood = moodNow();
   const svg = document.createElementNS(SVGNS, 'svg');
   svg.classList.add('plan');
@@ -143,7 +180,8 @@ function planSVG(bg) {
   svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', `Reception floor plan`);
+  svg.setAttribute('aria-label', `${SP().room.name || 'Reception'} floor plan`);
+  const floorFill = { pavers: 'url(#pavers)', tile: 'url(#tile)' }[SP().room.floor];
   let grid = '';
   for (let x = 10; x < w; x += 10) grid += `<line class="grid-line" x1="${x}" y1="0" x2="${x}" y2="${h}"/>`;
   for (let y = 10; y < h; y += 10) grid += `<line class="grid-line" x1="0" y1="${y}" x2="${w}" y2="${y}"/>`;
@@ -152,19 +190,25 @@ function planSVG(bg) {
       <pattern id="boards" width="2" height="${h}" patternUnits="userSpaceOnUse">
         <rect width="2" height="${h}" fill="#f4ead6"/><line x1="2" y1="0" x2="2" y2="${h}" stroke="#e6d6b6" stroke-width=".06"/>
       </pattern>
+      <pattern id="pavers" width="2" height="2" patternUnits="userSpaceOnUse">
+        <rect width="2" height="2" fill="#dfe3cf"/><rect x=".18" y=".18" width="1.64" height="1.64" rx=".2" fill="#eceadf"/><circle cx="1" cy="1" r=".35" fill="#cfd7b8"/>
+      </pattern>
+      <pattern id="tile" width="3" height="3" patternUnits="userSpaceOnUse">
+        <rect width="3" height="3" fill="#efe6d6"/><path d="M0 0H3V3" fill="none" stroke="#e0d3bc" stroke-width=".07"/>
+      </pattern>
       <clipPath id="roomClip"><rect x="0" y="0" width="${w}" height="${h}"/></clipPath>
     </defs>
     ${bg ? `<image class="bg" href="${bg}" x="${-w}" y="${-h * 0.5}" width="${w * 3}" height="${h * 2}" preserveAspectRatio="xMidYMid slice"/>` : ''}
     <rect class="tint" x="${-w}" y="${-h * 0.5}" width="${w * 3}" height="${h * 2}"/>
-    <rect class="floor" x="0" y="0" width="${w}" height="${h}"/>
+    <rect class="floor" x="0" y="0" width="${w}" height="${h}"${floorFill ? ` style="fill:${floorFill}"` : ''}/>
     ${grid}`;
   const fixedG = document.createElementNS(SVGNS, 'g');
   fixedG.classList.add('fixed');
   fixedG.innerHTML = fixedSVG();
   svg.appendChild(fixedG);
-  state.room.areas.filter((a) => a.id !== sel?.id).forEach((a) => svg.appendChild(areaSVG(a)));
-  state.tables.forEach((t, i) => svg.appendChild(tableSVG(t, mood, i)));
-  const selArea = state.room.areas.find((a) => a.id === sel?.id);
+  SP().room.areas.filter((a) => a.id !== sel?.id).forEach((a) => svg.appendChild(areaSVG(a)));
+  SP().tables.forEach((t, i) => svg.appendChild(tableSVG(t, mood, i)));
+  const selArea = SP().room.areas.find((a) => a.id === sel?.id);
   if (selArea) svg.appendChild(areaSVG(selArea));
   enterAnim = false;
   return svg;
@@ -218,7 +262,7 @@ function attachPointers(svg, { onTap, onMove, onDrop, onView }) {
     if (!drag) return;
     const p = pt(e.clientX, e.clientY);
     const snap = (v) => Math.round(v * 2) / 2;
-    const { w, h } = state.room;
+    const { w, h } = SP().room;
     const it = drag.item;
     if (drag.rotate) { // spin around the item's center, snapping to 15 degrees
       const cx = drag.kind === 'area' ? it.x + it.w / 2 : it.x, cy = drag.kind === 'area' ? it.y + it.h / 2 : it.y;
@@ -301,9 +345,9 @@ function tablePop(t) {
        ${rotateRow(t.rot || 0)}`;
   return `
     <div class="pop-head">
-      ${state.tables.length > 1 ? '<button class="pop-nav" data-nav="-1" aria-label="Previous table">‹</button>' : ''}
+      ${SP().tables.length > 1 ? '<button class="pop-nav" data-nav="-1" aria-label="Previous table">‹</button>' : ''}
       <label class="rename"><input class="pop-title" id="tName" value="${esc(t.name)}" aria-label="Table name" spellcheck="false"/><span aria-hidden="true">✎</span></label>
-      ${state.tables.length > 1 ? '<button class="pop-nav" data-nav="1" aria-label="Next table">›</button>' : ''}
+      ${SP().tables.length > 1 ? '<button class="pop-nav" data-nav="1" aria-label="Next table">›</button>' : ''}
       <button class="x" data-close aria-label="Close">×</button>
     </div>
     <div class="pop-count">${here.length} of ${total} seats</div>
@@ -327,6 +371,18 @@ function areaPop(a) {
     <div class="pop-ctl">${stepper('w', 'Width', a.w, 2, 40)}${stepper('h', 'Length', a.h, 2, 40)}${rotateRow(a.rot || 0)}</div>
     <p class="hint">Drag the corner dot to resize, the top knob to rotate</p>
     <button class="linklike danger" id="aDel">Remove</button>`;
+}
+
+/** Ceremony row or cocktail high-top: name, size, turn, remove — no guest seating outside the reception. */
+function itemPop(t) {
+  const row = t.shape === 'row';
+  return `
+    <div class="pop-head">
+      <label class="rename"><input class="pop-title" id="tName" value="${esc(t.name)}" aria-label="${row ? 'Row' : 'High-top'} name" spellcheck="false"/><span aria-hidden="true">✎</span></label>
+      <button class="x" data-close aria-label="Close">×</button>
+    </div>
+    <div class="pop-ctl">${stepper('seats', row ? 'Chairs' : 'Stools', t.seats, 1, row ? 16 : 8)}${row ? rotateRow(t.rot || 0) : ''}</div>
+    <button class="linklike danger" id="tDel">Remove</button>`;
 }
 
 /* ---------------- save / share the plan as a picture ---------------- */
@@ -421,27 +477,34 @@ function readImage(file) {
 
 /* ---------------- page ---------------- */
 export function renderSeating(root) {
-  const seated = state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length;
+  const rec = space === 'reception';
+  if (!rec) mode = 'plan'; // 3D is the ballroom only (for now)
+  const info = spaceInfo();
   root.innerHTML = `
     <div class="page-head">
       <div>
-        <h1>Reception</h1>
+        <h1 class="sr-only">${esc(info.label)}</h1>
+        <div class="spaces" role="tablist" aria-label="Spaces">
+          ${SPACES.map((x) => `<button role="tab" data-space="${x.id}" aria-selected="${x.id === space}" class="${x.id === space ? 'on' : ''}">${x.label}</button>`).join('')}
+          <span class="spaces-ink" aria-hidden="true"></span>
+        </div>
         <p class="lede" id="lede"></p>
       </div>
-      <div class="viewseg" role="tablist" aria-label="View">
+      ${rec ? `<div class="viewseg" role="tablist" aria-label="View">
         <button role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Floor plan</button>
         <button role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button>
-      </div>
+      </div>` : ''}
     </div>
     <div class="seat-layout${mode === 'plan' ? ' is-plan' : ''}">
       <div class="plan-col">
         <div class="card plan-card">
           <div class="plan-tools">
             ${mode === 'plan' ? `
-              <button class="tool" data-add="round">Round</button>
-              <button class="tool" data-add="rect">Rectangle</button>
+              ${info.add === 'row' ? '<button class="tool" data-add="row">Row</button>'
+                : info.add === 'high' ? '<button class="tool" data-add="high">High-top</button>'
+                : '<button class="tool" data-add="round">Round</button><button class="tool" data-add="rect">Rectangle</button>'}
               <span class="tool-wrap"><button class="tool" id="areaBtn" aria-expanded="false">Area</button>
-                <div class="chipmenu" id="areaMenu" hidden>${Object.entries(AREA_PRESETS).filter(([k]) => k !== 'dance' || !state.room.areas.some((a) => a.preset === 'dance')).map(([k, p]) => `<button data-preset="${k}">${k === 'custom' ? '+ Custom' : esc(p.label)}</button>`).join('')}</div>
+                <div class="chipmenu" id="areaMenu" hidden>${Object.entries(AREA_PRESETS).filter(([k]) => info.areas.includes(k)).filter(([k]) => !['dance', 'altar', 'aisle'].includes(k) || !SP().room.areas.some((a) => a.preset === k)).map(([k, p]) => `<button data-preset="${k}">${k === 'custom' ? '+ Custom' : esc(p.label)}</button>`).join('')}</div>
               </span>
               <span class="spacer"></span>
               <span class="zoom"><button class="tool icon" id="zOut" aria-label="Zoom out">−</button><button class="tool icon" id="zIn" aria-label="Zoom in">+</button><button class="tool" id="zFit">Fit</button></span>`
@@ -465,7 +528,7 @@ export function renderSeating(root) {
       </div>
       <aside class="side-panel">
         ${mode === '3d' ? moraisHTML() : ''}
-        <section class="card">
+        ${rec ? `<section class="card">
           <h3>Suggest a layout</h3>
           <div class="field-row">
             <label class="field">Guests<input class="input" id="sCount" type="number" min="2" max="300" value="${state.guestTarget}"/></label>
@@ -476,7 +539,7 @@ export function renderSeating(root) {
             <button class="btn moss sm" id="sGo">Suggest</button>
             <button class="btn line sm" id="sSeat">Auto-seat</button>
           </div>
-        </section>
+        </section>` : ''}
         <section class="card">
           <h3>Plan file</h3>
           <div class="btn-row">
@@ -491,7 +554,7 @@ export function renderSeating(root) {
   const host = root.querySelector('#planHost');
   const pop = root.querySelector('#pop');
   const wrap = root.querySelector('#stageWrap');
-  root.querySelector('#lede').textContent = `${seated} of ${going().length} seated · ${state.tables.length} tables`;
+  root.querySelector('#lede').textContent = spaceLede();
 
   document.querySelectorAll('.pop-backdrop').forEach((b) => b.remove());
   const backdrop = document.createElement('div');
@@ -506,6 +569,23 @@ export function renderSeating(root) {
   threeInst?.dispose(); threeInst = null;
   let three = null;
   if (mode === '3d') wireMorais(root, signal);
+
+  /* ---- spaces: ceremony · cocktail · reception ---- */
+  const tabs = root.querySelector('.spaces'), ink = tabs.querySelector('.spaces-ink');
+  const moveInk = (b) => { ink.style.setProperty('--x', b.offsetLeft + 'px'); ink.style.setProperty('--w', b.offsetWidth + 'px'); };
+  if (inkFrom) { // glide the underline from the tab that was just left
+    ink.style.transition = 'none'; ink.style.setProperty('--x', inkFrom.x + 'px'); ink.style.setProperty('--w', inkFrom.w + 'px');
+    void ink.offsetWidth; ink.style.transition = ''; inkFrom = null;
+  }
+  moveInk(tabs.querySelector('.on'));
+  document.fonts?.ready.then(() => tabs.isConnected && moveInk(tabs.querySelector('.on')));
+  tabs.querySelectorAll('[data-space]').forEach((b) => b.onclick = () => {
+    if (b.dataset.space === space) return;
+    space = b.dataset.space; sel = null; view = null; enterAnim = true; lastFilled.clear();
+    const was = tabs.querySelector('.on');
+    inkFrom = { x: was.offsetLeft, w: was.offsetWidth };
+    renderSeating(root);
+  });
 
   /* ---- view mode ---- */
   root.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => { if (mode !== b.dataset.mode) { mode = b.dataset.mode; sel = null; renderSeating(root); } });
@@ -543,9 +623,9 @@ export function renderSeating(root) {
   // Would this table sit on the stage, a door path, an area or another table?
   function collides(t) {
     const fp = footprint(t);
-    const others = state.tables.filter((o) => o.id !== t.id);
+    const others = SP().tables.filter((o) => o.id !== t.id);
     const me = { x1: t.x - fp.hw, x2: t.x + fp.hw, y1: t.y - fp.hh, y2: t.y + fp.hh };
-    return blockers(state.room, others, { areaPad: 0.5 }).some((z) => me.x1 < z.x2 - 0.5 && me.x2 > z.x1 + 0.5 && me.y1 < z.y2 - 0.5 && me.y2 > z.y1 + 0.5);
+    return blockers(SP().room, others, { areaPad: 0.5 }).some((z) => me.x1 < z.x2 - 0.5 && me.x2 > z.x1 + 0.5 && me.y1 < z.y2 - 0.5 && me.y2 > z.y1 + 0.5);
   }
 
   function placePop() {
@@ -566,12 +646,12 @@ export function renderSeating(root) {
   function openPop() {
     const item = findItem(sel);
     if (!item) return closePop();
-    pop.innerHTML = sel.kind === 'area' ? areaPop(item) : tablePop(item);
+    pop.innerHTML = sel.kind === 'area' ? areaPop(item) : rec ? tablePop(item) : itemPop(item);
     pop.hidden = false;
     backdrop.classList.add('on');
     if (popPinned?.id !== sel.id) { pop.classList.remove('in'); void pop.offsetWidth; pop.classList.add('in'); }
     placePop();
-    sel.kind === 'area' ? wireArea(item) : wireTable(item);
+    sel.kind === 'area' ? wireArea(item) : rec ? wireTable(item) : wireItem(item);
     // Phones: the sheet covers the bottom of the screen, so bring the item up into view
     if (matchMedia('(max-width: 760px)').matches) {
       const g = host.querySelector(`[data-id="${CSS.escape(sel.id)}"]`);
@@ -585,7 +665,7 @@ export function renderSeating(root) {
     if (!keepSel && sel) { sel = null; drawPlan(); }
   }
   const refresh = () => { commit({ silent: true }); drawPlan(); openPop(); lede(); };
-  const lede = () => { root.querySelector('#lede').textContent = `${state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length} of ${going().length} seated · ${state.tables.length} tables`; };
+  const lede = () => { root.querySelector('#lede').textContent = spaceLede(); };
 
   function wireRename(input, get, set) {
     const fallback = get();
@@ -636,7 +716,7 @@ export function renderSeating(root) {
     pop.querySelectorAll('[data-slot]').forEach((b) => b.onclick = () => openSlot(b));
     // ‹ › step through the tables; the popover glides over to the next one
     pop.querySelectorAll('[data-nav]').forEach((b) => b.onclick = () => {
-      const order = [...state.tables].sort((x, y) => (x.id === 'head' ? -1 : y.id === 'head' ? 1 : (x.o ?? 0) - (y.o ?? 0)));
+      const order = [...SP().tables].sort((x, y) => (x.id === 'head' ? -1 : y.id === 'head' ? 1 : (x.o ?? 0) - (y.o ?? 0)));
       const i = order.findIndex((x) => x.id === t.id);
       const next = order[(i + +b.dataset.nav + order.length) % order.length];
       sel = { kind: 'table', id: next.id };
@@ -649,11 +729,25 @@ export function renderSeating(root) {
     });
     const del = pop.querySelector('#tDel');
     if (del) del.onclick = () => {
-      sel = null;
-      undoable(`${/^\d+$/.test(t.name) ? 'Table ' + t.name : t.name} removed`, () => {
+      sel = null; closePop();
+      leave(host.querySelector(`.tbl[data-id="${CSS.escape(t.id)}"]`), () => undoable(`${/^\d+$/.test(t.name) ? 'Table ' + t.name : t.name} removed`, () => {
         state.guests.forEach((g) => { if (g.tableId === t.id) g.tableId = null; });
-        state.tables = state.tables.filter((x) => x.id !== t.id);
-      }, toast);
+        SP().tables = SP().tables.filter((x) => x.id !== t.id);
+      }, toast));
+    };
+    pop.querySelector('[data-close]').onclick = () => closePop();
+  }
+
+  function wireItem(t) {
+    wireRename(pop.querySelector('#tName'), () => t.name, (v) => { t.name = v; });
+    pop.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => {
+      t.seats = Math.max(1, Math.min(t.shape === 'row' ? 16 : 8, t.seats + +b.dataset.d));
+      refresh();
+    });
+    wireTurn(pop, t, refresh);
+    pop.querySelector('#tDel').onclick = () => {
+      sel = null; closePop();
+      leave(host.querySelector(`.tbl[data-id="${CSS.escape(t.id)}"]`), () => undoable(`${t.shape === 'row' ? 'Row' : 'High-top'} ${t.name} removed`, () => { SP().tables = SP().tables.filter((x) => x.id !== t.id); }, toast));
     };
     pop.querySelector('[data-close]').onclick = () => closePop();
   }
@@ -661,14 +755,14 @@ export function renderSeating(root) {
   function wireArea(a) {
     wireRename(pop.querySelector('#aName'), () => a.label, (v) => { a.label = v; });
     pop.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => {
-      const k = b.dataset.step, max = k === 'w' ? state.room.w - a.x : state.room.h - a.y;
+      const k = b.dataset.step, max = k === 'w' ? SP().room.w - a.x : SP().room.h - a.y;
       a[k] = Math.max(2, Math.min(max, a[k] + +b.dataset.d));
       refresh();
     });
     wireTurn(pop, a, refresh);
     pop.querySelector('#aDel').onclick = () => {
-      sel = null;
-      undoable(`${a.label} removed`, () => { state.room.areas = state.room.areas.filter((x) => x.id !== a.id); }, toast);
+      sel = null; closePop();
+      leave(host.querySelector(`.area[data-id="${CSS.escape(a.id)}"]`), () => undoable(`${a.label} removed`, () => { SP().room.areas = SP().room.areas.filter((x) => x.id !== a.id); }, toast));
     };
     pop.querySelector('[data-close]').onclick = () => closePop();
   }
@@ -708,12 +802,15 @@ export function renderSeating(root) {
     root.querySelector('#zFit').onclick = () => tweenTo(baseView());
 
     root.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
-      const round = b.dataset.add === 'round';
-      const n = state.tables.filter((t) => t.id !== 'head').length + 1;
+      const kind = b.dataset.add;
+      const n = SP().tables.filter((t) => t.id !== 'head').length + 1;
       const t = { id: uid(), name: String(n), rot: 0, o: Date.now(),
-        ...(round ? { shape: 'round', seats: 8 } : { shape: 'rect', sides: { top: 4, bottom: 4, left: 1, right: 1 } }) };
-      Object.assign(t, findFreeSpot(state.room, state.tables, t));
-      state.tables.push(t); sel = { kind: 'table', id: t.id };
+        ...(kind === 'round' ? { shape: 'round', seats: 8 }
+          : kind === 'row' ? { shape: 'row', seats: 5 }
+          : kind === 'high' ? { shape: 'round', seats: 4, high: true }
+          : { shape: 'rect', sides: { top: 4, bottom: 4, left: 1, right: 1 } }) };
+      Object.assign(t, findFreeSpot(SP().room, SP().tables, t));
+      SP().tables.push(t); sel = { kind: 'table', id: t.id };
       commit({ silent: true }); drawPlan(); openPop(); lede();
       pop.querySelector('#tName')?.select();
     });
@@ -723,10 +820,10 @@ export function renderSeating(root) {
     menu.querySelectorAll('[data-preset]').forEach((b) => b.onclick = () => {
       const p = AREA_PRESETS[b.dataset.preset];
       const a = { id: uid(), preset: b.dataset.preset, label: p.label, w: p.w, h: p.h, x: 0, y: 0 };
-      const spot = findFreeSpot(state.room, state.tables, { box: { hw: a.w / 2 + 1, hh: a.h / 2 + 1 } });
-      a.x = Math.max(0, Math.min(state.room.w - a.w, Math.round(spot.x - a.w / 2)));
-      a.y = Math.max(0, Math.min(state.room.h - a.h, Math.round(spot.y - a.h / 2)));
-      state.room.areas.push(a); sel = { kind: 'area', id: a.id };
+      const spot = findFreeSpot(SP().room, SP().tables, { box: { hw: a.w / 2 + 1, hh: a.h / 2 + 1 } });
+      a.x = Math.max(0, Math.min(SP().room.w - a.w, Math.round(spot.x - a.w / 2)));
+      a.y = Math.max(0, Math.min(SP().room.h - a.h, Math.round(spot.y - a.h / 2)));
+      SP().room.areas.push(a); sel = { kind: 'area', id: a.id };
       menu.hidden = true;
       commit({ silent: true }); drawPlan(); openPop();
       if (b.dataset.preset === 'custom') pop.querySelector('#aName')?.select();
@@ -739,7 +836,7 @@ export function renderSeating(root) {
         unseated: () => going().filter((g) => !g.tableId),
         // Seat someone from the 3D view (an existing unseated guest, or a new name)
         onSeat: (tableId, name) => {
-          const t = state.tables.find((x) => x.id === tableId);
+          const t = SP().tables.find((x) => x.id === tableId);
           if (!t || guestsAt(tableId).length >= seatCount(t)) { toast('Table is full'); return false; }
           let g = going().find((x) => !x.tableId && x.name.toLowerCase() === name.toLowerCase());
           if (!g) { g = { id: uid(), name, side: 'Both', rsvp: 'Invited', diet: '', tableId: null }; state.guests.push(g); }
@@ -785,39 +882,43 @@ export function renderSeating(root) {
     commit();
   };
   root.querySelectorAll('[data-unpin]').forEach((b) => b.onclick = () => {
-    undoable('Photo removed', () => { state.inspo = state.inspo.filter((p) => p.id !== b.dataset.unpin); }, toast);
+    leave(b.closest('figure'), () => undoable('Photo removed', () => { state.inspo = state.inspo.filter((p) => p.id !== b.dataset.unpin); }, toast));
   });
 
-  /* ---- suggest ---- */
+  /* ---- suggest (reception only) ---- */
+  let preview = () => {};
+  if (rec) {
   const count = root.querySelector('#sCount'), style = root.querySelector('#sStyle'), prev = root.querySelector('#sPreview');
   const plan = () => {
     const n = Math.max(2, +count.value || 2);
-    const head = state.tables.find((t) => t.id === 'head') || headTable();
-    const room = structuredClone(state.room);
+    const head = SP().tables.find((t) => t.id === 'head') || headTable();
+    const room = structuredClone(SP().room);
     // Family rows run the long way, so the dance floor moves toward the lounge end
     const dance = room.areas.find((a) => a.preset === 'dance');
     if (style.value === 'family' && dance) { dance.x = (room.w - dance.w) / 2; dance.y = room.h - (room.fixed.balcony?.depth || 0) - 10 - dance.h - 1; }
     if (style.value !== 'family' && dance) { dance.x = (room.w - dance.w) / 2; dance.y = 13; }
     return { n, head, room, s: suggestTables(room, n, style.value, head) };
   };
-  const preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b style="color:var(--wine)">only ${s.tables.length} fit</b>`}`; };
+  preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b style="color:var(--wine)">only ${s.tables.length} fit</b>`}`; };
   count.oninput = preview; style.onchange = preview;
   root.querySelector('#sGo').onclick = () => {
     const { n, head, room, s } = plan();
     sel = null; enterAnim = true; lastFilled.clear();
     undoable(s.fits ? `${s.tables.length} tables laid out` : `Only ${s.tables.length} of ${s.needed} tables fit`, () => {
       state.guestTarget = n; state.lastStyle = style.value;
-      state.room.areas = room.areas;
-      state.tables = [head, ...s.tables];
+      SP().room.areas = room.areas;
+      SP().tables = [head, ...s.tables];
       state.guests.forEach((g) => { if (g.party !== 'couple') g.tableId = null; });
-      autoSeat(state.guests, state.tables, { links: state.links || [] });
+      autoSeat(state.guests, SP().tables, { links: state.links || [] });
     }, toast);
   };
   root.querySelector('#sSeat').onclick = () => {
-    const r = autoSeat(state.guests, state.tables, { links: state.links || [] });
+    const r = autoSeat(state.guests, SP().tables, { links: state.links || [] });
     commit({ silent: true }); drawPlan(); lede();
     toast(r.seated || r.left ? `${r.seated} seated${r.left ? ` · ${r.left} need a seat` : ''}` : 'Everyone has a seat');
   };
+
+  }
 
   /* ---- plan file ---- */
   root.querySelector('#exportBtn').onclick = () => { exportJSON(); toast('Plan file downloaded'); };
@@ -836,7 +937,8 @@ export function renderSeating(root) {
   preview();
   // Draw once the soft venue photo is ready (cached after the first visit, so this is instant)
   if (mode === 'plan') {
-    if (bgCache !== undefined) { bg = bgCache; drawPlan(); }
+    if (!rec) drawPlan(); // the soft photo backdrop is the ballroom's
+    else if (bgCache !== undefined) { bg = bgCache; drawPlan(); }
     else blurredBallroom().then((d) => { bgCache = bg = d; drawPlan(); });
   }
 }
@@ -937,4 +1039,25 @@ function wireMorais(root, signal) {
     const dx = e.changedTouches[0].clientX - sx; sx = null;
     if (Math.abs(dx) > 50) { e.preventDefault(); step(dx < 0 ? 1 : -1); }
   });
+}
+
+/** QA-20: quick fade + shrink before something is removed; `done` then changes the plan (Undo re-enters normally). */
+function leave(el, done) {
+  if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) { done(); return; }
+  let target = el;
+  if (el instanceof SVGElement) {
+    // SVG groups carry their position in the transform attribute — animate a wrapper inside instead
+    const w = document.createElementNS(SVGNS, 'g');
+    while (el.firstChild) w.append(el.firstChild);
+    el.append(w);
+    w.style.transformBox = 'fill-box';
+    w.style.transformOrigin = 'center';
+    target = w;
+  } else el.style.transformOrigin = 'center';
+  el.style.pointerEvents = 'none';
+  const anim = target.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.82)' }], { duration: 200, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' });
+  let fired = false;
+  const go = () => { if (!fired) { fired = true; done(); } };
+  anim.onfinish = go;
+  setTimeout(go, 280); // in case animations are paused (background tab)
 }

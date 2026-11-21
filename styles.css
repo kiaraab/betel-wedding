@@ -1019,3 +1019,99 @@ body.locked .masthead, body.locked main, body.locked .foot { visibility: hidden;
 .gate-card button { margin-top: -54px; margin-left: 196px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--gold-2); color: var(--moss-900); font-size: 18px; cursor: pointer; }
 .gate.shake .gate-card input { animation: shake .4s; border-color: var(--wine-2); }
 @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+
+/* ---------- QA-19 phones: calmer header, compact guest controls, cards read as text (edit on tap) ---------- */
+table.guests td.c-meal .input::placeholder { color: transparent; transition: color .15s; }
+table.guests tr.row:hover td.c-meal .input::placeholder, table.guests td.c-meal .input:focus::placeholder { color: var(--ink-faint); }
+@media (max-width: 760px) {
+  /* header: names + countdown on one line, slim nav under */
+  .mast-inner { height: auto; padding: 10px 16px 0; row-gap: 2px; }
+  .masthead .brand { font-size: 20px; }
+  .masthead .countdown { padding: 3px 10px; font-size: 12.5px; }
+  .masthead .countdown b { font-size: 15px; }
+  .mainnav { gap: 0; margin: 0 -10px; }
+  .mainnav a { padding: 8px 10px 10px; font-size: 14px; }
+
+  /* controls above the first guest */
+  .page-head:has(.viewseg) { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; margin-bottom: 14px; }
+  .page-head:has(.viewseg) h1 { font-size: 28px; margin: 0; }
+  .page-head:has(.viewseg) .lede { margin: 2px 0 0; font-size: 13px; }
+  .page-head:has(.viewseg) .head-actions { flex-wrap: nowrap; gap: 6px; }
+  .page-head #csv { display: none; }
+  .guest-add { grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+  .guest-add .input { grid-column: auto; }
+  .guest-add .select { width: auto; field-sizing: content; padding-right: 28px; }
+  .guest-tools { margin: 10px 0 10px; gap: 8px; }
+
+  /* card: name + actions, then one quiet line of details; every value edits on tap */
+  table.guests tr.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px; padding: 10px 6px 10px 10px; }
+  table.guests tr.row td { display: block; }
+  table.guests tr.row td.c-name { order: 0; flex: 1 1 0; min-width: 0; }
+  table.guests tr.row td.row-actions { order: 1; flex: none; flex-direction: row; grid-row: auto; gap: 0; }
+  table.guests tr.row td:not(.c-name):not(.row-actions) { order: 2; display: flex; align-items: center; color: var(--ink-faint); font-size: 13.5px; }
+  table.guests tr.row td.c-side { margin-left: 0; }
+  table.guests tr.row td:not(.c-name):not(.row-actions):not(.c-side)::before { content: "·"; margin: 0 1px; color: var(--line-strong); }
+  table.guests tr.row td.c-table::before { content: "· " attr(data-t) !important; white-space: pre; }
+  table.guests tr.row .select, table.guests tr.row .input {
+    -webkit-appearance: none; appearance: none; background: transparent; border: 1px solid transparent; border-radius: 8px;
+    min-width: 0; width: auto; field-sizing: content; padding: 3px 5px; font-size: 13.5px; color: var(--ink-soft);
+    transition: border-color .15s, background-color .15s;
+  }
+  table.guests tr.row td.c-name .input { width: 100%; font-size: 16px; font-weight: 600; color: var(--ink); padding: 4px 5px; }
+  table.guests tr.row .select:focus, table.guests tr.row .input:focus { outline: none; border-color: var(--line-strong); background: #fff; }
+  table.guests tr.row td.c-meal .input::placeholder { color: var(--ink-faint); opacity: .7; }
+  table.guests tr.row td.c-meal .input { max-width: 120px; }
+  table.guests tr.row .rel-fixed { padding: 3px 5px; }
+  table.guests tr.row .more, table.guests tr.row .x { min-width: 40px; min-height: 40px; }
+}
+@media (max-width: 760px) {
+  table.guests tr.row .select.rsvp[data-v="Yes"] { color: var(--moss-700); font-weight: 600; }
+  table.guests tr.row .select.rsvp[data-v="Maybe"] { color: #8a6420; }
+  table.guests tr.row .select.rsvp[data-v="Declined"] { color: var(--ink-faint); }
+  table.guests tr.row .select.rel[data-v=""] { color: var(--ink-faint); }
+}
+@media (max-width: 760px) {
+  table.guests tr.row td.c-name { flex: 1 1 calc(100% - 96px); }
+  table.guests tr.row td.c-side { margin-left: 0; }
+}
+@media (max-width: 760px) { table.guests tr.row td.row-actions { min-width: 84px; justify-content: flex-end; } }
+.link-list li.old { animation: none; }
+
+/* =========================================================
+   REQ-14: Spaces — Ceremony · Cocktail · Reception
+   ========================================================= */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.spaces { position: relative; display: flex; gap: 22px; align-items: baseline; padding-bottom: 6px; }
+.spaces button {
+  border: 0; background: none; padding: 0; cursor: pointer; font-family: var(--display); font-weight: 400;
+  font-size: clamp(24px, 3vw, 34px); letter-spacing: -.015em; line-height: 1.15; color: var(--ink-faint); opacity: .55;
+  transition: color .3s var(--ease), opacity .3s var(--ease);
+}
+.spaces button:hover { opacity: .85; }
+.spaces button.on { color: var(--moss-900); opacity: 1; }
+.spaces button:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 4px; }
+.spaces-ink { position: absolute; left: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--wine); transform: translateX(var(--x, 0)); width: var(--w, 0); transition: transform .4s var(--ease), width .4s var(--ease); }
+@media (max-width: 760px) { .spaces { gap: 16px; } .spaces button { font-size: 23px; } }
+
+/* ceremony rows + cocktail high-tops */
+.plan .tbl .row-hit { fill: rgba(255, 253, 246, .55); stroke: var(--moss-300); stroke-width: .1; stroke-dasharray: .4 .3; }
+.plan .tbl:hover .row-hit { stroke: var(--wine-2); }
+.plan .tbl.sel .row-hit { stroke: var(--wine); stroke-width: .25; stroke-dasharray: none; }
+.plan .tbl .top.high { fill: #f3efe6; stroke: var(--ink-soft); }
+.plan .area.p-altar rect { fill: rgba(176, 141, 87, .16); stroke: var(--gold); }
+.plan .area.p-aisle rect { fill: rgba(255, 253, 246, .85); stroke: var(--line-strong); stroke-dasharray: .5 .4; }
+.plan .area.p-highbar rect { fill: rgba(107, 31, 42, .1); stroke: var(--wine-2); }
+
+/* courtyard + tasting-room features */
+.plan .dc-cypress { fill: #4d5e37; }
+.plan .dc-cypress-in { fill: #6c7f4b; }
+.plan .dc-hedge { fill: #6f8350; }
+.plan .dc-plinth { fill: #e7e1d3; stroke: #c9c0ac; stroke-width: .1; }
+.plan .dc-statue { fill: #fbf8f1; stroke: #b9ae95; stroke-width: .12; }
+.plan .dc-stone { fill: #9c958a; }
+.plan .dc-fire { fill: #c57a3a; opacity: .85; }
+.plan .dc-wine { fill: #5a2a2f; }
+.plan .dc-wine-cell { stroke: #3f1c20; stroke-width: .08; }
+.plan .dc-sunroom { fill: rgba(220, 230, 232, .55); stroke: var(--moss-700); stroke-width: .2; }
+.plan .dc-skylight { fill: none; stroke: #b9cdd2; stroke-width: .15; stroke-dasharray: .4 .3; }
+.plan .dc-bar { fill: #7a5232; }

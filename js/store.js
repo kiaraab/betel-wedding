@@ -1,4 +1,4 @@
-import { SEED_PEOPLE, SEED_ROLES, seedTables, seedRoom, seedInspoStrip, MILESTONES } from './data.js';
+import { SEED_PEOPLE, SEED_ROLES, seedTables, seedRoom, seedInspoStrip, MILESTONES, seedSpaces } from './data.js';
 
 const KEY = 'betel-carter-atelier';     // current plan lives here (versioned inside)
 const OLD_KEYS = ['betel-carter-atelier-v2'];
@@ -21,6 +21,7 @@ function fresh() {
     room: seedRoom(),
     mood: 'vineyard-dusk',
     milestones: structuredClone(MILESTONES), // sourced dates only; editable on the overview
+    spaces: seedSpaces(),    // ceremony + cocktail plans; the reception stays in room/tables (older plans get these on load)
     updatedAt: new Date().toISOString(),
   };
 }
@@ -51,7 +52,8 @@ function load() {
   const saved = readSaved();
   if (!saved || !saved.data || typeof saved.data !== 'object') return fresh();
   const { data } = saved;
-  if (data.version === VERSION) return { ...fresh(), ...data, room: { ...seedRoom(), ...data.room } };
+  // Doors/windows are venue facts (locked), so saved plans always pick up the latest survey of them
+  if (data.version === VERSION) return { ...fresh(), ...data, room: { ...seedRoom(), ...data.room, fixed: { ...seedRoom().fixed, ...data.room?.fixed, openings: seedRoom().fixed.openings } } };
   if (data.version < VERSION) {
     try { localStorage.setItem(`${KEY}-backup-v${data.version}`, saved.raw); } catch { /* storage full */ }
     return migrate(data);

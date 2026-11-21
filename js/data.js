@@ -140,11 +140,17 @@ export const BOARD_SECTIONS = [
    5 arched French doors on the far wall at the top, round tiered stage in the near-left corner.
    Shape and openings come from Morais' album + venue page; exact dimensions are still to be confirmed
    (~4,000 sq ft → 50 × 80 working size). Fixed features are locked; areas are Betel's to place. */
-const opening = (wall, at, kind, w = 4) => ({ wall, at, kind, w });
+const opening = (wall, at, kind, w = 4, style) => ({ wall, at, kind, w, ...(style && { style }) });
 export function seedRoom() {
   const w = 50, h = 80;
   const far = [1, 2, 3, 4, 5].map((i) => opening('top', (w * i) / 6, 'french'));
-  const sides = ['left', 'right'].flatMap((wall) => [12, 22, 32, 42, 52].map((y, i) => opening(wall, y, i % 2 ? 'french' : 'window', i % 2 ? 4 : 5)));
+  // Long walls as the balcony photo shows them (far → near). They differ: left has a square-top door + one
+  // Palladian window; right has a plain window, one arched French door, then two Palladian windows.
+  const sides = [
+    opening('left', 6, 'french', 3.5, 'rect'), opening('left', 26, 'window', 6, 'palladian'),
+    opening('right', 8, 'window', 4, 'plain'), opening('right', 20, 'french', 4.5),
+    opening('right', 34, 'window', 7, 'palladian'), opening('right', 50, 'window', 7, 'palladian'),
+  ];
   return {
     name: 'Ballroom', w, h,
     fixed: {
@@ -167,8 +173,73 @@ export const AREA_PRESETS = {
   coffee: { label: 'Coffee ceremony', w: 8, h: 8 },
   lounge: { label: 'Lounge', w: 12, h: 10 },
   booth: { label: 'Photo booth', w: 8, h: 8 },
+  altar: { label: 'Altar', w: 10, h: 5 },
+  aisle: { label: 'Aisle', w: 6, h: 20 },
+  highbar: { label: 'Bar', w: 8, h: 3 },
   custom: { label: 'New area', w: 8, h: 6 },
 };
+
+/* ---------- Spaces: ceremony → cocktail hour → reception ----------
+   Reception = the ballroom above (state.room / state.tables, unchanged so the 3D view, guests and auto-seat keep working).
+   Ceremony + cocktail live in state.spaces. Only VENUE.md facts are drawn; their sizes and outlines are NOT known —
+   every w/h/x/y below is an APPROXIMATE working layout until Morais shares a floor plan. */
+export const SPACES = [
+  { id: 'ceremony', label: 'Ceremony', areas: ['altar', 'aisle', 'escort', 'custom'], add: 'row' },
+  { id: 'cocktail', label: 'Cocktail', areas: ['lounge', 'highbar', 'escort', 'custom'], add: 'high' },
+  { id: 'reception', label: 'Reception', areas: ['dance', 'bar', 'dj', 'cake', 'gifts', 'escort', 'coffee', 'lounge', 'booth', 'custom'], add: 'tables' },
+];
+
+const sid = (p, i) => `${p}${i + 1}`;
+/** Ceremony rows for ~60: 6 rows a side × 5 chairs, 6 ft center aisle, 3 ft row pitch, altar at the far end. */
+function seedCeremony() {
+  const w = 40, h = 60, cx = w / 2, aisle = 6, perRow = 5, rows = 6, pitch = 3, y0 = 15;
+  const half = (perRow * 2) / 2 + 0.5;                 // row half-width (2 ft per chair) + a little air
+  const xs = [cx - aisle / 2 - half, cx + aisle / 2 + half];
+  const tables = [];
+  for (let r = 0; r < rows; r++) xs.forEach((x, k) => tables.push({ id: sid(k ? 'cr' : 'cl', r), name: `${r + 1}${k ? 'R' : 'L'}`, shape: 'row', seats: perRow, x, y: y0 + r * pitch, rot: 0, o: r * 2 + k }));
+  // Courtyard facts: grass-grid stone pavers, classical statues on plinths, clipped hedges, Italian cypress
+  const cypress = [8, 20, 32, 44, 52].flatMap((y) => [{ kind: 'cypress', x: 1, y: y - 1.2, w: 2.4, h: 2.4, block: true }, { kind: 'cypress', x: w - 3.4, y: y - 1.2, w: 2.4, h: 2.4, block: true }]);
+  return {
+    room: {
+      name: 'Garden courtyard', w, h, approx: true, floor: 'pavers',
+      fixed: {
+        openings: [{ wall: 'bottom', at: cx, kind: 'entrance', w: 6 }],
+        decor: [
+          { kind: 'hedge', x: 0, y: 0, w: 14, h: 2, block: true }, { kind: 'hedge', x: w - 14, y: 0, w: 14, h: 2, block: true },
+          { kind: 'statue', x: 4, y: 4, w: 2.4, h: 2.4, block: true }, { kind: 'statue', x: w - 6.4, y: 4, w: 2.4, h: 2.4, block: true },
+          ...cypress,
+        ],
+      },
+      areas: [
+        { id: 'altar', preset: 'altar', label: 'Altar', x: cx - 5, y: 4, w: 10, h: 5 },
+        { id: 'aisle', preset: 'aisle', label: 'Aisle', x: cx - aisle / 2, y: 11, w: aisle, h: 40 },
+      ],
+    },
+    tables,
+  };
+}
+/** Cocktail hour: high-tops + the leather lounge by the fireplace; carved bar in the octagonal sunroom. */
+function seedCocktail() {
+  const w = 44, h = 34;
+  const high = [[18.5, 8], [28, 8], [21, 19], [32, 19], [26, 29]].map(([x, y], i) => ({ id: sid('ht', i), name: String(i + 1), shape: 'round', seats: 4, high: true, x, y, rot: 0, o: i }));
+  return {
+    room: {
+      name: 'Tasting room', w, h, approx: true, floor: 'tile',
+      fixed: {
+        openings: [{ wall: 'bottom', at: 14, kind: 'entrance', w: 6 }],
+        decor: [
+          { kind: 'fireplace', x: 0, y: 11, w: 2.5, h: 8, block: true, label: 'Fireplace' },
+          { kind: 'wine', x: 6, y: 0, w: 22, h: 1.4, block: true },
+          { kind: 'sunroom', x: 32, y: 0, w: 12, h: 14, label: 'Bar' },
+          { kind: 'bar', x: 35, y: 3.5, w: 6, h: 2.2, block: true },
+        ],
+      },
+      areas: [{ id: 'lounge', preset: 'lounge', label: 'Lounge', x: 5, y: 9, w: 9, h: 10 }],
+    },
+    tables: high,
+  };
+}
+export const seedSpaces = () => ({ ceremony: seedCeremony(), cocktail: seedCocktail() });
 
 export const headTable = () => ({ id: 'head', name: 'Mr. & Mrs. Griffin', shape: 'rect', x: 25, y: 7, sides: { top: 2, bottom: 0, left: 0, right: 0 }, rot: 0, o: 0 });
 

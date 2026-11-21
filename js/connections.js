@@ -62,7 +62,10 @@ export function renderConnections(host) {
   const chooser = host.querySelector('.graph-choose');
   const wrap = host.querySelector('.graph-wrap');
 
-  // nodes (keep old positions; new people start near their side + relation)
+  // nodes (keep old positions; new people start near their side + relation, fanned out on a small ring per group)
+  const clusterOf = (g) => (g.party === 'couple' ? 'couple' : relationOf(g) + '|' + g.side);
+  const clusterSize = new Map(), clusterSeen = new Map();
+  guests.forEach((g) => { const c = clusterOf(g); clusterSize.set(c, (clusterSize.get(c) || 0) + 1); });
   const nodes = guests.map((g) => {
     let p = positions.get(g.id);
     const couple = g.party === 'couple';
@@ -70,7 +73,13 @@ export function renderConnections(host) {
     const dir = SIDE_DIR[g.side] ?? 0;
     // shared guests have no side to lean on: they sit below / above the couple instead
     const home = couple ? { x: W / 2 + (g.side === 'Carter' ? 26 : -26), y: H / 2 } : { x: W / 2 + dir * d * W * 0.46, y: H / 2 + (dir ? dy : (dy < 0 ? -0.2 - d * 0.2 : 0.16 + d * 0.25)) * H };
-    if (!p) { p = { x: home.x + (Math.random() - 0.5) * 60, y: home.y + (Math.random() - 0.5) * 60, vx: 0, vy: 0 }; positions.set(g.id, p); }
+    if (!p) {
+      const c = clusterOf(g), k = clusterSize.get(c), i = clusterSeen.get(c) || 0;
+      clusterSeen.set(c, i + 1);
+      const r = k > 1 ? Math.max(36, (42 * k) / (2 * Math.PI)) : 0, a = (i / k) * Math.PI * 2 - Math.PI / 2;
+      p = { x: Math.max(24, Math.min(W - 24, home.x + Math.cos(a) * r)), y: Math.max(24, Math.min(H - 34, home.y + Math.sin(a) * r)), vx: 0, vy: 0 };
+      positions.set(g.id, p);
+    }
     return { g, p, couple, home, rel: couple ? '' : relationOf(g) };
   });
   const byId = new Map(nodes.map((n) => [n.g.id, n]));
@@ -81,7 +90,12 @@ export function renderConnections(host) {
   const nodeLayer = document.createElementNS(SVGNS, 'g');
   svg.append(edgeLayer, nodeLayer);
   let picked = null;
+  // Built once; later calls only update classes, so a tap or drop never re-inserts (and re-fades) the bubbles
   function drawNodes() {
+    if (nodeLayer.firstElementChild) {
+      nodeLayer.querySelectorAll('.node').forEach((el) => el.classList.toggle('picked', el.dataset.id === picked));
+      return;
+    }
     nodeLayer.innerHTML = nodes.map((n, i) => `
       <g class="node${picked === n.g.id ? ' picked' : ''}${n.couple ? ' couple' : ''} rel-${relKey(n.rel)}" data-id="${n.g.id}" style="animation-delay:${Math.min(i, 40) * 15}ms">
         ${n.rel ? `<circle class="ring" r="${n.couple ? 25 : 20}"/>` : ''}
@@ -100,9 +114,10 @@ export function renderConnections(host) {
     const list = host.querySelector('.link-list');
     if (!list) return;
     const ls = edges();
+    const listed = new Set([...list.querySelectorAll('[data-k]')].map((li) => li.dataset.k));
     const first = (id) => byId.get(id).g.name.split(' ')[0];
     list.innerHTML = ls.length
-      ? ls.map((l, i) => `<li><span class="dot-${l.type}"></span>${esc(first(l.a))} &amp; ${esc(first(l.b))}<em>${l.type === 'together' ? 'together' : 'apart'}</em><button class="x" data-unlink="${i}" aria-label="Remove link">×</button></li>`).join('')
+      ? ls.map((l, i) => `<li data-k="${key(l.a, l.b)}" class="${listed.has(key(l.a, l.b)) ? 'old' : ''}"><span class="dot-${l.type}"></span>${esc(first(l.a))} &amp; ${esc(first(l.b))}<em>${l.type === 'together' ? 'together' : 'apart'}</em><button class="x" data-unlink="${i}" aria-label="Remove link">×</button></li>`).join('')
       : '<li class="empty">No links yet</li>';
     list.querySelectorAll('[data-unlink]').forEach((b) => b.onclick = () => {
       const l = ls[+b.dataset.unlink];

@@ -2,11 +2,53 @@
 // Loaded on demand (three.js comes from a CDN via the import map in index.html).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { seatCount, roundRadius, rectDims, chairPositions, openingRect } from './layout.js';
+import { seatCount, roundRadius, rectDims, chairPositions } from './layout.js';
 
-const WALL_H = 14;
+const WALL_H = 24;     // two-story ballroom; the balcony slab stays at ~11 ft
 const _v = new THREE.Vector3();
 let allLabels = [];
+
+/** Shimmery gold-taupe wall finish: soft mottling + tiny bright flecks (one small canvas, tiled). */
+function wallTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#cdbc96'; g.fillRect(0, 0, 256, 256);
+  for (let n = 0; n < 900; n++) {
+    const r = 2 + Math.random() * 7, x = Math.random() * 256, y = Math.random() * 256;
+    g.fillStyle = Math.random() < 0.5 ? `rgba(120,98,62,${Math.random() * 0.12})` : `rgba(236,220,180,${Math.random() * 0.14})`;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  for (let n = 0; n < 2200; n++) { g.fillStyle = `rgba(255,240,200,${0.15 + Math.random() * 0.35})`; g.fillRect(Math.random() * 256, Math.random() * 256, 1, 1); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Frieze under the crown molding: interlocking gold circles on cream. */
+function friezeTexture() {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 32;
+  const g = c.getContext('2d');
+  g.fillStyle = '#efe6cf'; g.fillRect(0, 0, 128, 32);
+  g.strokeStyle = '#b8924f'; g.lineWidth = 2.2;
+  for (let x = 0; x <= 128; x += 32) { g.beginPath(); g.arc(x, 16, 12, 0, Math.PI * 2); g.stroke(); }
+  for (let x = 16; x <= 128; x += 32) { g.beginPath(); g.arc(x, 16, 12, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = '#c9a45c'; g.fillRect(0, 0, 128, 2); g.fillRect(0, 30, 128, 2);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** One window pane with its white muntin border; tiled in feet so every opening gets an even grid. */
+function paneTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 64); grd.addColorStop(0, '#bcd3d6'); grd.addColorStop(1, '#93b08f');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 64, 6); g.fillRect(0, 0, 6, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 function woodTexture() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
@@ -92,10 +134,12 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
   scene.add(floor);
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: '#cdbd98', roughness: 0.9, side: THREE.DoubleSide });
+  // Shimmery gold-taupe walls (a touch of metalness catches the light)
+  const wallTex = wallTexture();
+  const wallMatFor = (len, height) => { const t = wallTex.clone(); t.repeat.set(len / 9, height / 9); t.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: t, color: '#fff6e2', roughness: 0.6, metalness: 0.06, side: THREE.DoubleSide }); };
   const lowWall = new THREE.MeshStandardMaterial({ color: '#cdbd98', roughness: 0.9, transparent: true, opacity: 0.35 });
-  const wall = (len, x, z, rotY, height = WALL_H, mat = wallMat) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(len, height, 0.6), mat);
+  const wall = (len, x, z, rotY, height = WALL_H, mat) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(len, height, 0.6), mat || wallMatFor(len, height));
     m.position.set(x, height / 2, z); m.rotation.y = rotY; m.receiveShadow = true;
     scene.add(m);
   };
@@ -103,27 +147,82 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   wall(h, -w / 2, 0, Math.PI / 2);                // left
   wall(h, w / 2, 0, Math.PI / 2);                 // right
   wall(w, 0, h / 2, 0, 3, lowWall);               // near wall cut away so you can see in
-  // Coffered-style ceiling, one-sided so it disappears when you look down from above
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: '#f3ead6', roughness: 0.95 }));
-  ceiling.rotation.x = Math.PI / 2; ceiling.position.y = WALL_H;
-  scene.add(ceiling);
 
-  /* ---- arched doors + windows (glow like daylight; dusk at night) ---- */
-  const glassMat = new THREE.MeshStandardMaterial({ color: '#fdf6e3', emissive: '#fff4d6', emissiveIntensity: 1.1, roughness: 0.2 });
-  const frameMat = new THREE.MeshStandardMaterial({ color: '#fbf8f0', roughness: 0.6 });
+  /* ---- ceiling: cream coffers, crown molding, gold circle frieze. Hidden when the camera is above it. ---- */
+  const ceilingG = new THREE.Group();
+  scene.add(ceilingG);
+  // the ceiling only gets bounce light, so it carries a soft glow of its own to read cream like the photo
+  const creamMat = new THREE.MeshStandardMaterial({ color: '#f4ecd9', roughness: 0.9, emissive: '#e9dfc6', emissiveIntensity: 0.45 });
+  const moldMat = new THREE.MeshStandardMaterial({ color: '#fbf6ea', roughness: 0.7, emissive: '#f1e8d2', emissiveIntensity: 0.5 });
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(w, h), creamMat);
+  ceiling.rotation.x = Math.PI / 2; ceiling.position.y = WALL_H;
+  ceilingG.add(ceiling);
+  const BEAM_D = 1.7, BEAM_W = 2.2;
+  const beam = (lenX, lenZ, x, z) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(lenX, BEAM_D, lenZ), creamMat);
+    b.position.set(x, WALL_H - BEAM_D / 2, z); ceilingG.add(b);
+    // a slim molding lip under each beam edge
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(lenX + (lenX > lenZ ? 0 : 0.5), 0.25, lenZ + (lenZ > lenX ? 0 : 0.5)), moldMat);
+    lip.position.set(x, WALL_H - BEAM_D - 0.12, z); ceilingG.add(lip);
+  };
+  beam(BEAM_W, h, 0, 0);                                         // one long beam down the middle
+  [22, 42, 62].forEach((y) => beam(w, BEAM_W, 0, Z(y)));          // cross beams → big coffers
+  // crown molding (stepped cornice) around the walls
+  [[w, 1.6, 0, -h / 2 + 0.8], [1.6, h, -w / 2 + 0.8, 0], [1.6, h, w / 2 - 0.8, 0], [w, 1.6, 0, h / 2 - 0.8]].forEach(([lx, lz, x, z]) => {
+    const c1 = new THREE.Mesh(new THREE.BoxGeometry(lx, 1.1, lz), moldMat); c1.position.set(x, WALL_H - 0.55, z); ceilingG.add(c1);
+  });
+  [[w, 0.8, 0, -h / 2 + 0.4], [0.8, h, -w / 2 + 0.4, 0], [0.8, h, w / 2 - 0.4, 0]].forEach(([lx, lz, x, z]) => {
+    const c2 = new THREE.Mesh(new THREE.BoxGeometry(lx, 0.5, lz), moldMat); c2.position.set(x, WALL_H - 1.35, z); ceilingG.add(c2);
+  });
+  // gold circle frieze band just under the cornice (far + both long walls)
+  const friezeTex = friezeTexture();
+  const FRIEZE_H = 1.3, fy = WALL_H - 1.6 - FRIEZE_H / 2;
+  [[w, 0, -h / 2 + 0.32, 0], [h, -w / 2 + 0.32, 0, Math.PI / 2], [h, w / 2 - 0.32, 0, -Math.PI / 2]].forEach(([len, x, z, ry]) => {
+    const t = friezeTex.clone(); t.repeat.set(len / (FRIEZE_H * 4), 1); t.needsUpdate = true;
+    const band = new THREE.Mesh(new THREE.PlaneGeometry(len, FRIEZE_H), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissiveMap: t, emissive: '#ffffff', emissiveIntensity: 0.35 }));
+    band.position.set(x, fy, z); band.rotation.y = ry; ceilingG.add(band);
+  });
+
+  /* ---- doors + windows, as the photo shows them: arched French doors, Palladian windows, plain windows.
+         Glass is a tiled pane texture (white muntin grid) that glows like daylight, dusk at night. ---- */
+  const paneTex = paneTexture();
+  const frameMat = new THREE.MeshStandardMaterial({ color: '#fbf8f0', roughness: 0.55 });
+  const glassMats = [];
+  const glassFor = (cols, ow, rows, rectH) => {
+    const t = paneTex.clone();
+    // ShapeGeometry UVs are in feet: one pane = ow/cols wide, rectH/rows tall, grid centered on the opening
+    t.repeat.set(cols / ow, rows / rectH); t.offset.set(cols / 2, 0); t.needsUpdate = true;
+    const m = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, color: '#ffffff', emissive: '#fff4d6', emissiveIntensity: 0.55, roughness: 0.25 });
+    glassMats.push(m);
+    return m;
+  };
+  const rectShape = (ow, oh) => { const s = new THREE.Shape(); s.moveTo(-ow / 2, 0); s.lineTo(ow / 2, 0); s.lineTo(ow / 2, oh); s.lineTo(-ow / 2, oh); s.lineTo(-ow / 2, 0); return s; };
+  const bar = (grp, bw, bh, x, y) => { const b = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.12), frameMat); b.position.set(x, y, 0.08); grp.add(b); };
   fixed.openings.forEach((o) => {
     if (o.wall === 'bottom') return; // entrance sits under the balcony (cut-away wall)
-    const isWin = o.kind === 'window';
-    const ow = o.w, oh = isWin ? 6.5 : 7.5, sill = isWin ? 2.5 : 0;
-    const frame = new THREE.Mesh(new THREE.ShapeGeometry(archShape(ow + 0.6, oh)), frameMat);
-    const glass = new THREE.Mesh(new THREE.ShapeGeometry(archShape(ow, oh)), glassMat);
-    const grp = new THREE.Group(); grp.add(frame, glass);
-    frame.position.z = 0.01; glass.position.z = 0.03;
-    const r = openingRect(state.room, o, 0);
+    const ow = o.w;
+    let sill, rectH, arched, cols, rows;
+    if (o.kind === 'window' && o.style === 'palladian') { sill = 3; rectH = 8.5; arched = true; cols = 4; rows = 5; }
+    else if (o.kind === 'window') { sill = 2.5; rectH = 8.5; arched = false; cols = 3; rows = 5; }
+    else if (o.style === 'rect') { sill = 0; rectH = 9.5; arched = false; cols = 2; rows = 6; }
+    else { sill = 0; rectH = 8; arched = true; cols = 4; rows = 5; }              // arched French door
+    const grp = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.ShapeGeometry(arched ? archShape(ow + 0.8, rectH) : rectShape(ow + 0.8, rectH + 0.4)), frameMat);
+    const glass = new THREE.Mesh(new THREE.ShapeGeometry(arched ? archShape(ow, rectH) : rectShape(ow, rectH)), glassFor(cols, ow, rows, rectH));
+    frame.position.set(0, arched ? 0 : -0.2, 0.01); glass.position.z = 0.03;
+    grp.add(frame, glass);
+    if (arched) {
+      bar(grp, ow, 0.32, 0, rectH);                                   // transom under the fanlight
+      for (const a of [Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4]) { // fanlight spokes
+        const s = new THREE.Mesh(new THREE.BoxGeometry(0.1, ow / 2, 0.1), frameMat);
+        s.position.set(Math.cos(a) * ow / 4, rectH + Math.sin(a) * ow / 4, 0.08); s.rotation.z = a - Math.PI / 2; grp.add(s);
+      }
+    }
+    if (o.kind !== 'window') bar(grp, 0.22, rectH, 0, rectH / 2);     // doors: meeting stile between the two leaves
+    else { const sillB = new THREE.Mesh(new THREE.BoxGeometry(ow + 1.1, 0.25, 0.5), frameMat); sillB.position.set(0, -0.15, 0.15); grp.add(sillB); }
     if (o.wall === 'top') { grp.position.set(X(o.at), sill, Z(0) + 0.35); }
     if (o.wall === 'left') { grp.position.set(X(0) + 0.35, sill, Z(o.at)); grp.rotation.y = Math.PI / 2; }
     if (o.wall === 'right') { grp.position.set(X(w) - 0.35, sill, Z(o.at)); grp.rotation.y = -Math.PI / 2; }
-    void r;
     scene.add(grp);
   });
 
@@ -162,27 +261,38 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   }
 
   /* ---- chandeliers ---- */
+  // 6 gold tiered chandeliers with amber shades, two rows down the length (one per coffer);
+  // only 4 point lights shared between them, to stay light on phones
   const lamps = [];
-  const goldMat = new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.7, roughness: 0.3 });
-  const glowMat = new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb860', emissiveIntensity: 0.6 });
-  for (let i = 0; i < 4; i++) {
-    const z = Z(10 + i * ((h - 22) / 3));
+  const goldMat = new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.75, roughness: 0.3 });
+  const glowMat = new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb860', emissiveIntensity: 0.6, side: THREE.DoubleSide });
+  const shadeGeo = new THREE.CylinderGeometry(0.2, 0.32, 0.5, 12, 1, true);
+  const HANG = 13.5; // chandelier body height (ft)
+  const chandelier = (x, z) => {
     const ch = new THREE.Group();
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.08, 8, 32), goldMat); ring.rotation.x = Math.PI / 2;
-    ch.add(ring);
-    for (let k = 0; k < 8; k++) {
-      const a = (k / 8) * Math.PI * 2;
-      const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.45, 12), glowMat);
-      shade.position.set(Math.cos(a) * 1.6, 0.3, Math.sin(a) * 1.6); ch.add(shade);
-    }
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, WALL_H - 10.5), goldMat); stem.position.y = (WALL_H - 10.5) / 2; ch.add(stem);
-    ch.position.set(0, 10.5, z);
+    [[1.9, 0, 9], [1.25, 0.9, 7], [0.6, 1.75, 5]].forEach(([r, y, n]) => {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.07, 6, 28), goldMat); ring.rotation.x = Math.PI / 2; ring.position.y = y; ch.add(ring);
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2 + y;
+        const shade = new THREE.Mesh(shadeGeo, glowMat); shade.position.set(Math.cos(a) * r, y + 0.35, Math.sin(a) * r); ch.add(shade);
+      }
+    });
+    const column = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 2.6, 10), goldMat); column.position.y = 0.9; ch.add(column);
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.25, 10, 8), goldMat); drop.position.y = -0.5; ch.add(drop);
+    const chainLen = WALL_H - HANG - 2.2;
+    // chain + ceiling rose belong to the ceiling, so they vanish with it when you look down from above
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, chainLen), goldMat); chain.position.set(x, HANG + 2.2 + chainLen / 2, z); ceilingG.add(chain);
+    const rose = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.8, 0.2, 24), moldMat); rose.position.set(x, WALL_H - 0.1, z); ceilingG.add(rose);
+    ch.position.set(x, HANG, z);
     scene.add(ch);
-    const pl = new THREE.PointLight('#ffc27a', 0, 34, 1.4);
-    pl.position.set(0, 9.6, z);
+  };
+  [11, 32, 52].forEach((y) => [-w / 6, w / 6].forEach((x) => chandelier(x, Z(y))));
+  [11, 25, 39, 53].forEach((y) => {
+    const pl = new THREE.PointLight('#ffc27a', 0, 46, 1.3);
+    pl.position.set(0, HANG - 1.5, Z(y));
     scene.add(pl);
     lamps.push(pl);
-  }
+  });
 
   /* ---- tables + chairs ---- */
   const cloth = new THREE.MeshStandardMaterial({ color: '#f5efe2', roughness: 0.85 });
@@ -299,12 +409,12 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   const applyLight = (k) => {
     hemi.intensity = 1.3 - 1.12 * k;
     sun.intensity = 1.6 * (1 - k);
-    lamps.forEach((l) => { l.intensity = 90 * k; });
+    lamps.forEach((l) => { l.intensity = 150 * k; });
     glowMat.emissiveIntensity = 0.6 + 2.4 * k;
     flameMat.emissiveIntensity = 0.4 + 3.2 * k;
     danceMat.emissiveIntensity = 0.05 + 0.5 * k;
-    glassMat.emissive.copy(dayGlass).lerp(duskGlass, k);
-    glassMat.emissiveIntensity = 1.1 - 0.75 * k;
+    creamMat.emissiveIntensity = 0.45 * (1 - 0.75 * k); moldMat.emissiveIntensity = 0.5 * (1 - 0.75 * k);
+    glassMats.forEach((m) => { m.emissive.copy(dayGlass).lerp(duskGlass, k); m.emissiveIntensity = 0.55 - 0.35 * k; m.color.setScalar(1 - 0.6 * k); });
     scene.background.copy(dayBg).lerp(nightBg, k);
     renderer.toneMappingExposure = 1 - 0.1 * k;
   };
@@ -468,6 +578,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
       camera.lookAt(camera.position.x + fx * Math.cos(pitch), 5.5 + Math.sin(pitch) * 1, camera.position.z + fz * Math.cos(pitch));
     }
     popChairs.forEach((p) => { p.t += dt * 4; p.ch.scale.setScalar(1 + Math.max(0, 0.25 * (1 - p.t))); });
+    // the ceiling only exists from below: looking down from above you see straight into the room
+    ceilingG.visible = camera.position.y < WALL_H - 1.5;
     if (walking && !flight) { /* camera already aimed */ }
     else if (!tour) controls.update();
     else camera.lookAt(controls.target);
