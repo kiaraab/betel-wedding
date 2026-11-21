@@ -141,9 +141,10 @@ function overview() {
           <h1 class="banner-names">Betel &amp; Carter</h1>
           <p class="banner-script">are getting married</p>
           <p class="banner-date">June 17, 2027 · Morais Vineyards</p>
+          <p class="banner-made">Made for Betel by Kiara · Layout &amp; Website</p>
           <p class="banner-count"><b class="countup" data-to="${days}">0</b> days to go</p>
         </div>
-        <img class="arch-photo banner-arch" src="${WEDDING.heroImage}" alt="Betel and Carter" />
+        <div class="lace-photo"><img src="${WEDDING.heroImage}" alt="Betel and Carter" /></div>
       </section>
 
       <div class="ov-side">
@@ -259,19 +260,27 @@ function matchesFilter(p) {
   return kind === 'st' ? rs.some((r) => statusKey(r.status) === val) : rs.some((r) => r.title === val);
 }
 
+/* order the grid so pink / burgundy / green alternate instead of sitting in blocks; uncoloured cards go last */
+function mixColors(list) {
+  const by = { pink: [], burgundy: [], green: [], none: [] };
+  list.forEach((p) => by[colorOf(p)].push(p));
+  const out = [];
+  while (by.pink.length || by.burgundy.length || by.green.length) ['burgundy', 'pink', 'green'].forEach((k) => { if (by[k].length) out.push(by[k].shift()); });
+  return [...out, ...by.none];
+}
+
 function team() {
   const titles = [...new Set(state.roles.map((r) => r.title))].sort((a, b) => a.localeCompare(b));
-  const people = state.people.filter(matchesFilter);
+  const people = mixColors(state.people.filter(matchesFilter));
   view.innerHTML = `
     <div class="page-head team-head">
       <h1>Team</h1>
-      <div class="st-legend">${STATUSES.map((st) => `<span class="${statusKey(st)}"><i></i>${st} <b>${state.roles.filter((r) => r.status === st).length}</b></span>`).join('')}</div>
-      <label class="tf-select"><span class="sr-only">Show</span>
-        <select id="teamFilter">
-          <option value="all">Everyone</option>
-          <optgroup label="Status">${STATUSES.map((s) => `<option value="st:${statusKey(s)}">${s}</option>`).join('')}</optgroup>
-          <optgroup label="Role">${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</optgroup>
-        </select>
+      <div class="st-tabs" role="tablist" aria-label="Filter by status">
+        <button role="tab" class="${teamFilter === 'all' ? 'on' : ''}" data-f="all"><b>${state.people.length}</b><span>Everyone</span></button>
+        ${STATUSES.map((st) => `<button role="tab" class="${statusKey(st)}${teamFilter === 'st:' + statusKey(st) ? ' on' : ''}" data-f="st:${statusKey(st)}"><b>${state.roles.filter((r) => r.status === st).length}</b><span>${st}</span></button>`).join('')}
+      </div>
+      <label class="tf-select"><span class="sr-only">Role</span>
+        <select id="teamFilter"><option value="all">All roles</option>${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</select>
       </label>
     </div>
     <div class="tgrid">
@@ -280,9 +289,9 @@ function team() {
     </div>
     ${people.length ? '' : '<p class="tf-none">No one matches.</p>'}`;
   const sel = view.querySelector('#teamFilter');
-  sel.value = teamFilter;
-  if (sel.value !== teamFilter) { teamFilter = 'all'; sel.value = 'all'; }
+  sel.value = teamFilter.startsWith('role:') ? teamFilter : 'all';
   sel.onchange = () => { teamFilter = sel.value; team(); };
+  view.querySelectorAll('.st-tabs [data-f]').forEach((b) => b.onclick = () => { teamFilter = teamFilter === b.dataset.f ? 'all' : b.dataset.f; team(); });
 
   const P = (id) => state.people.find((p) => p.id === id);
   // Status cycles in place (no re-render); legend counts follow
@@ -293,7 +302,7 @@ function team() {
     r.status = STATUSES[(STATUSES.indexOf(r.status) + 1) % STATUSES.length];
     const st = r.status;
     view.querySelectorAll(`.stbtn[data-role="${CSS.escape(rid)}"]`).forEach((o) => { o.className = 'stbtn ' + statusKey(st); o.querySelector('span').textContent = st; o.setAttribute('aria-label', `Status: ${st}. Click to change`); o.closest('.tc-role').dataset.status = statusKey(st); });
-    view.querySelectorAll('.st-legend span').forEach((sp, i) => { sp.querySelector('b').textContent = state.roles.filter((x) => x.status === STATUSES[i]).length; });
+    view.querySelectorAll('.st-tabs [data-f^="st:"]').forEach((sp, i) => { sp.querySelector('b').textContent = state.roles.filter((x) => x.status === STATUSES[i]).length; });
     commit({ silent: true });
   });
   view.querySelectorAll('[data-linkrole]').forEach((sel) => sel.onchange = () => {
@@ -468,23 +477,22 @@ function guests() {
     <div id="pasteHost"></div>
 
     <div class="guest-tools">
-      <input class="input search" id="gSearch" type="search" placeholder="Search" value="${esc(guestQuery)}"/>
       ${guestFilterMenu()}
     </div>
 
     <section class="card flush">
-      ${list.length ? `<div class="table-wrap"><table class="guests">
+      ${list.length ? `<div class="table-wrap"><table class="guests"><colgroup><col class="w-name"><col class="w-side"><col class="w-rel"><col class="w-rsvp"><col class="w-meal"><col class="w-table"><col class="w-act"></colgroup>
         <thead><tr><th>Name</th><th>Side</th><th>Relation</th><th>RSVP</th><th>Meal</th><th>Table</th><th><span class="sr">Details</span></th></tr></thead>
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
-            <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/>${needsAddress(g) ? `<button class="need-addr" data-open="${g.id}" title="Add their address">Need address</button>` : ''}</div></td>
+            <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/></div></td>
             <td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
             <td class="rel-td">${relCell(g)}</td>
             <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
             <td class="c-meal"><select class="select" data-k="meal" data-v="${esc(g.meal || '')}" aria-label="Meal"><option value="">—</option>${[...MEALS, ...(g.meal && !MEALS.includes(g.meal) ? [g.meal] : [])].map((m) => `<option ${m === g.meal ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td>
             <td class="c-table" data-t="${tableWord(g.tableId)}"><select class="select" data-k="tableId" aria-label="Table">${tableOpts(g.tableId)}</select></td>
             <td class="row-actions">
-              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details" aria-label="Address & details for ${esc(g.name)}">${needsAddress(g) ? "Add address" : "Details"}</button>
+              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details" aria-label="Address & details for ${esc(g.name)}">Details</button>
               ${g.party === 'couple' ? '' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
             </td>
           </tr>
@@ -497,6 +505,8 @@ function guests() {
   view.querySelector('#csv').onclick = () => guestsCSV();
   wireGuestViewToggle();
   const gForm = view.querySelector('#gForm');
+  const typing = () => gForm.classList.toggle('typing', !!gForm.name.value.trim());
+  gForm.name.addEventListener('input', typing);
   // a multi-name paste into "Add guests" opens the list preview instead of adding blindly
   const pasteHost = view.querySelector('#pasteHost');
   const drawPaste = () => {
@@ -523,8 +533,6 @@ function guests() {
     add(n, gForm.side.value); commit();
     view.querySelector('#gForm [name=name]').focus();
   };
-  const search = view.querySelector('#gSearch');
-  search.oninput = () => { guestQuery = search.value; guests(); const s = view.querySelector('#gSearch'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); };
   const wireFilter = () => {
     const gf = view.querySelector('#gFilter');
     gf.querySelector('.gf-btn').onclick = () => { const o = gf.classList.toggle('open'); gf.querySelector('.gf-btn').setAttribute('aria-expanded', o); };

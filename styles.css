@@ -2130,3 +2130,53 @@ table.guests td { border-bottom: 1px solid var(--line); }
 .tc-role { align-items: flex-start; }
 .tc-link, .stbtn { margin-top: 1px; }
 .tc-roles { overflow-y: visible; }
+
+/* =========================================================
+   Round 5b — ref-site type, greenery header, burgundy footer, lace photo, team tiles, guests table
+   ========================================================= */
+:root { --script: "Pinyon Script", "Snell Roundhand", cursive; --leaf: #56694b; --leaf-2: #6b7f5e; }
+/* type: spaced capitals for display, script for page titles (like her reference sites) */
+h1 { font-family: var(--script); font-weight: 400; font-size: 40px; letter-spacing: 0; color: var(--wine); }
+.team-head h1 { font-size: 40px; }
+h2, h3, .masthead .brand, .banner-names { text-transform: uppercase; letter-spacing: .14em; font-weight: 500; }
+.masthead .brand { font-size: 17px; }
+.banner-names { font-size: clamp(30px, 4vw, 52px); }
+.banner-script { font-family: var(--script); text-transform: none; letter-spacing: 0; font-size: 30px; }
+.banner-made { margin: 10px 0 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: rgba(246, 238, 227, .75); }
+/* header = greenery, footer = burgundy */
+.masthead { background: var(--leaf); border-bottom: 0; }
+.masthead .brand, .masthead .brand span { color: #f6efe3; }
+.mainnav a { color: rgba(246, 239, 227, .78); letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; }
+.mainnav a:hover { color: #fff; }
+.mainnav a.active { color: #fff; box-shadow: inset 0 -1px 0 #fff; }
+.masthead .countdown, .masthead .countdown b { color: #f6efe3; }
+.foot, body[data-route] .foot { background: #5e1a29; border-top: 0; color: #f3e1e3; }
+.foot .foot-name, .foot .linklike { color: #f3e1e3; font-size: 12px; letter-spacing: .06em; text-decoration: none; }
+.foot .foot-name:hover, .foot .linklike:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+/* lace photo (transparent PNG over the photo) */
+.lace-photo { position: absolute; z-index: 1; top: 8px; bottom: 8px; right: 36px; aspect-ratio: 2 / 3; }
+.lace-photo img { position: absolute; left: 14.5%; top: 16.5%; width: 71%; height: 67%; object-fit: cover; object-position: 50% 40%; border-radius: 50%; }
+.lace-photo::after { content: ""; position: absolute; inset: 0; background: url("assets/lace-frame.png") center / 100% 100% no-repeat; pointer-events: none; }
+@media (max-width: 760px) { .lace-photo { top: 10px; right: 8px; bottom: auto; height: 150px; } .banner { padding-right: 112px; } }
+/* team: stat tiles that filter, shadowed cards */
+.team-head { gap: 24px; flex-wrap: wrap; }
+.st-tabs { display: flex; gap: 28px; margin-left: auto; }
+.st-tabs button { border: 0; background: none; padding: 4px 0 6px; cursor: pointer; display: grid; justify-items: start; gap: 0; color: var(--ink-faint); box-shadow: inset 0 -2px 0 transparent; transition: color .2s, box-shadow .2s; }
+.st-tabs b { font: 500 32px/1 var(--display); color: var(--ink); }
+.st-tabs span { font: 500 10.5px var(--sans); letter-spacing: .1em; text-transform: uppercase; }
+.st-tabs button:hover { color: var(--wine); }
+.st-tabs button.on { box-shadow: inset 0 -2px 0 var(--wine); color: var(--wine); }
+.st-tabs button.on b { color: var(--wine); }
+.tcard { box-shadow: 0 1px 2px rgba(42, 26, 29, .06), 0 12px 24px -14px rgba(42, 26, 29, .32); }
+.tcard.c-none, .tcard:not(.c-pink):not(.c-burgundy):not(.c-green) { background: #fffdfa; border-top: 0; padding-left: 14px; padding-right: 14px; border-radius: 3px; }
+.t-add { box-shadow: none; background: transparent; border: 1px dashed var(--line-strong); }
+/* guests: fixed columns so a change in one cell never reflows the rest */
+table.guests { table-layout: fixed; width: 100%; }
+col.w-name { width: 24%; } col.w-side { width: 9%; } col.w-rel { width: 16%; } col.w-rsvp { width: 14%; } col.w-meal { width: 13%; } col.w-table { width: 12%; } col.w-act { width: 12%; }
+table.guests td { overflow: hidden; } table.guests td .select, table.guests td .input { width: 100%; max-width: 100%; text-overflow: ellipsis; }
+.guest-add { display: flex; gap: 10px; align-items: center; }
+.guest-add .input { flex: 1; }
+.guest-add select[name="side"] { display: none; width: 90px; }
+.guest-add.typing select[name="side"] { display: block; }
+.guest-tools { display: flex; margin: 14px 0; }
+.more.addr-btn.warn { color: var(--wine); font-weight: 600; }
