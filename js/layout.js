@@ -95,10 +95,10 @@ const box = (x, y, hw, hh, pad = 0) => ({ x1: x - hw - pad, x2: x + hw + pad, y1
 const rbox = (r, pad = 0) => ({ x1: r.x - pad, x2: r.x + r.w + pad, y1: r.y - pad, y2: r.y + r.h + pad });
 
 /** Everything a table must stay clear of: stage, clear paths at doors, the entrance aisle, areas, other tables. */
-export function blockers(room, tables = [], { areaPad = 4 } = {}) {
+export function blockers(room, tables = [], { areaPad = 4, noStage = false } = {}) {
   const b = [];
   const st = room.fixed?.stage;
-  if (st) b.push({ x1: st.cx - st.r - 3, x2: st.cx + st.r + 3, y1: st.cy - st.r - 3, y2: st.cy + st.r + 3 });
+  if (st && !noStage) b.push({ x1: st.cx - st.r - 3, x2: st.cx + st.r + 3, y1: st.cy - st.r - 3, y2: st.cy + st.r + 3 });
   (room.fixed?.openings || []).forEach((o) => {
     if (o.kind === 'window') return;
     const clear = o.kind === 'entrance' ? 14 : 4; // 44" in front of exits; a real aisle in from the entrance

@@ -704,7 +704,7 @@ export function renderSeating(root) {
     const fp = footprint(t);
     const others = SP().tables.filter((o) => o.id !== t.id);
     const me = { x1: t.x - fp.hw, x2: t.x + fp.hw, y1: t.y - fp.hh, y2: t.y + fp.hh };
-    return blockers(SP().room, others, { areaPad: 0.5 }).some((z) => me.x1 < z.x2 && me.x2 > z.x1 && me.y1 < z.y2 && me.y2 > z.y1);
+    return blockers(SP().room, others, { areaPad: 0.5, noStage: t.id === 'head' }).some((z) => me.x1 < z.x2 && me.x2 > z.x1 && me.y1 < z.y2 && me.y2 > z.y1);
   }
 
   let navLock = null; // stepping with ‹ ›: the popover stays exactly where it is while the plan glides underneath
