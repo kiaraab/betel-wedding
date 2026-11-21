@@ -93,7 +93,7 @@ function blockHTML(a, r, ln) {
     <div class="ab p-${placeKey(a.place)}${a.id === selId ? ' sel' : ''}${short ? ' short' : ''}" data-id="${a.id}" tabindex="0" role="button"
       aria-label="${esc(a.title || 'Event')} ${fmt(a.start)} to ${fmt(a.end)}"
       style="top:${top}px;height:${h}px;left:calc(${(l.lane / l.of) * 100}% + 2px);width:calc(${100 / l.of}% - 4px)">
-      <div class="ab-t">${esc(a.title || 'Untitled')}${short ? ` <span>${fmt(a.start)}</span>` : ''}</div>
+      <div class="ab-t">${a.title ? esc(a.title) : '<em>New event</em>'}${short ? ` <span>${fmt(a.start)}</span>` : ''}</div>
       ${short ? '' : `<div class="ab-m">${fmt(a.start)}–${fmt(a.end)}${a.place ? ` · ${esc(a.place)}` : ''}${a.responsible ? ` · ${esc(personName(a.responsible))}` : ''}</div>`}
       ${a.suggested && !short ? '<div class="ab-s">Suggested</div>' : ''}
       <div class="ab-r" data-resize aria-hidden="true"></div>
@@ -122,7 +122,7 @@ function panelHTML() {
   return `
     <div class="ap" data-edit="${a.id}">
       <div class="ap-head"><h2>Event</h2><button type="button" class="x" data-closepanel aria-label="Close">×</button></div>
-      <label class="ap-f"><span>Title</span><input data-k="title" value="${esc(a.title)}" autocomplete="off"/></label>
+      <label class="ap-f"><span>Title</span><input data-k="title" placeholder="Name this event" value="${esc(a.title)}" autocomplete="off"/></label>
       <div class="ap-row2">
         <label class="ap-f"><span>Start</span><input type="time" data-k="start" value="${esc(a.start)}" step="900"/></label>
         <label class="ap-f"><span>End</span><input type="time" data-k="end" value="${esc(a.end)}" step="900"/></label>

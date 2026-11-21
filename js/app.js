@@ -216,10 +216,11 @@ let teamFilter = 'all';   // 'all' | 'st:<status-key>' | 'role:<title>'
 let confirmDel = null;    // person id showing the inline "Remove X?"
 let menuFor = null;       // person id whose colour menu is open
 
-const statusDots = (r) => `
-  <span class="sdots" role="radiogroup" aria-label="Status for ${esc(r.title)}" data-role="${r.id}">
-    ${STATUSES.map((s) => `<button type="button" role="radio" aria-checked="${s === r.status}" class="sdot ${statusKey(s)}${s === r.status ? ' on' : ''}" data-st="${s}" title="${s}" aria-label="${s}"></button>`).join('')}
-  </span>`;
+const statusDots = (r) => `<button type="button" class="stbtn ${statusKey(r.status)}" data-role="${r.id}" title="Change status" aria-label="Status: ${r.status}. Click to change"><i></i><span>${r.status}</span></button>`;
+const linkSelect = (r, p) => {
+  const others = state.people.filter((x) => !r.people.includes(x.id));
+  return others.length ? `<select class="tc-link" data-linkrole="${r.id}" aria-label="Add a person to ${esc(r.title)}"><option value="">+ person</option>${others.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : '';
+};
 
 function personCard(p) {
   const rs = rolesOf(p.id);
@@ -244,7 +245,7 @@ function personCard(p) {
       <ul class="tc-roles">
         ${rs.map((r) => {
           const w = r.people.length > 1 || r.with ? [...r.people.filter((x) => x !== p.id).map(personName), r.with].filter(Boolean).join(' & ') : '';
-          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title" title="${esc(r.title)}${w ? ' · with ' + esc(w) : ''}">${esc(r.title)}${w ? `<small> · ${esc(w)}</small>` : ''}</span>${statusDots(r)}</li>`;
+          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title" title="${esc(r.title)}${w ? ' · with ' + esc(w) : ''}">${esc(r.title)}${w ? `<small> · ${esc(w)}</small>` : ''}</span>${linkSelect(r, p)}${statusDots(r)}</li>`;
         }).join('')}
       </ul>
       <form class="tc-add" data-addrole="${p.id}" autocomplete="off"><input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/></form>
@@ -264,6 +265,7 @@ function team() {
   view.innerHTML = `
     <div class="page-head team-head">
       <h1>Team</h1>
+      <div class="st-legend">${STATUSES.map((st) => `<span class="${statusKey(st)}"><i></i>${st} <b>${state.roles.filter((r) => r.status === st).length}</b></span>`).join('')}</div>
       <label class="tf-select"><span class="sr-only">Show</span>
         <select id="teamFilter">
           <option value="all">Everyone</option>
@@ -283,17 +285,22 @@ function team() {
   sel.onchange = () => { teamFilter = sel.value; team(); };
 
   const P = (id) => state.people.find((p) => p.id === id);
-  // Status dots change in place (no re-render)
-  view.querySelectorAll('.sdot').forEach((b) => b.onclick = () => {
-    const rid = b.closest('.sdots').dataset.role, st = b.dataset.st;
+  // Status cycles in place (no re-render); legend counts follow
+  view.querySelectorAll('.stbtn').forEach((b) => b.onclick = () => {
+    const rid = b.dataset.role;
     const r = state.roles.find((x) => x.id === rid);
-    if (!r || r.status === st) return;
-    r.status = st;
-    view.querySelectorAll(`.sdots[data-role="${CSS.escape(rid)}"]`).forEach((g) => {
-      g.querySelectorAll('.sdot').forEach((o) => { const on = o.dataset.st === st; o.classList.toggle('on', on); o.setAttribute('aria-checked', String(on)); });
-      g.closest('.tc-role').dataset.status = statusKey(st);
-    });
+    if (!r) return;
+    r.status = STATUSES[(STATUSES.indexOf(r.status) + 1) % STATUSES.length];
+    const st = r.status;
+    view.querySelectorAll(`.stbtn[data-role="${CSS.escape(rid)}"]`).forEach((o) => { o.className = 'stbtn ' + statusKey(st); o.querySelector('span').textContent = st; o.setAttribute('aria-label', `Status: ${st}. Click to change`); o.closest('.tc-role').dataset.status = statusKey(st); });
+    view.querySelectorAll('.st-legend span').forEach((sp, i) => { sp.querySelector('b').textContent = state.roles.filter((x) => x.status === STATUSES[i]).length; });
     commit({ silent: true });
+  });
+  view.querySelectorAll('[data-linkrole]').forEach((sel) => sel.onchange = () => {
+    const r = state.roles.find((x) => x.id === sel.dataset.linkrole);
+    if (!r || !sel.value) return;
+    r.people.push(sel.value);
+    commit();
   });
   view.querySelectorAll('[data-openperson]').forEach((b) => b.onclick = () => openPerson(b.dataset.openperson));
   view.querySelectorAll('[data-menu]').forEach((b) => b.onclick = () => { menuFor = menuFor === b.dataset.menu ? null : b.dataset.menu; confirmDel = null; team(); });
@@ -477,7 +484,7 @@ function guests() {
             <td class="c-meal"><select class="select" data-k="meal" data-v="${esc(g.meal || '')}" aria-label="Meal"><option value="">—</option>${[...MEALS, ...(g.meal && !MEALS.includes(g.meal) ? [g.meal] : [])].map((m) => `<option ${m === g.meal ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td>
             <td class="c-table" data-t="${tableWord(g.tableId)}"><select class="select" data-k="tableId" aria-label="Table">${tableOpts(g.tableId)}</select></td>
             <td class="row-actions">
-              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details" aria-label="Address & details for ${esc(g.name)}">${PIN}</button>
+              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details" aria-label="Address & details for ${esc(g.name)}">${needsAddress(g) ? "Add address" : "Details"}</button>
               ${g.party === 'couple' ? '' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
             </td>
           </tr>

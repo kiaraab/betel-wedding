@@ -134,9 +134,22 @@ export function renderConnections(host) {
       </g>`).join('');
   }
   let proposals = []; // suggested links, drawn dashed in the graph until accepted or skipped
+  // 3+ people all linked together are drawn as ONE group outline instead of a ring/web of lines
+  const comps = (ls) => {
+    const par = new Map(), f = (x) => { while (par.get(x) !== x) x = par.get(x); return x; };
+    ls.forEach((l) => { [l.a, l.b].forEach((x) => { if (!par.has(x)) par.set(x, x); }); par.set(f(l.a), f(l.b)); });
+    const m = new Map(); par.forEach((_, x) => { const r = f(x); if (!m.has(r)) m.set(r, []); m.get(r).push(x); });
+    return [...m.values()].filter((g) => g.length >= 3);
+  };
+  let hulls = [];
   function drawEdges() {
-    edgeLayer.innerHTML = edges().map((l) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}"/><line class="edge ${l.type}" data-a="${l.a}" data-b="${l.b}"/>`).join('')
-      + proposals.map((l, i) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}" data-prop="${i}"/><line class="edge proposed" data-a="${l.a}" data-b="${l.b}" data-pi="${i}"/>`).join('');
+    const tog = edges().filter((l) => l.type === 'together');
+    const gDone = comps(tog), gProp = comps(proposals);
+    const inGrp = (groups, l) => groups.some((g) => g.includes(l.a) && g.includes(l.b));
+    hulls = [...gDone.map((ids) => ({ ids, prop: false })), ...gProp.map((ids) => ({ ids, prop: true }))];
+    edgeLayer.innerHTML = hulls.map((h, i) => `<rect class="grp${h.prop ? ' proposed' : ''}" data-h="${i}" rx="3"/>`).join('')
+      + edges().filter((l) => !(l.type === 'together' && inGrp(gDone, l))).map((l) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}"/><line class="edge ${l.type}" data-a="${l.a}" data-b="${l.b}"/>`).join('')
+      + proposals.map((l, i) => inGrp(gProp, l) ? '' : `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}" data-prop="${i}"/><line class="edge proposed" data-a="${l.a}" data-b="${l.b}" data-pi="${i}"/>`).join('');
     drawList();
   }
   // Every link, with a one-tap remove
@@ -199,6 +212,11 @@ export function renderConnections(host) {
   }
   function render() {
     nodeLayer.querySelectorAll('.node').forEach((el) => { const p = byId.get(el.dataset.id).p; el.setAttribute('transform', `translate(${p.x} ${p.y})`); });
+    edgeLayer.querySelectorAll('.grp').forEach((el) => {
+      const ps = hulls[+el.dataset.h].ids.map((id) => byId.get(id).p);
+      const x0 = Math.min(...ps.map((q) => q.x)) - 26, x1 = Math.max(...ps.map((q) => q.x)) + 26, y0 = Math.min(...ps.map((q) => q.y)) - 22, y1 = Math.max(...ps.map((q) => q.y)) + 34;
+      el.setAttribute('x', x0); el.setAttribute('y', y0); el.setAttribute('width', x1 - x0); el.setAttribute('height', y1 - y0);
+    });
     edgeLayer.querySelectorAll('.edge, .edge-hit').forEach((el) => {
       const a = byId.get(el.dataset.a).p, b = byId.get(el.dataset.b).p;
       el.setAttribute('x1', a.x); el.setAttribute('y1', a.y); el.setAttribute('x2', b.x); el.setAttribute('y2', b.y);

@@ -2030,3 +2030,28 @@ table.guests .detail-row td { padding: 14px 16px 16px; }
 .graph-choose .gc-btns button { border-radius: 3px; }
 .gc-why { font-size: 11.5px; color: var(--ink-faint); margin: -4px 0 8px; }
 @media (pointer: coarse) { .gs-ok, .gs-no { width: 36px; height: 36px; } }
+
+/* ---- Round 5: team statuses, role linking, group outlines, footer, filter, details button ---- */
+.st-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-left: auto; font-size: 12px; color: var(--fg-soft); }
+.st-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.st-legend i, .stbtn i { width: 8px; height: 8px; border-radius: 50%; background: #bdb6a4; display: inline-block; flex: none; }
+.st-legend .in-progress i, .stbtn.in-progress i { background: #d9959b; }
+.st-legend .waiting-on-bride i, .stbtn.waiting-on-bride i { background: #9b2f3d; }
+.st-legend .done i, .stbtn.done i { background: #6f8350; }
+.st-legend b { font-weight: 600; color: var(--fg); }
+.stbtn { display: inline-flex; align-items: center; gap: 6px; flex: none; border: 0; background: rgba(255,255,255,.5); color: inherit; font: 500 11px var(--sans); padding: 3px 8px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+.stbtn:hover, .stbtn:focus-visible { background: rgba(255,255,255,.8); outline: none; }
+.stbtn.in-progress { background: #fff; font-weight: 600; }
+.stbtn.in-progress i { box-shadow: 0 0 0 2px rgba(155,47,61,.35); }
+.tc-link { flex: none; width: 70px; border: 0; background: transparent; color: var(--fg-soft); font: 400 11px var(--sans); padding: 2px 0; cursor: pointer; }
+.tc-link:hover { color: var(--fg); }
+.graph .grp { fill: rgba(155, 47, 61, .06); stroke: var(--wine); stroke-width: 1.2; opacity: .7; pointer-events: none; }
+.graph .grp.proposed { stroke-dasharray: 5 4; fill: none; }
+.foot, body[data-route] .foot { max-width: none; margin: 0; padding: 14px 40px; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); background: var(--paper); }
+.foot-acts { display: flex; gap: 18px; }
+.foot-name { font-size: 12px; color: var(--ink-faint); letter-spacing: .02em; }
+@media (max-width: 760px) { .foot, body[data-route] .foot { padding: 14px 16px; flex-wrap: wrap; gap: 6px; } }
+.tf-select select { border: 0; border-bottom: 1px solid var(--line-strong); background: transparent; border-radius: 0; padding: 6px 22px 6px 0; font: 500 13px var(--sans); color: var(--fg); cursor: pointer; }
+.more.addr-btn { width: auto; padding: 4px 10px; font: 500 12px var(--sans); border-radius: 3px; }
+.more.addr-btn.warn { color: var(--wine); }
+.ab-t em { font-style: normal; opacity: .6; }

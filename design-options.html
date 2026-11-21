@@ -1,0 +1,63 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Design options · Betel & Carter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px Inter,sans-serif;background:#eee9e1;color:#2a1a1d;padding:28px}
+h1{font:500 28px 'Cormorant Garamond',serif;margin:0 0 4px}p.sub{margin:0 0 24px;color:#7a6a6a;font-size:13px}
+.opts{display:grid;gap:28px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.opt>h2{font:600 12px Inter;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
+.opt>h2 span{font-weight:400;text-transform:none;letter-spacing:0;color:#7a6a6a;margin-left:6px}
+.frame{border-radius:3px;overflow:hidden;min-height:430px;display:flex;flex-direction:column;background:var(--bg);color:var(--fg)}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:var(--bar);color:var(--barfg)}
+.bar b{font:500 19px 'Cormorant Garamond',serif}.bar nav{display:flex;gap:18px;font-size:12px}
+.bar nav a{opacity:.7}.bar nav a.on{opacity:1;border-bottom:1px solid currentColor;padding-bottom:2px}
+.body{padding:20px 22px;flex:1}.row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.row h3{font:500 24px 'Cormorant Garamond',serif;margin:0}.leg{display:flex;gap:12px;font-size:11px;color:var(--soft)}
+.leg i,.st i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:#bdb6a4}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.card{padding:14px;border-radius:3px;background:var(--card);border:var(--cb);box-shadow:var(--sh)}
+.card.pk{background:var(--pk)}.card.bg{background:var(--bg2);color:#fff}.card.gn{background:var(--gn);color:#fff}
+.card h4{font:500 18px 'Cormorant Garamond',serif;margin:0 0 8px}
+.r{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;border-top:var(--rule)}
+.st{font-size:11px;opacity:.9}.st.ip i{background:#d9959b}.st.wb i{background:#e07b86}.st.dn i{background:#8fae6a}
+.toast{margin:16px 22px 18px;align-self:flex-start;display:flex;gap:14px;align-items:center;padding:10px 14px;border-radius:3px;background:var(--toast);color:var(--toastfg);font-size:12px}
+.toast u{text-decoration:none;font-weight:600}
+.A{--bg:#f6f1ea;--fg:#2a1a1d;--soft:#7a6a6a;--bar:#f6f1ea;--barfg:#2a1a1d;--card:transparent;--cb:0;--sh:none;--rule:1px solid #e3dad0;--pk:#f1d6d9;--bg2:#6e1f2e;--gn:#4f6a45;--toast:#2a1a1d;--toastfg:#f6f1ea}
+.A .card{padding:14px 0}.A .card.pk,.A .card.bg,.A .card.gn{padding:14px}
+.B{--bg:#f4e8e8;--fg:#2a1a1d;--soft:#85696d;--bar:#6e1f2e;--barfg:#fbf3ee;--card:#fff;--cb:0;--sh:0 1px 2px rgba(60,20,30,.08),0 8px 20px -12px rgba(60,20,30,.25);--rule:0;--pk:#f6cfd4;--bg2:#6e1f2e;--gn:#587a4c;--toast:#fff;--toastfg:#2a1a1d}
+.C{--bg:#1d1416;--fg:#f1e4e2;--soft:#a58f92;--bar:#1d1416;--barfg:#f1e4e2;--card:#2a1c1f;--cb:0;--sh:none;--rule:1px solid #3b2a2e;--pk:#c9707e;--bg2:#7a2434;--gn:#4f6a45;--toast:#2a1c1f;--toastfg:#f1e4e2}
+.C .card.pk{color:#1d1416}.C .bar{border-bottom:1px solid #3b2a2e}
+</style></head><body>
+<h1>Pick a direction</h1><p class="sub">Same Team page in three looks. Less borders, flat colour, square-ish corners. Tell me A, B or C (or mix: "A layout, C colours").</p>
+<div class="opts">
+<section class="opt"><h2>A · Editorial<span>light, open, hairlines only</span></h2><div class="frame A">
+<div class="bar"><b>Betel &amp; Carter</b><nav><a>Overview</a><a class="on">Team</a><a>Guests</a><a>Agenda</a><a>Seating</a></nav></div>
+<div class="body"><div class="row"><h3>Team</h3><div class="leg"><span><i></i>Not started 4</span><span><i style="background:#d9959b"></i>In progress 2</span><span><i style="background:#9b2f3d"></i>Waiting 1</span><span><i style="background:#6f8350"></i>Done 3</span></div></div>
+<div class="grid">
+<div class="card pk"><h4>Kiara</h4><div class="r"><span>Floral sample</span><span class="st ip"><i></i>In progress</span></div><div class="r"><span>Site</span><span class="st dn"><i></i>Done</span></div></div>
+<div class="card bg"><h4>Eden</h4><div class="r"><span>Maid of honor</span><span class="st"><i></i>Not started</span></div><div class="r"><span>Shower</span><span class="st wb"><i></i>Waiting</span></div></div>
+<div class="card gn"><h4>Noemi</h4><div class="r"><span>Bachelorette</span><span class="st ip"><i></i>In progress</span></div></div>
+<div class="card"><h4>Monica</h4><div class="r"><span>Photos</span><span class="st"><i></i>Not started</span></div></div>
+</div></div>
+<div class="toast">Role added <u>Undo</u></div></div></section>
+<section class="opt"><h2>B · Soft cards<span>blush background, white cards, burgundy bar</span></h2><div class="frame B">
+<div class="bar"><b>Betel &amp; Carter</b><nav><a>Overview</a><a class="on">Team</a><a>Guests</a><a>Agenda</a><a>Seating</a></nav></div>
+<div class="body"><div class="row"><h3>Team</h3><div class="leg"><span><i></i>Not started 4</span><span><i style="background:#d9959b"></i>In progress 2</span><span><i style="background:#9b2f3d"></i>Waiting 1</span><span><i style="background:#6f8350"></i>Done 3</span></div></div>
+<div class="grid">
+<div class="card pk"><h4>Kiara</h4><div class="r"><span>Floral sample</span><span class="st ip"><i></i>In progress</span></div><div class="r"><span>Site</span><span class="st dn"><i></i>Done</span></div></div>
+<div class="card bg"><h4>Eden</h4><div class="r"><span>Maid of honor</span><span class="st"><i></i>Not started</span></div><div class="r"><span>Shower</span><span class="st wb"><i></i>Waiting</span></div></div>
+<div class="card gn"><h4>Noemi</h4><div class="r"><span>Bachelorette</span><span class="st ip"><i></i>In progress</span></div></div>
+<div class="card"><h4>Monica</h4><div class="r"><span>Photos</span><span class="st"><i></i>Not started</span></div></div>
+</div></div>
+<div class="toast">Role added <u>Undo</u></div></div></section>
+<section class="opt"><h2>C · Candlelit<span>dark wine, like the evening ballroom</span></h2><div class="frame C">
+<div class="bar"><b>Betel &amp; Carter</b><nav><a>Overview</a><a class="on">Team</a><a>Guests</a><a>Agenda</a><a>Seating</a></nav></div>
+<div class="body"><div class="row"><h3>Team</h3><div class="leg"><span><i></i>Not started 4</span><span><i style="background:#d9959b"></i>In progress 2</span><span><i style="background:#9b2f3d"></i>Waiting 1</span><span><i style="background:#6f8350"></i>Done 3</span></div></div>
+<div class="grid">
+<div class="card pk"><h4>Kiara</h4><div class="r"><span>Floral sample</span><span class="st ip"><i></i>In progress</span></div><div class="r"><span>Site</span><span class="st dn"><i></i>Done</span></div></div>
+<div class="card bg"><h4>Eden</h4><div class="r"><span>Maid of honor</span><span class="st"><i></i>Not started</span></div><div class="r"><span>Shower</span><span class="st wb"><i></i>Waiting</span></div></div>
+<div class="card gn"><h4>Noemi</h4><div class="r"><span>Bachelorette</span><span class="st ip"><i></i>In progress</span></div></div>
+<div class="card"><h4>Monica</h4><div class="r"><span>Photos</span><span class="st"><i></i>Not started</span></div></div>
+</div></div>
+<div class="toast">Role added <u>Undo</u></div></div></section>
+</div></body></html>

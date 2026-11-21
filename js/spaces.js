@@ -3,7 +3,7 @@
 import { togetherGroups, relationOf, blockers, footprint } from './layout.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const PER_COL = 5, DOT_STEP = 2.4, DOT_X0 = 7.2, DOT_Y0 = 6.2;
+const PER_COL = 5, DOT_STEP = 2.4, DOT_X0 = 4.6, DOT_Y0 = 6.2; // wedding party stands in lateral rows either side of the aisle
 
 /* ---------------- wedding party ---------------- */
 /**
@@ -29,7 +29,7 @@ export function ensureParty(room, pool) {
 const partyName = (pool, key) => pool.find((x) => x.id === key)?.name || (/^g\d+$/.test(key) ? `Groomsman ${key.slice(1)}` : '');
 export const partyDots = (room, pool) => {
   const p = ensureParty(room, pool), cx = room.w / 2;
-  const at = (side, i) => ({ x: cx + side * (DOT_X0 + Math.floor(i / PER_COL) * DOT_STEP), y: DOT_Y0 + (i % PER_COL) * DOT_STEP });
+  const at = (side, i) => ({ x: cx + side * (DOT_X0 + (i % PER_COL) * DOT_STEP), y: DOT_Y0 + Math.floor(i / PER_COL) * DOT_STEP });
   return [
     ...p.order.b.map((id, i) => ({ side: 'b', n: i + 1, label: partyName(pool, id), id, ...at(-1, i) })),
     ...p.order.g.map((id, i) => ({ side: 'g', n: i + 1, label: partyName(pool, id), id, ...at(1, i) })),
@@ -49,7 +49,7 @@ export function partyBottom(room, pool) {
 const sid = (p, i) => `${p}${i + 1}`;
 /** Rows of chairs with a center aisle for `n` guests (the wedding party stands, so they're not counted). */
 export function suggestCeremony(room, n, pool) {
-  const aisle = 6, pitch = 3, cx = room.w / 2;
+  const aisle = 5, pitch = 3, cx = room.w / 2;
   const y0 = Math.max(15, Math.ceil(partyBottom(room, pool)));
   const yMax = room.h - 8;
   const perSide = Math.ceil(n / 2);
@@ -68,7 +68,7 @@ export function suggestCeremony(room, n, pool) {
   }
   const aisleA = room.areas.find((a) => a.preset === 'aisle');
   const fits = y0 + (rows - 1) * pitch <= yMax;
-  return { tables, fits, rows, aisle: aisleA && { x: cx - aisle / 2, y: y0 - 2, w: aisle, h: Math.min(room.h - 2 - (y0 - 2), (rows - 1) * pitch + 4) } };
+  return { tables, fits, rows, aisle: aisleA && { x: cx - aisle / 2, y: y0 - 1.5, w: aisle, h: Math.min(room.h - 2 - (y0 - 1.5), (rows - 1) * pitch + 3) } };
 }
 
 const REL_RANK = { Parent: 0, 'Close relative': 1, Relative: 3, 'Close friend': 4, Friend: 5, '': 6, 'Plus-one': 6, Colleague: 7 };
