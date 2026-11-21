@@ -2208,3 +2208,9 @@ table.guests td { overflow: hidden; } table.guests td .select, table.guests td .
 .ov-card h2 { font-size: 15px; }
 .ov-card .glance li, .ov-card .glance a, .mtl-item .what { font-size: 12.5px; }
 .mtl-item .when, .legend { font-size: 11px; }
+/* footer: link underlined always, actions as outlined buttons */
+.foot .foot-name { text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(243, 225, 227, .55); }
+.foot .foot-name:hover { text-decoration-color: #fff; }
+.foot .linklike { border: 1px solid rgba(243, 225, 227, .45); border-radius: 3px; padding: 6px 14px; background: transparent; cursor: pointer; text-decoration: none; transition: background-color .2s, color .2s; }
+.foot .linklike:hover { background: #f3e1e3; color: #5e1a29; text-decoration: none; }
+.foot-acts { gap: 10px; }
