@@ -6,41 +6,51 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const PER_COL = 5, DOT_STEP = 2.4, DOT_X0 = 7.2, DOT_Y0 = 6.2;
 
 /* ---------------- wedding party ---------------- */
-/** Make sure the ceremony has a party: bridesmaids = team members (in saved order), groomsmen = a count she sets. Newly added team members join the end. */
-export function ensureParty(room, people) {
+/**
+ * The wedding party: two lists, left and right of the altar (order.b = left, order.g = right), each an ordered list of keys.
+ * `pool` = [{ id, name, side }] of everyone who can stand (team on the left, groomsman guests on the right by default);
+ * 'g1'.. are unnamed groomsmen she adds with the stepper. Anyone new joins their default side; nobody is in both lists.
+ */
+export function ensureParty(room, pool) {
   const p = (room.party ||= { grooms: 0, order: { b: [], g: [] } });
   p.order ||= { b: [], g: [] };
-  const ids = people.map((x) => x.id);
-  p.order.b = [...p.order.b.filter((id) => ids.includes(id)), ...ids.filter((id) => !p.order.b.includes(id))];
+  p.order.g = p.order.g.map((x) => (typeof x === 'number' ? 'g' + x : x)); // older saves numbered the groomsmen
   p.grooms = Math.max(0, Math.min(10, p.grooms | 0));
-  const all = Array.from({ length: p.grooms }, (_, i) => i + 1);
-  p.order.g = [...p.order.g.filter((n) => n >= 1 && n <= p.grooms), ...all.filter((n) => !p.order.g.includes(n))];
+  const holders = Array.from({ length: p.grooms }, (_, i) => 'g' + (i + 1));
+  const keys = [...pool.map((x) => x.id), ...holders];
+  const seen = new Set();
+  const clean = (list) => list.filter((k) => keys.includes(k) && !seen.has(k) && seen.add(k));
+  p.order.b = clean(p.order.b);
+  p.order.g = clean(p.order.g);
+  pool.forEach((x) => { if (!seen.has(x.id)) { seen.add(x.id); p.order[x.side === 'g' ? 'g' : 'b'].push(x.id); } });
+  holders.forEach((k) => { if (!seen.has(k)) { seen.add(k); p.order.g.push(k); } });
   return p;
 }
-export const partyDots = (room, people) => {
-  const p = ensureParty(room, people), cx = room.w / 2, name = (id) => people.find((x) => x.id === id)?.name || '';
+const partyName = (pool, key) => pool.find((x) => x.id === key)?.name || (/^g\d+$/.test(key) ? `Groomsman ${key.slice(1)}` : '');
+export const partyDots = (room, pool) => {
+  const p = ensureParty(room, pool), cx = room.w / 2;
   const at = (side, i) => ({ x: cx + side * (DOT_X0 + Math.floor(i / PER_COL) * DOT_STEP), y: DOT_Y0 + (i % PER_COL) * DOT_STEP });
   return [
-    ...p.order.b.map((id, i) => ({ side: 'b', n: i + 1, label: name(id), id, ...at(-1, i) })),
-    ...p.order.g.map((n, i) => ({ side: 'g', n: i + 1, label: `Groomsman ${n}`, id: n, ...at(1, i) })),
+    ...p.order.b.map((id, i) => ({ side: 'b', n: i + 1, label: partyName(pool, id), id, ...at(-1, i) })),
+    ...p.order.g.map((id, i) => ({ side: 'g', n: i + 1, label: partyName(pool, id), id, ...at(1, i) })),
   ];
 };
-/** SVG for the dots (drawn with the fixed features). `anim` makes them pop in one after another. */
-export function partySVG(room, people, anim) {
-  return partyDots(room, people).map((d, k) => `<g class="party-dot ${d.side}" transform="translate(${d.x} ${d.y})"><g class="pd-in"${anim ? ` style="animation-delay:${k * 40}ms"` : ''}><circle r="1"/><text y=".38">${d.n}</text><title>${esc(d.label)}</title></g></g>`).join('');
+/** SVG for the dots (drawn with the fixed features). `anim` makes them pop in one after another; a tapped dot shows its name right beside it (no popover). */
+export function partySVG(room, pool, anim, selKey) {
+  return partyDots(room, pool).map((d, k) => `<g class="party-dot ${d.side}${selKey === d.id ? ' sel' : ''}" data-pkey="${esc(d.id)}" transform="translate(${d.x} ${d.y})"><g class="pd-in"${anim ? ` style="animation-delay:${k * 40}ms"` : ''}><circle r="1"/><text y=".38">${d.n}</text></g>${selKey === d.id ? `<text class="pd-label" y="-1.6">${esc(d.label)}</text>` : ''}</g>`).join('');
 }
 /** Lowest y a row of chairs may start at so it clears the standing party. */
-export function partyBottom(room, people) {
-  const d = partyDots(room, people);
+export function partyBottom(room, pool) {
+  const d = partyDots(room, pool);
   return d.length ? Math.max(...d.map((x) => x.y)) + 3.5 : 0;
 }
 
 /* ---------------- ceremony ---------------- */
 const sid = (p, i) => `${p}${i + 1}`;
 /** Rows of chairs with a center aisle for `n` guests (the wedding party stands, so they're not counted). */
-export function suggestCeremony(room, n, people) {
+export function suggestCeremony(room, n, pool) {
   const aisle = 6, pitch = 3, cx = room.w / 2;
-  const y0 = Math.max(15, Math.ceil(partyBottom(room, people)));
+  const y0 = Math.max(15, Math.ceil(partyBottom(room, pool)));
   const yMax = room.h - 8;
   const perSide = Math.ceil(n / 2);
   let perRow = 5;
@@ -124,21 +134,21 @@ export function suggestHangout(room, n) {
 
 /* ---------------- side-panel tools ---------------- */
 const stepHTML = (key, label, v, min, max, note = '') => `<div class="stepper"><span>${label}${note ? ` <i class="muted">${note}</i>` : ''}</span><div><button type="button" data-pstep="${key}" data-d="-1" ${v <= min ? 'disabled' : ''} aria-label="Fewer ${label}">−</button><b>${v}</b><button type="button" data-pstep="${key}" data-d="1" ${v >= max ? 'disabled' : ''} aria-label="More ${label}">+</button></div></div>`;
-function partyHTML(room, people) {
-  const d = partyDots(room, people), p = room.party;
-  const chips = (side) => d.filter((x) => x.side === side).map((x) => `<li class="pchip ${side}" data-id="${x.id}"><i>${x.n}</i><span>${esc(x.label.replace('Groomsman', 'Groom'))}</span></li>`).join('') || '<li class="pchip none">none</li>';
-  return `${stepHTML('grooms', 'Groomsmen', p.grooms, 0, 10)}
-    <p class="muted small" style="margin:8px 0 4px">Drag to reorder · 1 stands nearest the altar</p>
-    <div class="party-cols"><div><b class="muted small">Betel · ${p.order.b.length}</b><ol class="plist" data-side="b">${chips('b')}</ol></div><div><b class="muted small">Carter · ${p.order.g.length}</b><ol class="plist" data-side="g">${chips('g')}</ol></div></div>`;
+function partyHTML(room, pool, selKey) {
+  const d = partyDots(room, pool), p = room.party;
+  const chips = (side) => d.filter((x) => x.side === side).map((x) => `<li class="pchip ${side}${selKey === x.id ? ' sel' : ''}" data-id="${esc(x.id)}"><i>${x.n}</i><span>${esc(x.label)}</span></li>`).join('');
+  return `${stepHTML('grooms', 'Extra groomsmen', p.grooms, 0, 10)}
+    <p class="muted small" style="margin:8px 0 4px">Drag names to reorder or across · 1 stands nearest the altar</p>
+    <div class="party-cols"><div><b class="muted small">Left · ${p.order.b.length}</b><ol class="plist" data-side="b">${chips('b')}</ol></div><div><b class="muted small">Right · ${p.order.g.length}</b><ol class="plist" data-side="g">${chips('g')}</ol></div></div>`;
 }
 export function spaceToolsHTML(space, ctx) {
   if (space === 'ceremony') {
     const room = ctx.SP().room;
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
       <div class="field-row"><label class="field">Guests<input class="input" id="cCount" type="number" min="2" max="200" value="${ctx.state.guestTarget}"/></label></div>
-      <div id="partyBox">${partyHTML(room, ctx.state.people)}</div>
+      <div id="partyBox">${partyHTML(room, ctx.pool(), ctx.partySel?.())}</div>
       <div class="acts">
-        <div class="act"><button class="btn moss sm" id="cGo">Suggest ceremony</button><span class="tip" tabindex="0" role="note" data-tip="Rows of chairs with a center aisle for this many guests; the wedding party stands either side of the altar.">ⓘ</span></div>
+        <div class="act"><button class="btn moss sm" id="cGo">Suggest ceremony</button><span class="tip" tabindex="0" role="note" data-tip="Rows of chairs with a center aisle for this many guests; grows the room if they don't fit. The wedding party stands either side of the altar.">ⓘ</span></div>
         <div class="act"><button class="btn gold sm" id="cSeat">Auto-seat guests</button><span class="tip" tabindex="0" role="note" data-tip="Betel's side on the left, Carter's on the right, parents and close family up front.">ⓘ</span></div>
       </div></section>`;
   }
@@ -156,32 +166,39 @@ export function wireSpaceTools(root, space, ctx) {
   if (space === 'ceremony') {
     const room = () => SP().room, box = root.querySelector('#partyBox');
     const redraw = () => { ctx.commit({ silent: true }); ctx.draw(); ctx.lede(); };
+    const pool = () => ctx.pool();
     const wireParty = () => {
-      box.innerHTML = partyHTML(room(), state.people);
+      box.innerHTML = partyHTML(room(), pool(), ctx.partySel?.());
       box.querySelectorAll('[data-pstep]').forEach((b) => b.onclick = () => {
-        const p = ensureParty(room(), state.people);
+        const p = ensureParty(room(), pool());
         p.grooms = Math.max(0, Math.min(10, p.grooms + +b.dataset.d));
-        ensureParty(room(), state.people); wireParty(); redraw();
+        ensureParty(room(), pool()); wireParty(); redraw();
       });
-      box.querySelectorAll('.plist').forEach((ol) => sortable(ol, () => {
-        const ids = [...ol.querySelectorAll('.pchip[data-id]')].map((li) => li.dataset.id);
-        const p = ensureParty(room(), state.people);
-        if (ol.dataset.side === 'b') p.order.b = ids; else { p.order.g = ids.map(Number); }
+      sortable(box, (changed, tapped) => {
+        if (tapped) { ctx.selectParty?.(tapped); wireParty(); return; }
+        const p = ensureParty(room(), pool());
+        p.order.b = [...box.querySelectorAll('.plist[data-side="b"] .pchip[data-id]')].map((li) => li.dataset.id);
+        p.order.g = [...box.querySelectorAll('.plist[data-side="g"] .pchip[data-id]')].map((li) => li.dataset.id);
         wireParty(); redraw();
-      }));
+      });
     };
-    ensureParty(room(), state.people);
+    ensureParty(room(), pool());
     { // an older saved ceremony has rows right where the party now stands: slide them back (nothing else changes)
-      const rows = SP().tables, top = Math.min(...rows.map((t) => t.y)), need = partyBottom(room(), state.people) - top;
+      const rows = SP().tables, top = Math.min(...rows.map((t) => t.y)), need = partyBottom(room(), pool()) - top;
       if (rows.length && need > 0 && Math.max(...rows.map((t) => t.y)) + need <= room().h - 8) { rows.forEach((t) => { t.y += need; }); const a = room().areas.find((x) => x.preset === 'aisle'); if (a) { a.y += need; a.h = Math.max(4, a.h - need); } ctx.commit({ silent: true }); }
     }
     wireParty();
     root.querySelector('#cGo').onclick = () => {
       const n = Math.max(2, +root.querySelector('#cCount').value || 2);
-      const s = suggestCeremony(room(), n, state.people);
+      // the room grows (in 5 ft steps) until every chair fits
+      const probe = structuredClone(room());
+      let s = suggestCeremony(probe, n, pool());
+      while (!s.fits && probe.h < 150) { probe.h += 5; s = suggestCeremony(probe, n, pool()); }
+      const grew = probe.h - room().h;
       ctx.animate();
-      ctx.undoable(s.fits ? `${n} chairs · ${s.rows} rows` : `Only some rows fit`, () => {
+      ctx.undoable(s.fits ? `${n} chairs · ${s.rows} rows${grew ? ' · room grown' : ''}` : `Only some rows fit`, () => {
         state.guestTarget = n;
+        room().h = probe.h;
         SP().tables = s.tables;
         const a = room().areas.find((x) => x.preset === 'aisle');
         if (a && s.aisle) Object.assign(a, s.aisle);
@@ -205,25 +222,28 @@ export function wireSpaceTools(root, space, ctx) {
   }
 }
 
-/** Tiny pointer-based sortable list: drag an item over its neighbours; `done` fires on release when the order changed. */
-function sortable(ol, done) {
+/** Drag names within a column or across to the other one (empty columns accept a drop). `done(changed, tappedKey)` fires on release; a tap with no movement reports the tapped key. */
+function sortable(box, done) {
   let drag = null;
-  ol.addEventListener('pointerdown', (e) => {
+  const renumber = () => box.querySelectorAll('.plist').forEach((ol) => [...ol.querySelectorAll('.pchip[data-id] i')].forEach((el, i) => { el.textContent = i + 1; }));
+  box.addEventListener('pointerdown', (e) => {
     const li = e.target.closest('.pchip[data-id]');
-    if (!li) return;
-    drag = { li, moved: false, before: [...ol.children].indexOf(li) };
-    li.setPointerCapture(e.pointerId); li.classList.add('lift'); e.preventDefault();
+    if (!li || e.button > 0) return;
+    drag = { li, moved: false, x: e.clientX, y: e.clientY };
+    li.setPointerCapture(e.pointerId); e.preventDefault();
   });
-  ol.addEventListener('pointermove', (e) => {
+  box.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.pchip[data-id]');
-    if (over && over !== drag.li && over.parentNode === ol) {
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+    drag.li.classList.add('lift');
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const over = el?.closest?.('.pchip[data-id]'), col = el?.closest?.('.plist') || el?.closest?.('.party-cols > div')?.querySelector('.plist');
+    if (over && over !== drag.li) {
       const r = over.getBoundingClientRect();
-      ol.insertBefore(drag.li, e.clientY < r.top + r.height / 2 ? over : over.nextSibling);
-      [...ol.querySelectorAll('.pchip[data-id] i')].forEach((el, i) => { el.textContent = i + 1; });
-      drag.moved = true;
-    }
+      over.parentNode.insertBefore(drag.li, e.clientY < r.top + r.height / 2 ? over : over.nextSibling);
+      drag.moved = true; renumber();
+    } else if (!over && col && col !== drag.li.parentNode) { col.append(drag.li); drag.moved = true; renumber(); }
   });
-  const end = () => { if (!drag) return; const d = drag; drag = null; d.li.classList.remove('lift'); if (d.moved) done(); };
-  ol.addEventListener('pointerup', end); ol.addEventListener('pointercancel', end);
+  const end = () => { if (!drag) return; const d = drag; drag = null; d.li.classList.remove('lift'); if (d.moved) done(true); else done(false, d.li.dataset.id); };
+  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
 }

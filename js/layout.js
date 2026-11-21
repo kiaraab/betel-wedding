@@ -9,6 +9,9 @@ export const TABLE_STYLES = {
   round10: { label: 'Rounds · 10', shape: 'round', size: 10 },
   family: { label: 'Family rows · 20', shape: 'rect', size: 20, rot: 90 },
   open: { label: 'Open floor', shape: 'round', size: 8, open: true }, // big dance floor, rounds on the perimeter, 2 long tables up front
+  stage: { label: 'Head on stage', shape: 'round', size: 8, custom: 'stage' },   // sweetheart table up on the round stage
+  banquet: { label: 'Long banquet', shape: 'rect', size: 20, custom: 'banquet' }, // two long tables + a cross table in a U around the floor
+  headlong: { label: 'Long head table', shape: 'round', size: 8, custom: 'headlong' }, // long head table at the arched doors + rounds
 };
 
 export const seatCount = (t) => (t.shape === 'round' || t.shape === 'row' ? t.seats : Object.values(t.sides).reduce((a, b) => a + b, 0));
@@ -125,8 +128,14 @@ function makeTable(style, x, y) {
  * dinner kept to the far end so 60 people don't feel lost; the near end under the balcony stays an arrival lounge.
  */
 export function suggestTables(room, guestCount, style = 'round8', head) {
+  // every style starts from the sweetheart table at the arched doors (a previous 'on the stage' suggestion must not stick); the result carries the head table it used
+  const home = head && { ...head, shape: 'rect', x: room.w / 2, y: 7, rot: 0, sides: { top: 2, bottom: 0, left: 0, right: 0 } };
+  return { ...suggestInner(room, guestCount, style, style === 'stage' || style === 'headlong' ? head : home), ...(head && style !== 'stage' && style !== 'headlong' ? { head: home } : {}) };
+}
+function suggestInner(room, guestCount, style, head) {
   const s = TABLE_STYLES[style];
   if (s.open) return suggestOpen(room, guestCount, head);
+  if (s.custom) return CUSTOM[s.custom](room, guestCount, head);
   const needed = Math.max(1, Math.ceil(Math.max(0, guestCount - 2) / s.size));
   const fp = footprint(makeTable(style, 0, 0));
   const blocked = blockers(room, head ? [head] : [], { areaPad: 2 }); // chairs already in the footprint; +2 ft walkway
@@ -210,6 +219,71 @@ function suggestOpen(room, guestCount, head) {
   const needed = longN + roundN;
   return { fits: all.length >= needed, needed, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h }, tables: all.map((t, i) => ({ ...t, id: 't' + Math.random().toString(36).slice(2, 9), name: String(i + 1), o: i + 1 })) };
 }
+
+/* ---- reference-photo styles (see VENUE.md "Layout styles" for the photos each is based on) ---- */
+const tid = () => 't' + Math.random().toString(36).slice(2, 9);
+const finish = (all, needed, extra = {}) => { all.sort((a, b) => a.y - b.y || a.x - b.x); return { fits: all.length >= needed, needed, ...extra, tables: all.map((t, i) => ({ ...t, id: tid(), name: String(i + 1), o: i + 1 })) }; };
+/** Greedy: rounds of `size` on free 0.5-ft spots, ordered by `sort`, ≥3.5 ft between chair rings. */
+function packRounds(room, placed, roundN, size, sort, maxY) {
+  const rt = { shape: 'round', seats: size, rot: 0 }, fp = footprint(rt), sx = fp.hw * 2 + 3.5, sy = fp.hh * 2 + 3.5;
+  const blocked = blockers(room, placed, { areaPad: 0.5 });
+  const cands = [];
+  for (let y = Math.ceil(fp.hh + 2.5); y + fp.hh <= maxY; y++) for (let x = fp.hw + 2; x + fp.hw <= room.w - 2; x += 0.5) {
+    if (!blocked.some((z) => overlap(box(x, y, fp.hw, fp.hh), z))) cands.push({ x, y });
+  }
+  cands.sort(sort);
+  const out = [];
+  for (const c of cands) { if (out.length >= roundN) break; if (out.every((q) => Math.abs(c.x - q.x) >= sx - 0.01 || Math.abs(c.y - q.y) >= sy - 0.01)) out.push(c); }
+  return out.map((p) => ({ ...rt, x: p.x, y: p.y }));
+}
+const nearEnd = (room) => room.h - Math.max(room.fixed?.balcony ? room.fixed.balcony.depth + 10 : 0, 3);
+const danceOf = (room) => (room.areas || []).find((a) => a.preset === 'dance');
+const CUSTOM = {
+  /** Sweetheart table on the round stage (near-left corner), couple facing the room; dance floor in front of the stage, rounds around it. */
+  stage(room, guestCount, head) {
+    const st = room.fixed?.stage, dance = danceOf(room);
+    const nh = { ...(head || { id: 'head', name: 'Mr. & Mrs. Griffin', sides: { top: 2, bottom: 0, left: 0, right: 0 }, o: 0 }), shape: 'rect', rot: 90, x: st ? st.cx + st.r * 0.45 : 4.5, y: st ? st.cy : room.h * 0.8 };
+    if (dance) { dance.w = 18; dance.h = 20; dance.x = (st ? st.cx + st.r + 4 : 12); dance.y = Math.max(8, (st ? st.cy : room.h * 0.8) - dance.h * 0.5 - 4); }
+    const cx = dance ? dance.x + dance.w / 2 : room.w / 2, cy = dance ? dance.y + dance.h / 2 : room.h / 2;
+    const n = Math.max(1, Math.ceil(Math.max(0, guestCount - 2) / 8));
+    const rounds = packRounds(room, [nh], n, 8, (a, b) => { const d = (p) => Math.min(p.x, room.w - p.x, p.y); return Math.round(d(a) / 3) - Math.round(d(b) / 3) || Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy); }, nearEnd(room));
+    return finish(rounds, n, { head: nh, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h } });
+  },
+  /** Two long garland tables down the sides + a cross table at the near end (a U around the floor); sweetheart at the far wall. Seats from the Simply Breathe Events photo. */
+  banquet(room, guestCount, head) {
+    const { w } = room, cx = w / 2, dance = danceOf(room), end = nearEnd(room);
+    const left = Math.max(2, guestCount - 2);
+    const per = Math.max(2, Math.min(10, Math.ceil(left / 5))); // chairs per long side
+    const mk = (n, rot) => ({ shape: 'rect', sides: { top: n, bottom: n, left: 0, right: 0 }, rot });
+    const hy = head ? head.y + 7 : 14, placed = [], want = [{ n: per, rot: 90, side: -1 }, { n: per, rot: 90, side: 1 }, { n: Math.max(2, Math.ceil((left - per * 4) / 2)), rot: 0, side: 0 }];
+    if (left <= per * 4) want.pop();
+    for (const v of want) {
+      const t0 = mk(v.n, v.rot), fp = footprint(t0);
+      let spot = null;
+      if (v.rot === 90) { for (let x = fp.hw + 3; x <= w / 2 - 8 && !spot; x += 0.5) { const px = v.side < 0 ? x : w - x; for (let y = hy + fp.hh; y + fp.hh <= end && !spot; y += 0.5) if (!blockers(room, [...(head ? [head] : []), ...placed], { areaPad: 0.5 }).some((z) => overlap(box(px, y, fp.hw, fp.hh), z))) spot = { x: px, y }; } }
+      else { const yv = placed.length ? Math.max(...placed.map((p) => p.y + footprint(p).hh)) + fp.hh + 12 : end - fp.hh; for (let y = Math.min(yv, end - fp.hh); y > hy + 12 && !spot; y -= 0.5) if (!blockers(room, [...(head ? [head] : []), ...placed], { areaPad: 0.5 }).some((z) => overlap(box(cx, y, fp.hw, fp.hh), z))) spot = { x: cx, y }; }
+      if (spot) placed.push({ ...t0, ...spot });
+    }
+    { // the two side tables line up (doors can push one lower): move both to the lower spot when it still fits
+      const [L, R] = placed;
+      if (L && R && L.rot === 90 && R.rot === 90 && L.y !== R.y) {
+        const y = Math.max(L.y, R.y), fp = footprint(L), rest = placed.filter((p) => p !== L && p !== R);
+        const bl = blockers(room, [...(head ? [head] : []), ...rest], { areaPad: 0.5 });
+        if (y + fp.hh <= end && ![L.x, R.x].some((x) => bl.some((z) => overlap(box(x, y, fp.hw, fp.hh), z)))) { L.y = y; R.y = y; }
+      }
+    }
+    if (dance) { dance.w = 16; dance.h = 18; dance.x = cx - 8; dance.y = placed.length ? Math.max(hy + 5, Math.min(...placed.map((p) => p.y - footprint(p).hh)) + 3) : hy + 5; }
+    return finish(placed, want.length, { dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h } });
+  },
+  /** Long head table facing the room at the arched doors, rounds in a U around the dance floor. */
+  headlong(room, guestCount, head) {
+    const seats = 8, dance = danceOf(room);
+    const nh = { ...(head || { id: 'head', name: 'Mr. & Mrs. Griffin', o: 0 }), shape: 'rect', sides: { top: seats, bottom: 0, left: 0, right: 0 }, x: room.w / 2, y: 8, rot: 0 };
+    if (dance) { dance.x = (room.w - dance.w) / 2; dance.y = 18; }
+    const r = suggestInner(room, guestCount - (seats - 2), 'round8', nh);
+    return { ...r, head: nh, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h } };
+  },
+};
 
 /** Rounds: a U around the dance floor, filled outward from the sweetheart table, mirrored for symmetry. */
 function placeRounds({ room, head, fp, fits, lounge, target }) {
@@ -336,17 +410,22 @@ export function autoSeat(guests, tables, { onlyUnseated = true, links = [] } = {
   // family nearest the sweetheart table, then the wedding party, close friends, everyone else
   const REL_RANK = { Parent: 0, 'Close relative': 1, Bridesmaid: 2, Groomsman: 2, Relative: 3, 'Close friend': 4, Friend: 5, '': 6, 'Plus-one': 6, Colleague: 7 };
   const rank = (g) => (REL_RANK[relationOf(g)] ?? 6) * 10 + ({ Betel: 1, Both: 2, Carter: 3 }[g.side] ?? 2);
-  const groups = togetherGroups(going.filter((g) => !g.tableId), links)
-    .map((m) => ({ m, r: Math.min(...m.map(rank)) }))
+  // groups include people already seated, so a plus-one / household joins the table their partner is at
+  const groups = togetherGroups(going, links)
+    .map((all) => ({ m: all.filter((g) => !g.tableId), at: [...new Set(all.filter((g) => g.tableId).map((g) => g.tableId))] }))
+    .filter(({ m }) => m.length)
+    .map((x) => ({ ...x, r: Math.min(...x.m.map(rank)) }))
     .sort((a, b) => a.r - b.r || b.m.length - a.m.length);
   let seated = 0, left = 0;
-  for (const { m } of groups) {
-    // whole group at one table if possible
-    const whole = others.find((t) => free(t) >= m.length && m.every((g) => !clash(g, t)));
+  for (const { m, at: partnerTables } of groups) {
+    const pref = partnerTables.map((id) => others.find((t) => t.id === id)).filter(Boolean);
+    const order = [...pref, ...others.filter((t) => !pref.includes(t))];
+    // whole group at one table if possible (their partner's table first)
+    const whole = order.find((t) => free(t) >= m.length && m.every((g) => !clash(g, t)));
     if (whole) { m.forEach((g) => { g.tableId = whole.id; seated++; }); continue; }
     // otherwise fill neighbouring tables in order, still respecting "apart"
     for (const g of m) {
-      const t = others.find((x) => free(x) > 0 && !clash(g, x));
+      const t = order.find((x) => free(x) > 0 && !clash(g, x));
       if (t) { g.tableId = t.id; seated++; } else left++;
     }
   }

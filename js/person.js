@@ -3,11 +3,10 @@
 import { state, commit } from './store.js';
 import { RELATIONS, relationOf } from './layout.js';
 import { esc } from './util.js';
+import { detailsHTML, wireDetails } from './guest-details.js';
 
 const STATUS = ['Not invited yet', 'Invited', 'Yes', 'Maybe', 'Declined'];
 const SIDES = ['Betel', 'Carter', 'Both'];
-const SIDE_COLOR = { Betel: '#6b1f2a', Carter: '#3e4a2e', Both: '#b08d57' };
-const initials = (n) => String(n || '?').trim().split(/\s+/).map((s) => s[0]).join('').slice(0, 2).toUpperCase();
 let open = null; // { el, close }
 
 /** Find the guest + team member behind an id, a guest, or a team person. */
@@ -57,7 +56,7 @@ export function openPerson(idOrPerson) {
   scrim.innerHTML = `
     <section class="pp" role="dialog" aria-modal="true" aria-label="${esc(name)}" tabindex="-1">
       <header class="pp-head">
-        <span class="pp-av" style="background:${SIDE_COLOR[g?.side] || SIDE_COLOR.Both}">${esc(initials(name))}</span>
+        ${g?.photo ? `<img class="pp-photo" src="${g.photo}" alt=""/>` : ''}
         <div class="pp-id">
           <input class="pp-name" data-k="name" value="${esc(name)}" aria-label="Name" spellcheck="false"/>
           <div class="pp-sub">${sub.map(esc).join(' · ')}</div>
@@ -72,12 +71,8 @@ export function openPerson(idOrPerson) {
         </div>
         <div class="pp-f"><span>Side</span><div class="pp-seg" role="radiogroup" aria-label="Side">${SIDES.map((s) => `<button type="button" role="radio" data-side="${s}" aria-checked="${s === g.side}" class="${s === g.side ? 'on' : ''}">${s === 'Both' ? 'Shared' : s}</button>`).join('')}</div></div>
         ${roles.length ? `<div class="pp-f"><span>Role</span><div class="pp-roles">${roles.map((r) => `<em>${esc(r)}</em>`).join('')}</div></div>` : ''}
-        <div class="pp-sec">Address ${g.street ? '' : '<b class="need-addr">Need address</b>'}</div>
-        ${fld('street', 'Street', { cls: 'wide', ph: '123 Vine St' })}
-        <div class="pp-row three">${fld('city', 'City')}${fld('state', 'State')}${fld('zip', 'ZIP')}</div>
-        <div class="pp-row">${fld('household', 'Household')}${fld('plusOne', 'Plus-one')}</div>
-        <div class="pp-row">${fld('diet', 'Dietary')}${fld('meal', 'Meal')}</div>
-        <label class="pp-f wide"><span>Notes</span><textarea class="pp-in" data-k="notes" rows="2">${esc(g.notes)}</textarea></label>
+        <div class="pp-sec">Details ${g.street ? '' : '<b class="need-addr">Need address</b>'}</div>
+        ${detailsHTML(g)}
         <div class="pp-table">
           <span>${table ? esc(tableName(table)) : 'Not seated yet'}</span>
           <button class="linklike" data-plan>${table ? 'Show on plan' : 'Open the plan'} <i aria-hidden="true">→</i></button>
@@ -92,6 +87,7 @@ export function openPerson(idOrPerson) {
 
   // edits: write straight to the guest (and the team person's name), save quietly, redraw the page on close
   card.querySelectorAll('[data-k]').forEach((el) => {
+    if (el.closest('.gd')) return; // the details block wires itself
     const write = () => {
       const k = el.dataset.k;
       const v = el.value;
@@ -99,7 +95,6 @@ export function openPerson(idOrPerson) {
         if (!v.trim()) return;
         if (g) g.name = v.trim();
         if (p) p.name = v.trim();
-        card.querySelector('.pp-av').textContent = initials(v);
       } else if (g) {
         g[k] = v;
         if (k === 'rsvp') el.dataset.v = v;
@@ -115,8 +110,23 @@ export function openPerson(idOrPerson) {
   card.querySelectorAll('[data-side]').forEach((b) => b.onclick = () => {
     g.side = b.dataset.side; dirty = true; commit({ silent: true });
     card.querySelectorAll('[data-side]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
-    card.querySelector('.pp-av').style.background = SIDE_COLOR[g.side];
   });
+
+  // details (address, household, plus-one, dietary, notes, photo): redraw just that block in place
+  const wireGd = () => {
+    if (!g) return;
+    wireDetails(card, g, { onRedraw: () => {
+      dirty = true;
+      card.querySelector('.gd').outerHTML = detailsHTML(g);
+      const head = card.querySelector('.pp-head'), img = head.querySelector('.pp-photo');
+      if (g.photo && !img) head.insertAdjacentHTML('afterbegin', `<img class="pp-photo" src="${g.photo}" alt=""/>`);
+      else if (img) g.photo ? (img.src = g.photo) : img.remove();
+      card.querySelector('.pp-sec .need-addr')?.classList.toggle('gone', !!String(g.street || '').trim());
+      wireGd();
+    } });
+    card.querySelectorAll('.gd [data-k]').forEach((el) => el.addEventListener('input', () => { dirty = true; }));
+  };
+  wireGd();
 
   const close = (instant) => {
     if (!scrim.isConnected) return;

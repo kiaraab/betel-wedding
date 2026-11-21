@@ -78,3 +78,13 @@ Derived from the balcony photo (ballroom.jpg) using 5 ft round tables as a ruler
 
 ## Design rule (from Kiara)
 The appeal of the reference site (wedding.wawasensei.dev/plan) is **interactivity and animation**. Keep motion meaningful and present: items glide into place, seats fill with a pop, smooth zoom, a 3D view. Minimal copy, but never a static page.
+
+
+## Layout styles (reception 'Suggest' list) and the photos each is based on
+All use the 50 x 80 ft working room (ESTIMATE), keep door paths/stage/entrance aisle clear via `blockers()`, and the near end under the balcony stays an arrival lounge. Reference photos are in `assets/refs/` (converted to <=1200px JPEGs).
+- **Rounds · 8 / 10**: 60" / 72" rounds in a U around the dance floor, sweetheart table at the arched doors. Based on the Palacio package photos (`google-morais-1/2/3.jpg`, rounds of 8 with gold chiavari chairs).
+- **Open floor**: big open dance floor, rounds on the perimeter and far side, two 9 ft tables at the near end. Based on the owner's reference photo (`owner-ref-6.webp`: guests dancing mid-room, rounds along the far wall, long tables near the camera).
+- **Head on stage**: sweetheart table up on the round stage (near-left corner), couple facing the room, dance floor in front of the stage, rounds around. Based on couples who seated the head table on the stage (`owner-ref-6.webp` shows the stage steps at the left edge of the dance floor). Stage use itself is a question for Morais.
+- **Long banquet**: two long garland-style tables down the sides plus a cross table at the near end, forming a U around the floor, sweetheart at the far wall. Based on the Simply Breathe Events photo (first thumbnail in `google-morais-1.jpg`: long banquet rows with greenery runners).
+- **Long head table**: an 8-seat head table facing the room at the arched doors, rounds in a U around the dance floor. Based on the Palacio / Simply Breathe photos with a long head table at the arched doors.
+Note: only the stage/dance-floor geometry is observed; table counts and spacing are planning choices. The 8-seat head table is not auto-seated (Auto-seat treats the head as the couple's).

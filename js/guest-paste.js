@@ -3,6 +3,7 @@ import { state, uid, undoable } from './store.js';
 import { RELATIONS } from './layout.js';
 import { esc, toast } from './util.js';
 import { parseGuestList } from './guest-parse.js';
+import { addPlusOne } from './guest-details.js';
 
 export { parseGuestList };
 
@@ -60,7 +61,8 @@ export function mountPaste(host, { defaultSide = 'Both', onChange }) {
     shown = new Set(rows.map((r) => r.key));
     note.textContent = [rows.length ? '' : panel.text.trim() ? 'Nothing new to add' : '', dupes ? `${dupes} already on the list` : ''].filter(Boolean).join(' · ');
     addBtn.disabled = !rows.length;
-    addBtn.textContent = rows.length ? `Add ${rows.length} guest${rows.length === 1 ? '' : 's'}` : 'Add';
+    const n = rows.length + rows.filter((r) => r.plusOne).length; // each +1 becomes its own guest
+    addBtn.textContent = n ? `Add ${n} guest${n === 1 ? '' : 's'}` : 'Add';
     const edit = (key, patch) => panel.edits.set(key, { ...panel.edits.get(key), ...patch });
     chips.querySelectorAll('.pchip').forEach((c) => {
       const key = c.dataset.key, row = rows.find((r) => r.key === key);
@@ -82,11 +84,13 @@ export function mountPaste(host, { defaultSide = 'Both', onChange }) {
     const { rows } = previewRows(defaultSide);
     if (!rows.length) return;
     closePaste();
-    undoable(`${rows.length} guest${rows.length === 1 ? '' : 's'} added`, () => {
-      rows.forEach((r) => state.guests.push({
-        id: uid(), name: r.name.trim() || r.key, side: r.side, rsvp: 'Not invited yet', diet: '', tableId: null,
-        ...(r.relation && { relation: r.relation }), ...(r.plusOne && { plusOne: '+1' }),
-      }));
+    const n = rows.length + rows.filter((r) => r.plusOne).length;
+    undoable(`${n} guest${n === 1 ? '' : 's'} added`, () => {
+      rows.forEach((r) => {
+        const g = { id: uid(), name: r.name.trim() || r.key, side: r.side, rsvp: 'Not invited yet', diet: '', tableId: null, ...(r.relation && { relation: r.relation }) };
+        state.guests.push(g);
+        if (r.plusOne) addPlusOne(g); // "+1" becomes a real guest ("Sam's plus-one"), linked to sit together
+      });
     }, toast);
 
   };

@@ -10,11 +10,12 @@ const SIDE_COLOR = { Betel: '#6b1f2a', Carter: '#3e4a2e', Both: '#b08d57' };
 let raf = null;
 let positions = new Map(); // guestId -> {x,y,vx,vy} kept between visits so the graph doesn't reshuffle
 
-const initials = (n) => n.trim().split(/\s+/).map((s) => s[0]).join('').slice(0, 2).toUpperCase();
 const key = (a, b) => [a, b].sort().join('|');
-// Where each relation settles: distance out from the couple (0..1 of half-width) and height (−up / +down)
-const REL_SPOT = { Parent: [0.14, -0.16], 'Close relative': [0.28, -0.24], Relative: [0.46, -0.3], Bridesmaid: [0.3, 0.26], Groomsman: [0.3, 0.26], 'Close friend': [0.55, 0.02], Friend: [0.72, 0.12], Colleague: [0.86, 0.3], 'Plus-one': [0.62, 0.05], '': [0.62, 0.05] };
-const SIDE_DIR = { Betel: -1, Carter: 1, Both: 0 };
+// Layout: one column per side (Betel · Both · Carter), the couple centred at the top,
+// family higher up, friends and colleagues lower down; each group sits on its own small ring.
+const COL = { Betel: 0.2, Both: 0.5, Carter: 0.8 };
+const TIER = { Parent: 0.3, 'Close relative': 0.38, Relative: 0.46, Bridesmaid: 0.58, Groomsman: 0.58, 'Close friend': 0.66, Friend: 0.74, 'Plus-one': 0.8, '': 0.8, Colleague: 0.88 };
+let rejectedLinks = new Set(); // suggestions she said no to (this visit)
 const relKey = (r) => (r || 'none').toLowerCase().replace(/[^a-z]+/g, '-');
 
 const GROUP_CAP = 10; // a table's worth: bigger wedding parties are suggested as several groups
@@ -22,7 +23,7 @@ const GROUP_CAP = 10; // a table's worth: bigger wedding parties are suggested a
 /**
  * Obvious 'together' suggestions not already covered by existing links:
  * the bridesmaids (and groomsmen) as ONE group each, plus household, plus-one and parent↔couple pairs.
- * Each item: { ids, why, pairs: [[a, b]…] } — pairs are the links it would add (a group = a star of links).
+ * Each item: { ids, why, pairs: [[a, b]…] } — pairs are the links it would add (a group = a ring of links).
  */
 export function suggestLinks(guests) {
   // union-find over current 'together' links, so people already grouped aren't suggested again
@@ -32,11 +33,15 @@ export function suggestLinks(guests) {
   (state.links || []).filter((l) => l.type === 'together' && parent.has(l.a) && parent.has(l.b)).forEach((l) => join(l.a, l.b));
   const apart = new Set((state.links || []).filter((l) => l.type === 'apart').map((l) => key(l.a, l.b)));
   const out = [];
+  const direct = new Set((state.links || []).map((l) => key(l.a, l.b)));
   const suggest = (members, why) => {
     const m = members.filter(Boolean);
-    if (m.length < 2) return;
-    const hub = m[0], pairs = [];
-    m.slice(1).forEach((g) => { if (find(g.id) !== find(hub.id) && !apart.has(key(hub.id, g.id))) { pairs.push([hub.id, g.id]); join(hub.id, g.id); } });
+    if (m.length < 2 || m.every((g) => find(g.id) === find(m[0].id))) return;
+    const pairs = [];
+    const tryPair = (a, b) => { const k = key(a.id, b.id); if (!apart.has(k) && !rejectedLinks.has(k) && !direct.has(k)) { pairs.push([a.id, b.id]); direct.add(k); } };
+    // a group is a ring (everyone next to their neighbours) — nobody becomes the hub in the middle
+    if (m.length === 2) tryPair(m[0], m[1]); else m.forEach((g, i) => tryPair(g, m[(i + 1) % m.length]));
+    m.slice(1).forEach((g) => join(m[0].id, g.id));
     if (pairs.length) out.push({ ids: m.map((g) => g.id), why, pairs });
   };
   // wedding party first: they all know each other
@@ -86,25 +91,24 @@ export function renderConnections(host) {
   const chooser = host.querySelector('.graph-choose');
   const wrap = host.querySelector('.graph-wrap');
 
-  // nodes (keep old positions; new people start near their side + relation, fanned out on a small ring per group)
+  // nodes: every group (relation + side) gets its own spot and sits on a small ring there
   const clusterOf = (g) => (g.party === 'couple' ? 'couple' : relationOf(g) + '|' + g.side);
-  const clusterSize = new Map(), clusterSeen = new Map();
-  guests.forEach((g) => { const c = clusterOf(g); clusterSize.set(c, (clusterSize.get(c) || 0) + 1); });
+  const clusters = new Map();
+  guests.forEach((g) => { const c = clusterOf(g); if (!clusters.has(c)) clusters.set(c, []); clusters.get(c).push(g.id); });
+  const homeOf = (g) => {
+    if (g.party === 'couple') return { x: W / 2 + (g.side === 'Carter' ? 42 : -42), y: H * 0.12 };
+    const ids = clusters.get(clusterOf(g)), k = ids.length, i = ids.indexOf(g.id);
+    const cx = (COL[g.side] ?? 0.5) * W, cy = (TIER[relationOf(g)] ?? 0.8) * H;
+    if (k === 1) return { x: cx, y: cy };
+    const r = k === 2 ? 30 : Math.max(44, (34 * k) / Math.PI), a = (i / k) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r * (k === 2 ? 0 : 0.8) };
+  };
   const nodes = guests.map((g) => {
+    const home = homeOf(g);
+    home.x = Math.max(40, Math.min(W - 40, home.x)); home.y = Math.max(24, Math.min(H - 34, home.y));
     let p = positions.get(g.id);
-    const couple = g.party === 'couple';
-    const [d, dy] = REL_SPOT[relationOf(g)] || REL_SPOT[''];
-    const dir = SIDE_DIR[g.side] ?? 0;
-    // shared guests have no side to lean on: they sit below / above the couple instead
-    const home = couple ? { x: W / 2 + (g.side === 'Carter' ? 26 : -26), y: H / 2 } : { x: W / 2 + dir * d * W * 0.46, y: H / 2 + (dir ? dy : (dy < 0 ? -0.2 - d * 0.2 : 0.16 + d * 0.25)) * H };
-    if (!p) {
-      const c = clusterOf(g), k = clusterSize.get(c), i = clusterSeen.get(c) || 0;
-      clusterSeen.set(c, i + 1);
-      const r = k > 1 ? Math.max(36, (42 * k) / (2 * Math.PI)) : 0, a = (i / k) * Math.PI * 2 - Math.PI / 2;
-      p = { x: Math.max(24, Math.min(W - 24, home.x + Math.cos(a) * r)), y: Math.max(24, Math.min(H - 34, home.y + Math.sin(a) * r)), vx: 0, vy: 0 };
-      positions.set(g.id, p);
-    }
-    return { g, p, couple, home, rel: couple ? '' : relationOf(g) };
+    if (!p) { p = { x: home.x, y: home.y, vx: 0, vy: 0 }; positions.set(g.id, p); }
+    return { g, p, couple: g.party === 'couple', home, cluster: clusterOf(g), rel: g.party === 'couple' ? '' : relationOf(g) };
   });
   const byId = new Map(nodes.map((n) => [n.g.id, n]));
   const edges = () => state.links.filter((l) => byId.has(l.a) && byId.has(l.b));
@@ -122,15 +126,17 @@ export function renderConnections(host) {
     }
     nodeLayer.innerHTML = nodes.map((n, i) => `
       <g class="node${picked === n.g.id ? ' picked' : ''}${n.couple ? ' couple' : ''} rel-${relKey(n.rel)}" data-id="${n.g.id}" style="animation-delay:${Math.min(i, 40) * 15}ms">
-        ${n.rel ? `<circle class="ring" r="${n.couple ? 25 : 20}"/>` : ''}
-        <circle class="dot" r="${n.couple ? 20 : 15}" fill="${SIDE_COLOR[n.g.side] || SIDE_COLOR.Both}"/>
-        <text class="ini" dy=".35em">${esc(initials(n.g.name))}</text>
-        <text class="nm" y="${n.couple ? 34 : 30}">${esc(n.g.name.split(' ')[0])}</text>
-        ${n.rel ? `<text class="rl" y="${n.couple ? 47 : 43}">${esc(n.rel)}</text>` : ''}
+        <circle class="hit" r="18"/>
+        ${n.g.photo ? `<clipPath id="ph-${n.g.id}"><circle r="12"/></clipPath><image class="ph" href="${n.g.photo}" x="-12" y="-12" width="24" height="24" clip-path="url(#ph-${n.g.id})"/>`
+          : `<circle class="dot" r="${n.couple ? 8 : 6}" fill="${SIDE_COLOR[n.g.side] || SIDE_COLOR.Both}"/>`}
+        <text class="nm" y="${n.g.photo ? 25 : 19}">${esc(n.g.name.split(' ')[0])}</text>
+        ${n.rel ? `<text class="rl" y="${n.g.photo ? 37 : 31}">${esc(n.rel)}</text>` : ''}
       </g>`).join('');
   }
+  let proposals = []; // suggested links, drawn dashed in the graph until accepted or skipped
   function drawEdges() {
-    edgeLayer.innerHTML = edges().map((l) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}"/><line class="edge ${l.type}" data-a="${l.a}" data-b="${l.b}"/>`).join('');
+    edgeLayer.innerHTML = edges().map((l) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}"/><line class="edge ${l.type}" data-a="${l.a}" data-b="${l.b}"/>`).join('')
+      + proposals.map((l, i) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}" data-prop="${i}"/><line class="edge proposed" data-a="${l.a}" data-b="${l.b}" data-pi="${i}"/>`).join('');
     drawList();
   }
   // Every link, with a one-tap remove
@@ -167,12 +173,13 @@ export function renderConnections(host) {
         const b = nodes[j].p;
         let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy || 1;
         if (d2 > 220 * 220) continue;
-        const f = (1400 / d2) * k;
+        const f = (700 / d2) * k;
         const d = Math.sqrt(d2); dx /= d; dy /= d;
         a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
       }
     }
     edges().forEach((l) => {
+      if (byId.get(l.a).cluster === byId.get(l.b).cluster) return; // a group keeps its ring shape
       const a = byId.get(l.a).p, b = byId.get(l.b).p;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
       const rest = l.type === 'together' ? 60 : 200, str = l.type === 'together' ? 0.05 : 0.012;
@@ -181,7 +188,7 @@ export function renderConnections(host) {
     });
     nodes.forEach((n) => {
       const p = n.p;
-      p.vx += (n.home.x - p.x) * (n.couple ? 0.02 : 0.005) * k; p.vy += (n.home.y - p.y) * (n.couple ? 0.02 : 0.006) * k;
+      p.vx += (n.home.x - p.x) * 0.02 * k; p.vy += (n.home.y - p.y) * 0.02 * k;
       if (n === dragging) return;
       p.vx *= 0.82; p.vy *= 0.82;
       p.x = Math.max(24, Math.min(W - 24, p.x + p.vx)); p.y = Math.max(24, Math.min(H - 34, p.y + p.vy));
@@ -247,6 +254,7 @@ export function renderConnections(host) {
     }
     if (moved) return;
     const edgeEl = e.target.closest('.edge, .edge-hit');
+    if (!el && edgeEl?.dataset.prop != null) { picked = null; drawNodes(); return openProposal(+edgeEl.dataset.prop, e); }
     if (!el && edgeEl) { picked = null; drawNodes(); render(); openChooser(edgeEl.dataset.a, edgeEl.dataset.b, e); return; }
     if (!el) { picked = null; chooser.hidden = true; drawNodes(); render(); return; }
     const id = el.dataset.id;
@@ -280,36 +288,54 @@ export function renderConnections(host) {
     });
   }
 
-  // Suggested links: review first, then add the ones you keep
+  // Suggested links appear IN the graph as dashed lines; accept or skip each one (or all of them)
   const sug = host.querySelector('.graph-suggest');
-  host.querySelector('#suggestBtn').onclick = () => {
-    const list = suggestLinks(guests);
-    if (!list.length) { sug.hidden = true; return toast('Nothing new to suggest'); }
-    const first = (id) => esc(byId.get(id).g.name.split(' ')[0]);
-    const who = (s) => (s.ids.length === 2 ? `${esc(byId.get(s.ids[0]).g.name)} &amp; ${esc(byId.get(s.ids[1]).g.name)}`
-      : `${s.ids.slice(0, 3).map(first).join(', ')}${s.ids.length > 3 ? ` +${s.ids.length - 3}` : ''}`);
-    const total = (items) => items.reduce((n, s) => n + s.pairs.length, 0);
-    const addLabel = (items) => { const n = total(items); return n ? `Add ${n} link${n === 1 ? '' : 's'}` : 'Add'; };
+  const nm = (id) => esc(byId.get(id).g.name.split(' ')[0]);
+  const place = (el, e) => { const r = wrap.getBoundingClientRect(); el.style.left = Math.min(e.clientX - r.left, r.width - 254) + 'px'; el.style.top = Math.max(8, e.clientY - r.top - 90) + 'px'; };
+  function drawSuggest() {
+    if (!proposals.length) { sug.hidden = true; return; }
     sug.innerHTML = `
-      <div class="gs-head"><b>Sit together?</b><button class="x" data-gs-close aria-label="Close">×</button></div>
-      <ul>${list.map((s, i) => `<li style="animation-delay:${Math.min(i, 12) * 30}ms"><label${s.ids.length > 2 ? ' class="grp"' : ''}><input type="checkbox" checked data-i="${i}"/><span>${who(s)}</span><em>${s.ids.length > 2 ? `${s.why} · ${s.ids.length}` : s.why}</em></label></li>`).join('')}</ul>
-      <div class="gs-btns"><button class="btn moss sm" data-gs-add>${addLabel(list)}</button><button class="btn line sm" data-gs-close>Not now</button></div>`;
+      <div class="gs-head"><b>${proposals.length} suggested</b><button class="x" data-gs-close aria-label="Close">×</button></div>
+      <ul>${proposals.map((l, i) => `<li data-i="${i}"><span>${nm(l.a)} – ${nm(l.b)}</span><em>${esc(l.why)}</em><button class="gs-ok" data-ok="${i}" aria-label="Add this link" title="Add">✓</button><button class="gs-no" data-no="${i}" aria-label="Skip this link" title="Skip">✕</button></li>`).join('')}</ul>
+      <div class="gs-btns"><button class="btn moss sm" data-gs-all>Accept all</button><button class="btn line sm" data-gs-close>Dismiss</button></div>`;
     sug.hidden = false;
-    sug.classList.remove('in'); void sug.offsetWidth; sug.classList.add('in');
-    const addBtn = sug.querySelector('[data-gs-add]');
-    const picks = () => [...sug.querySelectorAll('input:checked')].map((c) => list[+c.dataset.i]);
-    sug.querySelectorAll('input').forEach((c) => c.onchange = () => { const p = picks(); addBtn.textContent = addLabel(p); addBtn.disabled = !p.length; });
-    sug.querySelectorAll('[data-gs-close]').forEach((b) => b.onclick = () => { sug.hidden = true; });
-    addBtn.onclick = () => {
-      const chosen = picks().flatMap((s) => s.pairs.map(([a, b]) => ({ a, b })));
-      if (!chosen.length) return;
-      const before = state.links.slice();
-      chosen.forEach((l) => state.links.push({ a: l.a, b: l.b, type: 'together' }));
-      commit({ silent: true });
-      sug.hidden = true;
-      drawEdges(); render(); reheat();
-      toast(`${chosen.length} link${chosen.length === 1 ? '' : 's'} added`, { undo: () => { state.links = before; commit({ silent: true }); drawEdges(); render(); } });
-    };
+    const hl = (i, on) => edgeLayer.querySelector(`[data-pi="${i}"]`)?.classList.toggle('hl', on);
+    sug.querySelectorAll('li[data-i]').forEach((li) => { li.onmouseenter = () => hl(li.dataset.i, true); li.onmouseleave = () => hl(li.dataset.i, false); });
+    sug.querySelectorAll('[data-ok]').forEach((b) => b.onclick = () => accept(+b.dataset.ok));
+    sug.querySelectorAll('[data-no]').forEach((b) => b.onclick = () => skip(+b.dataset.no));
+    sug.querySelector('[data-gs-all]').onclick = acceptAll;
+    sug.querySelectorAll('[data-gs-close]').forEach((b) => b.onclick = () => { proposals = []; drawEdges(); render(); drawSuggest(); });
+  }
+  function accept(i) {
+    const l = proposals[i]; if (!l) return;
+    state.links.push({ a: l.a, b: l.b, type: 'together' });
+    proposals.splice(i, 1); commit({ silent: true });
+    chooser.hidden = true; drawEdges(); render(); reheat(); drawSuggest();
+  }
+  function skip(i) {
+    const l = proposals[i]; if (!l) return;
+    rejectedLinks.add(key(l.a, l.b)); proposals.splice(i, 1);
+    chooser.hidden = true; drawEdges(); render(); drawSuggest();
+  }
+  function acceptAll() {
+    const before = state.links.slice(), n = proposals.length;
+    proposals.forEach((l) => state.links.push({ a: l.a, b: l.b, type: 'together' }));
+    proposals = []; commit({ silent: true });
+    drawEdges(); render(); reheat(); drawSuggest();
+    toast(`${n} link${n === 1 ? '' : 's'} added`, { undo: () => { state.links = before; commit({ silent: true }); drawEdges(); render(); } });
+  }
+  function openProposal(i, e) {
+    const l = proposals[i]; if (!l) return;
+    chooser.innerHTML = `<div class="gc-names">${nm(l.a)} &amp; ${nm(l.b)}</div><div class="gc-why">${esc(l.why)}</div>
+      <div class="gc-btns"><button data-acc>Add link</button><button data-skip>Skip</button></div>`;
+    place(chooser, e); chooser.hidden = false;
+    chooser.querySelector('[data-acc]').onclick = () => accept(i);
+    chooser.querySelector('[data-skip]').onclick = () => skip(i);
+  }
+  host.querySelector('#suggestBtn').onclick = () => {
+    proposals = suggestLinks(guests).flatMap((s) => s.pairs.map(([a, b]) => ({ a, b, why: s.why })));
+    drawEdges(); render(); drawSuggest();
+    if (!proposals.length) toast('Nothing new to suggest');
   };
 
   // stop animating when the page changes

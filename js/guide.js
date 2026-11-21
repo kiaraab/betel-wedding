@@ -8,33 +8,31 @@ const write = (k) => { try { localStorage.setItem(k, '1'); } catch { /* storage 
 /** Steps point at real elements; any that aren't on screen right now are skipped. */
 const TOURS = {
   overview: [
-    ['.hero .hero-count', 'Your countdown.'],
-    ['.stats', 'Tap a number to jump to it.'],
-    ['.mtl-add', 'Add a date. “Mar 3” is enough.'],
-    ['.ov-card .glance', 'Who’s on what, at a glance.'],
+    ['.hero .hero-count', 'Days to go.'],
+    ['.stats', 'Tap a number to open it.'],
+    ['.mtl-add', 'Add a date, like “Mar 3”.'],
   ],
   team: [
-    ['.team-filters', 'Filter by color or status.'],
-    ['.stp', 'Tap a dot to set the status.'],
-    ['.p-name', 'Tap a name for their card.'],
-    ['#addPerson', 'Add someone: name, then Enter.'],
+    ['#teamFilter', 'Show by status or role.'],
+    ['.sdots', 'Tap a dot to set status.'],
+    ['.tc-name', 'Tap a name for details.'],
+    ['#addPerson', 'Add someone.'],
   ],
   guests: [
-    ['.gf-btn', 'Filter the list.'],
-    ['.g-name, [data-person]', 'Tap a name for their card.'],
-    ['.viewseg', 'Switch to connections.'],
+    ['.gf-btn', 'Filter.'],
+    ['.g-name, [data-person]', 'Tap a name for details.'],
+    ['.viewseg', 'See connections.'],
   ],
   agenda: [
     ['#agSuggest', 'Start from a typical day.'],
-    ['.ag-time', 'Tap a time to change it.'],
-    ['.ag-grip', 'Drag to reorder.'],
-    ['#agAdd', 'Add a moment.'],
+    ['.ab', 'Drag to move. Pull the bottom edge to resize. Tap to edit.'],
+    ['#agAdd', 'Add an event.'],
   ],
   seating: [
-    ['.spaces', 'Ceremony, cocktail hour, reception.'],
+    ['.spaces', 'Ceremony, Reception, Hangout spot.'],
     ['.plan-tools', 'Add tables and areas.'],
-    ['#planHost', 'Drag to move, tap for details.'],
-    ['.viewseg', 'Walk through it in 3D.'],
+    ['#planHost', 'Drag to move. Tap for details.'],
+    ['.viewseg', 'See it in 3D.'],
   ],
 };
 
@@ -67,7 +65,7 @@ function welcome() {
     <section class="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeT">
       <p class="welcome-k" id="welcomeT">Welcome</p>
       <p class="welcome-p">Made with love by Kiara. A little something to make the lead-up to your day easier: your flow and your wedding plan, in one place. Text me if you need help.</p>
-      <div class="welcome-b"><button class="btn line sm" data-w="tour">Show me around</button><button class="btn moss sm" data-w="go">Let’s go</button></div>
+      <div class="welcome-b"><button class="btn line sm" data-w="tour">Quick tour</button><button class="btn moss sm" data-w="go">Let’s go</button></div>
     </section>`;
   document.body.append(scrim);
   const close = (then) => {

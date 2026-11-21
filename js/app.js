@@ -6,6 +6,7 @@ import { renderConnections, stopConnections } from './connections.js';
 import { enableAddressLookup } from './address.js';
 import { esc, toast, daysUntil, fmtDate } from './util.js';
 import { openPerson } from './person.js';
+import { detailsHTML, wireDetails } from './guest-details.js';
 import { renderAgenda } from './agenda.js';
 import { initGuide, refreshGuide } from './guide.js';
 import { initHistory } from './history.js';
@@ -123,31 +124,6 @@ function drawMilestones() {
 let msResize;
 addEventListener('resize', () => { clearTimeout(msResize); msResize = setTimeout(drawMilestones, 120); });
 
-/**
- * Invitation-style photo: an oval with a lace-doily edge (scallops with eyelet holes, a stitched inner ring).
- * Drawn here, no artwork from the pin. Scallops bloom in one after another.
- */
-function laceOval(src) {
-  const cx = 150, cy = 200, rx = 118, ry = 165, n = 54;
-  let lace = '', holes = '';
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const x = cx + Math.cos(a) * (rx + 12), y = cy + Math.sin(a) * (ry + 12);
-    lace += `<circle class="sc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="11" style="--d:${(i * 14) % 700}ms"/>`;
-    const hx = cx + Math.cos(a) * (rx + 13), hy = cy + Math.sin(a) * (ry + 13);
-    holes += `<circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="2.1"/>`;
-    if (i % 2 === 0) { const px = cx + Math.cos(a) * (rx + 4), py = cy + Math.sin(a) * (ry + 4); holes += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="1.2"/>`; }
-  }
-  return `<svg class="lace" viewBox="0 0 300 400" role="img" aria-label="Betel and Carter">
-    <defs><clipPath id="ovalClip"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/></clipPath></defs>
-    <g class="lace-edge">${lace}<ellipse cx="${cx}" cy="${cy}" rx="${rx + 12}" ry="${ry + 12}" class="lace-fill"/></g>
-    <g class="lace-holes">${holes}</g>
-    <image href="${esc(src)}" x="${cx - rx}" y="${cy - ry}" width="${rx * 2}" height="${ry * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#ovalClip)"/>
-    <ellipse class="lace-stitch" cx="${cx}" cy="${cy}" rx="${rx - 5}" ry="${ry - 5}"/>
-    <ellipse class="lace-rim" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/>
-  </svg>`;
-}
-
 function overview() {
   const days = Math.max(0, daysUntil(WEDDING.date));
   const done = state.roles.filter((r) => r.status === 'Done').length;
@@ -159,14 +135,15 @@ function overview() {
 
   view.innerHTML = `
     <div class="ov">
-      <section class="hero invite">
-        <div class="inv-oval">${laceOval(WEDDING.heroImage)}</div>
-        <div class="inv-text">
-          <h1 class="inv-names">Betel <span class="amp">&amp;</span> Carter</h1>
-          <p class="inv-script">are getting married</p>
-          <p class="inv-meta">June 17, 2027 · Morais Vineyards</p>
-          <div class="hero-count"><b class="countup" data-to="${days}">0</b><span>days to go</span></div>
+      <section class="banner" aria-label="Betel and Carter are getting married">
+        <img class="banner-bg" src="assets/venue/ballroom.jpg" alt="" />
+        <div class="banner-text">
+          <h1 class="banner-names">Betel &amp; Carter</h1>
+          <p class="banner-script">are getting married</p>
+          <p class="banner-date">June 17, 2027 · Morais Vineyards</p>
+          <p class="banner-count"><b class="countup" data-to="${days}">0</b> days to go</p>
         </div>
+        <img class="arch-photo banner-arch" src="${WEDDING.heroImage}" alt="Betel and Carter" />
       </section>
 
       <div class="ov-side">
@@ -230,135 +207,102 @@ const linkChip = (l, del) => {
   return `<a class="lchip ${m.cls}" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(m.host)}">${esc(l.label || m.host)}<span aria-hidden="true">↗</span>${del ? `<button class="lx" data-dellink="${del}" aria-label="Remove link">×</button>` : ''}</a>`;
 };
 
-/* Bridesmaid colors (Betel's groups). New people get the least-used color unless one is set. */
-const TEAM_COLORS = { pink: 'Pink', burgundy: 'Burgundy', green: 'Green' };
+/* Team v2 (REQ-51). Bridesmaids' cards are filled with their group colour; anyone else is a plain cream card.
+   The colour can be changed per person from the card's menu (stored as p.color: 'pink' | 'burgundy' | 'green' | 'none'). */
+const TEAM_COLORS = { none: 'None', pink: 'Pink', burgundy: 'Burgundy', green: 'Green' };
 const COLOR_OF = { kiara: 'pink', monica: 'pink', ashlyn: 'burgundy', eden: 'burgundy', noella: 'burgundy', noemi: 'green', morgan: 'green', isabele: 'green' };
-const colorOf = (p) => p.color || COLOR_OF[p.id] || 'green';
-const ST_SHORT = { 'Not started': 'To do', 'In progress': 'Doing', 'Waiting on bride': 'Waiting', Done: 'Done' };
-let teamColor = 'all', teamStatus = 'all';
-let confirmDel = null; // person id showing the inline "Remove X?"
-let freshPerson = null;
-let teamRO = null;
+const colorOf = (p) => p.color || COLOR_OF[p.id] || 'none';
+let teamFilter = 'all';   // 'all' | 'st:<status-key>' | 'role:<title>'
+let confirmDel = null;    // person id showing the inline "Remove X?"
+let menuFor = null;       // person id whose colour menu is open
 
-/** Interleave the color groups so cards of one color don't clump together. */
-function spreadByColor(people) {
-  const groups = Object.keys(TEAM_COLORS).map((c) => people.filter((p) => colorOf(p) === c)).sort((a, b) => b.length - a.length);
-  const out = [];
-  for (let i = 0; out.length < people.length; i++) groups.forEach((g) => { if (g[i]) out.push(g[i]); });
-  return out;
-}
-
-const statusPills = (r) => `
-  <div class="stp" role="radiogroup" aria-label="Status for ${esc(r.title)}" data-role="${r.id}">
-    ${STATUSES.map((s) => `<button type="button" role="radio" aria-checked="${s === r.status}" class="stp-o ${statusKey(s)}${s === r.status ? ' on' : ''}" data-st="${s}" title="${s}"><i></i><span>${ST_SHORT[s] || s}</span></button>`).join('')}
-  </div>`;
+const statusDots = (r) => `
+  <span class="sdots" role="radiogroup" aria-label="Status for ${esc(r.title)}" data-role="${r.id}">
+    ${STATUSES.map((s) => `<button type="button" role="radio" aria-checked="${s === r.status}" class="sdot ${statusKey(s)}${s === r.status ? ' on' : ''}" data-st="${s}" title="${s}" aria-label="${s}"></button>`).join('')}
+  </span>`;
 
 function personCard(p) {
   const rs = rolesOf(p.id);
-  const doneN = rs.filter((r) => r.status === 'Done').length;
   const asking = confirmDel === p.id;
   return `
-    <article class="person tint-${colorOf(p)}${p.id === freshPerson ? ' fresh' : ''}" data-pid="${p.id}" data-color="${colorOf(p)}">
-      <header class="p-head">
-        <div class="p-id">
-          <button class="p-name" data-openperson="${p.id}">${esc(p.name)}</button>
-          ${p.tag ? `<span class="p-tag">${esc(p.tag)}</span>` : ''}
-        </div>
-        ${rs.length ? `<span class="p-count" title="Roles done">${doneN}/${rs.length}</span>` : ''}
-        <button class="x p-del" data-delperson="${p.id}" aria-label="Remove ${esc(p.name)}">×</button>
+    <article class="tcard c-${colorOf(p)}" data-pid="${p.id}">
+      <header class="tc-head">
+        <button class="tc-name" data-openperson="${p.id}">${esc(p.name)}</button>
+        ${p.tag ? `<span class="tc-tag">${esc(p.tag)}</span>` : ''}
+        <span class="tc-tools">
+          <button class="tc-btn" data-menu="${p.id}" aria-label="Card colour" aria-expanded="${menuFor === p.id}">⋯</button>
+          <button class="tc-btn" data-delperson="${p.id}" aria-label="Remove ${esc(p.name)}">×</button>
+        </span>
+        ${menuFor === p.id ? `<div class="tc-menu" role="menu" aria-label="Card colour">
+          ${Object.entries(TEAM_COLORS).map(([k, l]) => `<button role="menuitemradio" aria-checked="${colorOf(p) === k}" class="sw sw-${k}${colorOf(p) === k ? ' on' : ''}" data-setcolor="${k}" title="${l}" aria-label="${l}"></button>`).join('')}
+        </div>` : ''}
       </header>
-      ${asking ? `<div class="p-confirm" role="alertdialog" aria-label="Remove ${esc(p.name)}?">
+      ${asking ? `<div class="tc-confirm" role="alertdialog" aria-label="Remove ${esc(p.name)}?">
         <span>Remove ${esc(p.name)}?</span>
-        <button class="pc-yes" data-confirmdel="${p.id}">Remove</button><button class="pc-no" data-canceldel>Keep</button>
+        <button class="tc-yes" data-confirmdel="${p.id}">Remove</button><button class="tc-no" data-canceldel>Keep</button>
       </div>` : ''}
-      <ul class="roles">
-        ${rs.map((r) => `
-          <li class="role" data-status="${statusKey(r.status)}">
-            <div class="role-title">${esc(r.title)}</div>
-            ${r.people.length > 1 || r.with ? `<div class="with">with ${esc([...r.people.filter((x) => x !== p.id).map(personName), r.with].filter(Boolean).join(' & '))}</div>` : ''}
-            ${statusPills(r)}
-          </li>`).join('')}
+      <ul class="tc-roles">
+        ${rs.map((r) => {
+          const w = r.people.length > 1 || r.with ? [...r.people.filter((x) => x !== p.id).map(personName), r.with].filter(Boolean).join(' & ') : '';
+          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title" title="${esc(r.title)}${w ? ' · with ' + esc(w) : ''}">${esc(r.title)}${w ? `<small> · ${esc(w)}</small>` : ''}</span>${statusDots(r)}</li>`;
+        }).join('')}
       </ul>
-      <form class="add-role-inline" data-addrole="${p.id}" autocomplete="off">
-        <input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/>
-      </form>
+      <form class="tc-add" data-addrole="${p.id}" autocomplete="off"><input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/></form>
     </article>`;
 }
 
-/** Packed masonry: each card drops into the shortest column; positions glide when filters or sizes change. */
-function layoutTeam() {
-  const box = view.querySelector('.people');
-  if (!box) return;
-  const cards = [...box.children].filter((c) => !c.classList.contains('gone'));
-  const W = box.clientWidth, gap = 14;
-  const cols = Math.max(1, Math.floor((W + gap) / (264 + gap)));
-  const cw = (W - gap * (cols - 1)) / cols;
-  cards.forEach((c) => { c.style.width = cw + 'px'; });
-  const hs = Array(cols).fill(0);
-  cards.forEach((c) => {
-    const k = hs.indexOf(Math.min(...hs));
-    c.style.transform = `translate(${(k * (cw + gap)).toFixed(1)}px, ${hs[k]}px)`;
-    hs[k] += c.offsetHeight + gap;
-  });
-  box.style.height = Math.max(0, Math.max(...hs) - gap) + 'px';
-  if (!box.classList.contains('ready')) requestAnimationFrame(() => box.classList.add('ready'));
-}
-
-function applyTeamFilter() {
-  view.querySelectorAll('.people > .person[data-pid]').forEach((c) => {
-    const p = state.people.find((x) => x.id === c.dataset.pid);
-    const okColor = teamColor === 'all' || colorOf(p) === teamColor;
-    const okStatus = teamStatus === 'all' || rolesOf(p.id).some((r) => statusKey(r.status) === teamStatus);
-    c.classList.toggle('gone', !(okColor && okStatus));
-  });
-  view.querySelectorAll('[data-tcolor]').forEach((b) => b.classList.toggle('on', b.dataset.tcolor === teamColor));
-  view.querySelectorAll('[data-tstatus]').forEach((b) => b.classList.toggle('on', b.dataset.tstatus === teamStatus));
-  layoutTeam();
+function matchesFilter(p) {
+  if (teamFilter === 'all') return true;
+  const [kind, val] = [teamFilter.slice(0, teamFilter.indexOf(':')), teamFilter.slice(teamFilter.indexOf(':') + 1)];
+  const rs = rolesOf(p.id);
+  return kind === 'st' ? rs.some((r) => statusKey(r.status) === val) : rs.some((r) => r.title === val);
 }
 
 function team() {
-  const people = spreadByColor(state.people);
+  const titles = [...new Set(state.roles.map((r) => r.title))].sort((a, b) => a.localeCompare(b));
+  const people = state.people.filter(matchesFilter);
   view.innerHTML = `
     <div class="page-head team-head">
       <h1>Team</h1>
-      <div class="team-filters">
-        <div class="tf" role="group" aria-label="Color">
-          <button data-tcolor="all">All</button>
-          ${Object.entries(TEAM_COLORS).map(([k, l]) => `<button data-tcolor="${k}" class="sw-${k}" aria-label="${l}"><i></i></button>`).join('')}
-        </div>
-        <div class="tf" role="group" aria-label="Status">
-          <button data-tstatus="all">Any</button>
-          ${STATUSES.map((s) => `<button data-tstatus="${statusKey(s)}" class="${statusKey(s)}" title="${s}"><i></i>${ST_SHORT[s]}</button>`).join('')}
-        </div>
-      </div>
+      <label class="tf-select"><span class="sr-only">Show</span>
+        <select id="teamFilter">
+          <option value="all">Everyone</option>
+          <optgroup label="Status">${STATUSES.map((s) => `<option value="st:${statusKey(s)}">${s}</option>`).join('')}</optgroup>
+          <optgroup label="Role">${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</optgroup>
+        </select>
+      </label>
     </div>
-    <div class="people packed">
+    <div class="tgrid">
       ${people.map(personCard).join('')}
-      <form class="person add-person" id="addPerson" autocomplete="off">
-        <input name="who" placeholder="+ Add someone" aria-label="New team member's name"/>
-      </form>
-    </div>`;
-  freshPerson = null;
+      ${teamFilter === 'all' ? `<form class="tcard t-add" id="addPerson" autocomplete="off"><input name="who" placeholder="+ Add someone" aria-label="New team member's name"/></form>` : ''}
+    </div>
+    ${people.length ? '' : '<p class="tf-none">No one matches.</p>'}`;
+  const sel = view.querySelector('#teamFilter');
+  sel.value = teamFilter;
+  if (sel.value !== teamFilter) { teamFilter = 'all'; sel.value = 'all'; }
+  sel.onchange = () => { teamFilter = sel.value; team(); };
 
   const P = (id) => state.people.find((p) => p.id === id);
-  // Status pills: change in place (no re-render) so the highlight can slide
-  view.querySelectorAll('.stp-o').forEach((b) => b.onclick = () => {
-    const rid = b.closest('.stp').dataset.role, st = b.dataset.st;
+  // Status dots change in place (no re-render)
+  view.querySelectorAll('.sdot').forEach((b) => b.onclick = () => {
+    const rid = b.closest('.sdots').dataset.role, st = b.dataset.st;
     const r = state.roles.find((x) => x.id === rid);
     if (!r || r.status === st) return;
     r.status = st;
-    view.querySelectorAll(`.stp[data-role="${CSS.escape(rid)}"]`).forEach((g) => {
-      g.querySelectorAll('.stp-o').forEach((o) => { const on = o.dataset.st === st; o.classList.toggle('on', on); o.setAttribute('aria-checked', String(on)); });
-      g.closest('.role').dataset.status = statusKey(st);
-    });
-    view.querySelectorAll('.p-count').forEach((c) => {
-      const pid = c.closest('.person').dataset.pid, rs = rolesOf(pid);
-      c.textContent = `${rs.filter((x) => x.status === 'Done').length}/${rs.length}`;
+    view.querySelectorAll(`.sdots[data-role="${CSS.escape(rid)}"]`).forEach((g) => {
+      g.querySelectorAll('.sdot').forEach((o) => { const on = o.dataset.st === st; o.classList.toggle('on', on); o.setAttribute('aria-checked', String(on)); });
+      g.closest('.tc-role').dataset.status = statusKey(st);
     });
     commit({ silent: true });
-    if (teamStatus !== 'all') applyTeamFilter();
   });
   view.querySelectorAll('[data-openperson]').forEach((b) => b.onclick = () => openPerson(b.dataset.openperson));
+  view.querySelectorAll('[data-menu]').forEach((b) => b.onclick = () => { menuFor = menuFor === b.dataset.menu ? null : b.dataset.menu; confirmDel = null; team(); });
+  view.querySelectorAll('[data-setcolor]').forEach((b) => b.onclick = () => {
+    const p = P(b.closest('.tcard').dataset.pid);
+    p.color = b.dataset.setcolor;
+    menuFor = null;
+    commit();
+  });
   view.querySelectorAll('[data-addrole]').forEach((f) => f.onsubmit = (e) => {
     e.preventDefault();
     const title = f.elements.title.value.trim();
@@ -368,45 +312,30 @@ function team() {
     view.querySelector(`[data-addrole="${CSS.escape(f.dataset.addrole)}"] input`)?.focus();
   });
   // × asks first (inline), then removes with Undo
-  view.querySelectorAll('[data-delperson]').forEach((b) => b.onclick = () => { confirmDel = confirmDel === b.dataset.delperson ? null : b.dataset.delperson; team(); });
+  view.querySelectorAll('[data-delperson]').forEach((b) => b.onclick = () => { confirmDel = confirmDel === b.dataset.delperson ? null : b.dataset.delperson; menuFor = null; team(); });
   view.querySelector('[data-canceldel]')?.addEventListener('click', () => { confirmDel = null; team(); });
   view.querySelector('[data-confirmdel]')?.addEventListener('click', (e) => {
     const p = P(e.currentTarget.dataset.confirmdel);
     confirmDel = null;
     if (!p) return team();
-    const card = e.currentTarget.closest('.person');
-    card.classList.add('leaving');
-    setTimeout(() => undoable(`${p.name} removed`, () => {
+    undoable(`${p.name} removed`, () => {
       state.people = state.people.filter((x) => x.id !== p.id);
       state.roles = state.roles.filter((r) => { r.people = r.people.filter((x) => x !== p.id); return r.people.length; });
-    }, toast), 200);
+    }, toast);
   });
-  // Add someone: name + Enter → a new card (and a guest)
-  view.querySelector('#addPerson').onsubmit = (e) => {
+  // Add someone: name + Enter → a new (neutral) card and a guest
+  view.querySelector('#addPerson')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const name = e.target.elements.who.value.trim();
     if (!name) return;
-    const used = (c) => state.people.filter((p) => colorOf(p) === c).length;
-    const color = Object.keys(TEAM_COLORS).sort((a, b) => used(a) - used(b))[0];
-    const p = { id: uid(), name, tag: '', color, links: [], updates: [] };
-    state.people.push(p);
+    state.people.push({ id: uid(), name, tag: '', color: 'none', links: [], updates: [] });
     ensureAutoGuests();
-    freshPerson = p.id;
     commit();
     toast(`${name} added`);
     view.querySelector('#addPerson input')?.focus();
-  };
-  view.querySelectorAll('[data-tcolor]').forEach((b) => b.onclick = () => { teamColor = b.dataset.tcolor; applyTeamFilter(); });
-  view.querySelectorAll('[data-tstatus]').forEach((b) => b.onclick = () => { teamStatus = b.dataset.tstatus; applyTeamFilter(); });
-
-  teamRO?.disconnect();
-  let raf = 0;
-  teamRO = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(layoutTeam); });
-  const box = view.querySelector('.people');
-  teamRO.observe(box);
-  [...box.children].forEach((c) => teamRO.observe(c));
-  applyTeamFilter();
-  if (confirmDel) view.querySelector('.pc-no')?.focus();
+  });
+  if (confirmDel) view.querySelector('.tc-no')?.focus();
+  if (menuFor) view.querySelector('.tc-menu .on')?.focus();
 }
 
 /* ---------------- Guests ---------------- */
@@ -541,21 +470,19 @@ function guests() {
         <thead><tr><th>Name</th><th>Side</th><th>Relation</th><th>RSVP</th><th>Meal</th><th>Table</th><th><span class="sr">Details</span></th></tr></thead>
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
-            <td class="c-name"><div class="name-cell"><button class="g-name" data-person="${g.id}" title="Open ${esc(g.name)}">${esc(g.name)}</button>${needsAddress(g) ? `<button class="need-addr" data-open="${g.id}" title="Add their address">Need address</button>` : ''}</div></td>
+            <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/>${needsAddress(g) ? `<button class="need-addr" data-open="${g.id}" title="Add their address">Need address</button>` : ''}</div></td>
             <td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
             <td class="rel-td">${relCell(g)}</td>
             <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-            <td class="c-meal"><input class="input" data-k="meal" list="meals" value="${esc(g.meal)}" placeholder="Meal" aria-label="Meal"/></td>
+            <td class="c-meal"><select class="select" data-k="meal" data-v="${esc(g.meal || '')}" aria-label="Meal"><option value="">—</option>${[...MEALS, ...(g.meal && !MEALS.includes(g.meal) ? [g.meal] : [])].map((m) => `<option ${m === g.meal ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td>
             <td class="c-table" data-t="${tableWord(g.tableId)}"><select class="select" data-k="tableId" aria-label="Table">${tableOpts(g.tableId)}</select></td>
             <td class="row-actions">
               <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details" aria-label="Address & details for ${esc(g.name)}">${PIN}</button>
               ${g.party === 'couple' ? '' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
             </td>
           </tr>
-          ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="7"><div class="detail-grid">
-            ${DETAIL_FIELDS.map(([k, l, type]) => `<label class="field ${k}">${l}<input class="input${k === 'street' ? ' addr-street' : ''}" data-k="${k}" type="${type}" value="${esc(g[k])}" autocomplete="${k === 'street' ? 'street-address' : 'off'}"/></label>`).join('')}
-          </div></td></tr>` : ''}`).join('')}</tbody></table></div>
-        <datalist id="meals">${MEALS.map((m) => `<option value="${m}"></option>`).join('')}</datalist>`
+          ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="7">${detailsHTML(g)}</td></tr>` : ''}`).join('')}</tbody></table></div>
+`
       : `<p class="muted" style="margin:0;padding:20px">No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.</p>`}
     </section>`;
 
@@ -604,7 +531,7 @@ function guests() {
     openGuests.has(id) ? openGuests.delete(id) : openGuests.add(id);
     guests();
   });
-  view.querySelectorAll('tr[data-id]').forEach((tr) => {
+  view.querySelectorAll('tr.row[data-id]').forEach((tr) => {
     const g = state.guests.find((x) => x.id === tr.dataset.id);
     tr.querySelectorAll('[data-k]').forEach((el) => {
       el.onchange = () => {
@@ -613,16 +540,19 @@ function guests() {
           const t = state.tables.find((x) => x.id === el.value);
           if (state.guests.filter((x) => x.tableId === t.id && x.id !== g.id).length >= seatCount(t)) { toast('That table is full'); el.value = g.tableId || ''; return; }
         }
+        if (k === 'name' && !el.value.trim()) { el.value = g.name; return; }
         g[k] = el.value || (k === 'tableId' ? null : '');
-        if (k === 'rsvp') el.dataset.v = el.value;
+        if (k === 'rsvp' || k === 'meal') el.dataset.v = el.value;
         if (k === 'relation') el.dataset.v = relationOf(g);
+        if (k === 'name') { g.name = el.value.trim(); const p = state.people.find((x) => x.id === g.personId); if (p) p.name = g.name; }
         if (k === 'tableId') el.parentElement.dataset.t = tableWord(g.tableId);
         refreshFilter();
         commit({ silent: !['rsvp', 'side', 'street'].includes(k) });
       };
     });
   });
-  view.querySelectorAll('[data-person]').forEach((b) => b.onclick = () => openPerson(b.dataset.person));
+  // address & details panels (household / plus-one / photo changes redraw the list in place)
+  openGuests.forEach((id) => { const g = state.guests.find((x) => x.id === id); if (g) wireDetails(view, g, { onRedraw: () => commit() }); });
   view.querySelectorAll('[data-delg]').forEach((b) => b.onclick = () => {
     const g = state.guests.find((x) => x.id === b.dataset.delg);
     undoable(`${g.name} removed`, () => { state.guests = state.guests.filter((x) => x.id !== g.id); }, toast);
