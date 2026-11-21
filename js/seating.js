@@ -433,7 +433,7 @@ export function renderSeating(root) {
         <button role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button>
       </div>
     </div>
-    <div class="seat-layout">
+    <div class="seat-layout${mode === 'plan' ? ' is-plan' : ''}">
       <div class="plan-col">
         <div class="card plan-card">
           <div class="plan-tools">

@@ -806,7 +806,7 @@ main.enter .hero-photo { animation: photoIn .8s var(--ease) .05s backwards; }
   body[data-route="overview"] .foot:hover { opacity: 1; }
   .ov {
     display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.2fr); gap: 16px;
-    height: calc(100vh - var(--top-h) - 44px); min-height: 560px;
+    height: calc(100vh - var(--top-h) - 44px); min-height: 0;
   }
   .ov .hero {
     grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); gap: 26px; align-items: stretch;
@@ -829,7 +829,7 @@ main.enter .hero-photo { animation: photoIn .8s var(--ease) .05s backwards; }
   }
   .ov-card .legend { margin-top: 6px; }
 }
-@media (max-width: 900px) { .ov-cards { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .ov-cards { grid-template-columns: minmax(0, 1fr); } }
 /* REQ-17 drag-to-link */
 .graph .node circle.dot { transition: stroke .15s, stroke-width .15s, transform .22s var(--ease); }
 .graph .node.drop-target circle.dot { stroke: var(--gold-2); stroke-width: 5; transform: scale(1.22); }
@@ -977,3 +977,45 @@ main.enter .hero-photo { animation: photoIn .8s var(--ease) .05s backwards; }
 .pop .seat-slots li.taken:hover > i, .pop .seat-slots li.typing > i { color: var(--gold); }
 .pop .seat-slots li.empty > i { opacity: .6; }
 .pop .seat-slots { -webkit-mask-image: linear-gradient(#000 calc(100% - 14px), transparent); mask-image: linear-gradient(#000 calc(100% - 14px), transparent); padding-bottom: 10px; }
+/* REQ-08/09 QA: add row shrinks on phones; overview fits down to 640px tall */
+.ov-card, .ov-side, .mtl-add { min-width: 0; }
+.mtl-add input[type="date"] { flex: 0 1 128px; min-width: 0; }
+.mtl-add input[name="label"] { flex: 1 1 80px; min-width: 0; }
+@media (min-width: 1100px) and (max-height: 760px) and (min-height: 640px) {
+  .ov .hero { padding: 26px 28px 28px; gap: 16px; }
+  .ov .hero-names { font-size: clamp(40px, 3.8vw, 54px); }
+  .ov .hero-count { margin-top: 14px; }
+  .ov .hero-count b { font-size: 46px; }
+  .ov .stat { padding: 12px 18px; }
+  .ov .stat b { font-size: 26px; }
+  .ov .meter { margin-top: 8px; }
+  .ov-card { padding: 16px 18px 14px; }
+}
+@media (min-width: 1100px) and (min-height: 640px) { .ov { grid-template-rows: minmax(0, 1fr); } .ov > * { min-height: 0; } }
+
+/* ---------- QA-10 wide desktop: plan column hugs the portrait room, side cards + inspo use the freed width ---------- */
+@media (min-width: 1280px) {
+  .seat-layout.is-plan { grid-template-columns: minmax(540px, calc((100vh - 290px) * .66 + 140px)) minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 16px 20px; }
+  .seat-layout.is-plan .plan-col { display: contents; }
+  .seat-layout.is-plan .plan-card { grid-column: 1; grid-row: 1 / 3; align-self: start; }
+  .seat-layout.is-plan .plan { max-height: calc(100vh - 290px); min-height: 420px; }
+  .seat-layout.is-plan .side-panel { grid-column: 2; grid-row: 1; position: static; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); align-items: stretch; }
+  .seat-layout.is-plan .strip { grid-column: 2; grid-row: 2; align-self: start; margin-top: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; overflow: visible; -webkit-mask-image: none; mask-image: none; padding: 0; }
+  .seat-layout.is-plan .strip figure, .seat-layout.is-plan .strip-add { width: auto; height: auto; aspect-ratio: 4 / 5; }
+}
+
+/* password screen */
+body.locked .masthead, body.locked main, body.locked .foot { visibility: hidden; }
+.gate { position: fixed; inset: 0; z-index: 100; display: grid; grid-template-rows: auto 1fr; background: radial-gradient(ellipse at 50% 30%, #3e4a2e 0%, var(--moss-900) 70%); color: var(--ivory); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+.gate[hidden] { display: none; }
+.gate.open { opacity: 0; transform: scale(1.03); pointer-events: none; }
+.gate-card { align-self: center; justify-self: center; display: grid; justify-items: center; gap: 10px; padding: 24px; text-align: center; animation: rise .7s var(--ease) backwards; }
+.gate-card h1 { color: var(--ivory); font-weight: 400; font-size: clamp(40px, 8vw, 72px); letter-spacing: -.02em; }
+.gate-card h1 span { font-family: var(--script); color: var(--gold-2); }
+.gate-card p { margin: 0 0 18px; color: rgba(239, 231, 212, .7); font-size: 15px; letter-spacing: .04em; }
+.gate-card input { width: 240px; padding: 12px 52px 12px 18px; border-radius: 99px; border: 1px solid rgba(239, 231, 212, .3); background: rgba(239, 231, 212, .08); color: var(--ivory); font-size: 16px; text-align: center; }
+.gate-card input::placeholder { color: rgba(239, 231, 212, .5); }
+.gate-card input:focus { outline: none; border-color: var(--gold-2); box-shadow: 0 0 0 3px rgba(212, 180, 106, .25); }
+.gate-card button { margin-top: -54px; margin-left: 196px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--gold-2); color: var(--moss-900); font-size: 18px; cursor: pointer; }
+.gate.shake .gate-card input { animation: shake .4s; border-color: var(--wine-2); }
+@keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }

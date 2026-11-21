@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f3823'/%3E%3Ctext x='32' y='44' font-family='Georgia' font-size='34' text-anchor='middle' fill='%23efe7d4'%3EG%3C/text%3E%3C/svg%3E" />
 </head>
-<body>
+<body class="locked">
   <header class="masthead">
     <div class="tibeb" aria-hidden="true"></div>
     <div class="mast-inner">
@@ -37,6 +37,42 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/app.js"></script>
+  <!-- Password screen (keeps casual visitors out; files are still public in the GitHub repo) -->
+  <div class="gate" id="gate" hidden>
+    <div class="tibeb" aria-hidden="true"></div>
+    <form class="gate-card" id="gateForm" autocomplete="off">
+      <h1>Betel <span>&amp;</span> Carter</h1>
+      <p>June 17, 2027 · Morais Vineyards</p>
+      <label class="sr" for="gatePw">Password</label>
+      <input id="gatePw" type="password" placeholder="Password" autofocus />
+      <button type="submit" aria-label="Enter">&rarr;</button>
+    </form>
+  </div>
+  <script type="module">
+    const HASH = 'a5246b03e83a72386b42c62b3d945e5d153c2fcef3b9a72a4f4de5018624a700';
+    const KEY = 'bc-unlocked';
+    const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const gate = document.getElementById('gate');
+    const enter = () => { document.body.classList.remove('locked'); import('./js/app.js'); };
+    let ok = false;
+    try { ok = localStorage.getItem(KEY) === HASH; } catch { /* storage blocked: ask every time */ }
+    if (ok) { gate.remove(); enter(); }
+    else {
+      gate.hidden = false;
+      document.getElementById('gateForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('gatePw');
+        if (await sha(input.value.trim().toLowerCase()) === HASH) {
+          try { localStorage.setItem(KEY, HASH); } catch { /* remembered for this visit only */ }
+          gate.classList.add('open');
+          enter();
+          setTimeout(() => gate.remove(), 700);
+        } else {
+          input.value = '';
+          gate.classList.remove('shake'); void gate.offsetWidth; gate.classList.add('shake');
+        }
+      };
+    }
+  </script>
 </body>
 </html>
