@@ -968,3 +968,12 @@ main.enter .hero-photo { animation: photoIn .8s var(--ease) .05s backwards; }
 .lb-nav:focus-visible, .lb-x:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .side-panel .morais .morais-th { border-radius: 10px; }
 .lb-nav, .lb-x { transition: opacity .3s .1s, background-color .2s, transform .15s var(--ease); }
+/* UX polish · REQ-16 table popover */
+.pop, .pop .seat-slots { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; overscroll-behavior: contain; }
+.pop-head .rename { order: -1; }
+.pop-head .pop-nav[data-nav="-1"] { margin-left: 4px; }
+.pop-nav:focus-visible, .slot-add:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.pop .seat-slots li > i { transition: color .2s; }
+.pop .seat-slots li.taken:hover > i, .pop .seat-slots li.typing > i { color: var(--gold); }
+.pop .seat-slots li.empty > i { opacity: .6; }
+.pop .seat-slots { -webkit-mask-image: linear-gradient(#000 calc(100% - 14px), transparent); mask-image: linear-gradient(#000 calc(100% - 14px), transparent); padding-bottom: 10px; }

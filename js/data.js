@@ -87,6 +87,7 @@ export const SEED_ROLES = [
 
 // Only dates that are sourced: Betel's planning sheet or confirmed. Saved with the plan (state.milestones) so they can be edited.
 export const MILESTONES = [
+  { id: 'engaged', date: '2026-04-10', label: 'Engaged' },                     // Kiara: proposal April 10
   { id: 'bachelorette', date: '2026-10-02', label: 'Bachelorette weekend' },  // sheet: PA Ren Faire, Oct 2–4 2026
   { id: 'floral-sample', date: '2026-12-31', label: 'Floral sample in hand' }, // sheet: sample before the end of the year
   { id: 'wedding', date: '2027-06-17', label: 'The wedding' },                 // confirmed

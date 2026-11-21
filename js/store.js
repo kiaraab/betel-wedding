@@ -74,6 +74,11 @@ else if (state.milestones.some((m) => !m.id)) {
     .map((m) => ({ ...m, id: m.id || uid() }));
   state.milestones = [...structuredClone(MILESTONES), ...kept];
 }
+// Sourced dates added later (e.g. the engagement) show up in plans saved before they existed
+state.seenMilestones ||= state.milestones.filter((m) => MILESTONES.some((s) => s.id === m.id)).map((m) => m.id);
+MILESTONES.forEach((s) => {
+  if (!state.seenMilestones.includes(s.id)) { state.seenMilestones.push(s.id); if (!state.milestones.some((m) => m.id === s.id)) state.milestones.unshift(structuredClone(s)); }
+});
 
 /** Betel, Carter and everyone on the team are guests automatically (stable ids, so they never duplicate). */
 export function ensureAutoGuests() {
