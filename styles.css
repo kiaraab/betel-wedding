@@ -2214,3 +2214,4 @@ table.guests td { overflow: hidden; } table.guests td .select, table.guests td .
 .foot .linklike { border: 1px solid rgba(243, 225, 227, .45); border-radius: 3px; padding: 6px 14px; background: transparent; cursor: pointer; text-decoration: none; transition: background-color .2s, color .2s; }
 .foot .linklike:hover { background: #f3e1e3; color: #5e1a29; text-decoration: none; }
 .foot-acts { gap: 10px; }
+.banner-names i { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 1.05em; letter-spacing: 0; padding: 0 .12em; }

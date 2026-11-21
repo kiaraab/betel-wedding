@@ -88,3 +88,17 @@ All use the 50 x 80 ft working room (ESTIMATE), keep door paths/stage/entrance a
 - **Long banquet**: two long garland-style tables down the sides plus a cross table at the near end, forming a U around the floor, sweetheart at the far wall. Based on the Simply Breathe Events photo (first thumbnail in `google-morais-1.jpg`: long banquet rows with greenery runners).
 - **Long head table**: an 8-seat head table facing the room at the arched doors, rounds in a U around the dance floor. Based on the Palacio / Simply Breathe photos with a long head table at the arched doors.
 Note: only the stage/dance-floor geometry is observed; table counts and spacing are planning choices. The 8-seat head table is not auto-seated (Auto-seat treats the head as the couple's).
+
+## From moraisvineyards.com (read Nov 21, 2026) — published facts
+Source pages: /weddings-events/the-palacio-package/, /ceremony-locations/, /the-grounds/, /redondo-room/, /faqs/. Photos saved in `assets/venue/site/`.
+- Address: 11409 Marsh Road, Bealeton, VA 22716. The wedding venue building is called **the Palacio** ("Palacio Package").
+- **Ballroom:** 4,000 sq ft hardwood floor, Palladian-style windows, **stage anchored by columns with painted Portuguese tiles**, dance floor, **six champagne-leaf grand chandeliers**, **two private outdoor terraces** over the pond and vineyards. Many floor plans possible, **up to 250 guests**. All reception furniture included. Reviewer: 2-story ceiling, chandeliers on dimmers, floor-to-ceiling windows on 3 sides.
+- **Balcony:** reached by a large spiral staircase; landing holds **up to 50 guests**; back window looks to the front patio and fountain.
+- **The Bar:** separate bar room (bistro tables, high tops). Only Morais wines on site; beer/liquor with an ABC banquet licence.
+- **Foyer:** cream marble floors (entry space). **Kitchen** on site.
+- **Bridal suite** (morning access, vanities with LED mirrors, fireplace, terrace, French garden) and **groom's suite** (bath, lounge, candle-lit bar, wine cooler).
+- **Patios / terraces / courtyard:** glowing courtyard for cocktail hour and portraits; side patio + balcony for sunset views; courtyard also the send-off spot.
+- **Ceremony locations** (one included): **Chapel, Pergola, Indoor ceremony**. Outdoor site includes **150 white chairs**.
+- **Redondo Room** (base of the public tasting room): private room, **capacity 60**, French doors to a covered patio over the pond.
+- Hours (tasting): Fri 1–7pm, Sat/Sun 12–6pm. Outside food allowed in the tasting rooms. Dogs leashed on the lawn.
+- NOT published: exact ballroom dimensions (only the 4,000 sq ft area), stage size, terrace sizes, chapel/pergola seating layout, bar-room size. Keep these as estimates.

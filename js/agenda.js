@@ -269,9 +269,13 @@ export function renderAgenda(view) {
     });
     form.onsubmit = (e) => {
       e.preventDefault();
-      const from = toMin(form.elements.from.value), to = toMin(form.elements.to.value);
-      if (!(to > from + 60)) { toast('End needs to be at least an hour after the start'); return; }
-      const fresh = suggestBlocks(from, to);
+      const from = toMin(form.elements.from.value);
+      let to = toMin(form.elements.to.value);
+      if (to <= from) to += 24 * 60;                 // an end like 2am means the next morning
+      if (to - from < 60) { toast('The event needs to run at least an hour'); return; }
+      const late = to > 24 * 60 - 15;
+      const fresh = suggestBlocks(from, Math.min(to, 24 * 60 - 15));   // the day view ends at midnight for now
+      if (late) toast('Past midnight is trimmed to 11:45pm for now');
       suggesting = false;
       undoable(`${fresh.length} events suggested`, () => {
         state.agenda.filter((a) => a.suggested).forEach(dropNote);
