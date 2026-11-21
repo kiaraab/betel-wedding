@@ -1,7 +1,7 @@
 // Street autocomplete for guest addresses (Google Places). Does nothing until a key is set.
 // To turn it on: create a Google Maps Platform key with the "Places API" enabled, restrict it
 // to your GitHub Pages address (https://kiaraab.github.io/*) and paste it below.
-const GOOGLE_MAPS_KEY = ''; // e.g. 'AIza...'
+const GOOGLE_MAPS_KEY = 'AIzaSyCgWQNhQh8kBZNGDvaBfHhB73o6t8wGJrw';
 
 let loading = null;
 function loadPlaces() {
