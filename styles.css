@@ -1115,3 +1115,9 @@ table.guests tr.row:hover td.c-meal .input::placeholder, table.guests td.c-meal 
 .plan .dc-sunroom { fill: rgba(220, 230, 232, .55); stroke: var(--moss-700); stroke-width: .2; }
 .plan .dc-skylight { fill: none; stroke: #b9cdd2; stroke-width: .15; stroke-dasharray: .4 .3; }
 .plan .dc-bar { fill: #7a5232; }
+/* REQ-16 QA: arrows + close stay still while the table content slides in from the side you stepped to */
+.pop.swap > * { animation-name: popSwapDir; }
+.pop.swap > .pop-head { animation: none; }
+.pop.swap > .pop-head .rename { animation: popSwapDir .32s var(--ease); }
+@keyframes popSwapDir { from { opacity: 0; transform: translateX(var(--swap-x, 8px)); } }
+.pop-title { transition: font-size .2s var(--ease); text-overflow: ellipsis; }

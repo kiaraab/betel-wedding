@@ -3,6 +3,7 @@ import { WEDDING, STATUSES, MILESTONES, MOODS, INSPO } from './data.js';
 import { seatCount, RELATIONS, relationOf } from './layout.js';
 import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
+import { enableAddressLookup } from './address.js';
 import { esc, toast, daysUntil, fmtDate } from './util.js';
 
 const view = document.getElementById('view');
@@ -281,7 +282,6 @@ const RSVP = ['Invited', 'Yes', 'Maybe', 'Declined'];
 const SIDES = ['Betel', 'Carter', 'Both'];
 const MEALS = ['Chicken', 'Beef', 'Fish', 'Vegetarian', 'Vegan', 'Kids meal'];
 const DETAIL_FIELDS = [
-  ['email', 'Email', 'email'], ['phone', 'Phone', 'tel'],
   ['street', 'Street', 'text'], ['city', 'City', 'text'], ['state', 'State', 'text'], ['zip', 'ZIP', 'text'],
   ['household', 'Household', 'text'], ['plusOne', 'Plus-one', 'text'],
   ['diet', 'Dietary', 'text'], ['notes', 'Notes', 'text'],
@@ -368,7 +368,7 @@ function guests() {
   const q = guestQuery.toLowerCase();
   const fil = filterDef(guestFilter)[2];
   const list = state.guests.filter((g) => fil(g)
-    && (!q || [g.name, g.email, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
+    && (!q || [g.name, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
   const relCell = (g) => g.party === 'couple' ? '<span class="rel-fixed">Couple</span>'
     : `<select class="select rel" data-k="relation" data-v="${esc(relationOf(g))}" aria-label="Relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select>`;
   const c = (fn) => state.guests.filter(fn).length;
@@ -410,7 +410,7 @@ function guests() {
             </td>
           </tr>
           ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="7"><div class="detail-grid">
-            ${DETAIL_FIELDS.map(([k, l, type]) => `<label class="field ${k}">${l}<input class="input" data-k="${k}" type="${type}" value="${esc(g[k])}"/></label>`).join('')}
+            ${DETAIL_FIELDS.map(([k, l, type]) => `<label class="field ${k}">${l}<input class="input${k === 'street' ? ' addr-street' : ''}" data-k="${k}" type="${type}" value="${esc(g[k])}" autocomplete="${k === 'street' ? 'street-address' : 'off'}"/></label>`).join('')}
           </div></td></tr>` : ''}`).join('')}</tbody></table></div>
         <datalist id="meals">${MEALS.map((m) => `<option value="${m}"></option>`).join('')}</datalist>`
       : `<p class="muted" style="margin:0;padding:20px">No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.</p>`}
@@ -551,6 +551,11 @@ document.getElementById('resetBtn').onclick = () => {
 };
 document.addEventListener('storage-full', () => toast('Storage full — remove a few photos'));
 
+// Street autocomplete: picking an address fills street, city, state and ZIP for that guest
+enableAddressLookup((k, v, row) => {
+  const g = state.guests.find((x) => x.id === row?.dataset.id);
+  if (g) { g[k] = v; commit(); }
+});
 tickCountdown();
 setInterval(tickCountdown, 60_000);
 route({ enter: true });

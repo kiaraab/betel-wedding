@@ -346,7 +346,7 @@ function tablePop(t) {
   return `
     <div class="pop-head">
       ${SP().tables.length > 1 ? '<button class="pop-nav" data-nav="-1" aria-label="Previous table">‹</button>' : ''}
-      <label class="rename"><input class="pop-title" id="tName" value="${esc(t.name)}" aria-label="Table name" spellcheck="false"/><span aria-hidden="true">✎</span></label>
+      <label class="rename"><input class="pop-title" id="tName" value="${esc(t.name)}" aria-label="Table name" spellcheck="false" style="font-size:${t.name.length > 16 ? 15 : t.name.length > 11 ? 17 : 21}px"/><span aria-hidden="true">✎</span></label>
       ${SP().tables.length > 1 ? '<button class="pop-nav" data-nav="1" aria-label="Next table">›</button>' : ''}
       <button class="x" data-close aria-label="Close">×</button>
     </div>
@@ -354,7 +354,7 @@ function tablePop(t) {
     <ol class="seat-list seat-slots">${Array.from({ length: Math.max(total, here.length) }, (_, i) => {
       const g = here[i];
       return g
-        ? `<li class="taken" style="--i:${i}"><i aria-label="Seat ${i + 1}">${i + 1}</i><span>${esc(g.name)}</span>${g.party === 'couple' ? '' : `<button class="side-tag" data-side="${g.id}" title="Change side">${esc(g.side)}</button>`}<button class="x" data-unseat="${g.id}" aria-label="Remove ${esc(g.name)}">×</button></li>`
+        ? `<li class="taken" style="--i:${i}"><i aria-label="Seat ${i + 1}">${i + 1}</i><span>${esc(g.name)}</span>${g.party === 'couple' ? '' : `<button class="side-tag" data-side="${g.id}" title="Change side">${esc(g.side)}</button>`}${g.party === 'couple' ? '' : `<button class="x" data-unseat="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}</li>`
         : `<li class="empty" style="--i:${i}"><i aria-hidden="true">${i + 1}</i><button class="slot-add" data-slot="${i}" aria-label="Seat ${i + 1}: add a guest"><span>+</span></button></li>`;
     }).join('')}</ol>
     ${here.length < total ? `<datalist id="unseatedList">${unseated.map((g) => `<option value="${esc(g.name)}"></option>`).join('')}</datalist>` : ''}
@@ -719,12 +719,14 @@ export function renderSeating(root) {
       const order = [...SP().tables].sort((x, y) => (x.id === 'head' ? -1 : y.id === 'head' ? 1 : (x.o ?? 0) - (y.o ?? 0)));
       const i = order.findIndex((x) => x.id === t.id);
       const next = order[(i + +b.dataset.nav + order.length) % order.length];
+      // the popover stays put (arrows don't jump under the cursor); only its content slides to the next table
+      const keep = { left: parseFloat(pop.style.left) || 0, top: parseFloat(pop.style.top) || 0 };
       sel = { kind: 'table', id: next.id };
-      popPinned = null;
-      pop.classList.add('glide');
+      popPinned = { id: next.id, ...keep };
       drawPlan(); openPop();
+      pop.style.setProperty('--swap-x', +b.dataset.nav > 0 ? '10px' : '-10px');
       pop.classList.remove('in', 'swap'); void pop.offsetWidth; pop.classList.add('swap');
-      clearTimeout(pop._glide); pop._glide = setTimeout(() => pop.classList.remove('glide', 'swap'), 420);
+      clearTimeout(pop._glide); pop._glide = setTimeout(() => pop.classList.remove('swap'), 420);
       pop.querySelector(`[data-nav="${b.dataset.nav}"]`)?.focus({ preventScroll: true });
     });
     const del = pop.querySelector('#tDel');
