@@ -548,6 +548,7 @@ export function renderSeating(root) {
         <button role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Floor plan</button>
         <button role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button>
       </div>` : ''}
+      <a class="tour-link" href="https://my.matterport.com/show/?m=K76R3QeJThF&brand=0" target="_blank" rel="noopener">Venue 360° tour ↗</a>
     </div>
     <div class="seat-layout${mode === 'plan' ? ' is-plan' : ''}">
       <div class="plan-col">

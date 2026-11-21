@@ -102,3 +102,11 @@ Source pages: /weddings-events/the-palacio-package/, /ceremony-locations/, /the-
 - **Redondo Room** (base of the public tasting room): private room, **capacity 60**, French doors to a covered patio over the pond.
 - Hours (tasting): Fri 1–7pm, Sat/Sun 12–6pm. Outside food allowed in the tasting rooms. Dogs leashed on the lawn.
 - NOT published: exact ballroom dimensions (only the 4,000 sq ft area), stage size, terrace sizes, chapel/pergola seating layout, bar-room size. Keep these as estimates.
+
+## Measured from the Matterport tour (The Knot, model K76R3QeJThF)
+Floor-plan view, calibrated to the published 4,000 sq ft ballroom (not a tape measure — ±5 ft):
+- Main hall rectangle ≈ **50 × 75 ft** (ratio 1.5 : 1). Round tables on the model look ~10–11 ft across incl. chairs, which agrees with that scale.
+- **Stage = the domed octagonal bay with columns on the long wall**, ≈ 20 ft wide and 15 ft deep, centered ≈ 34 ft from the balcony end. The bay sits *outside* the rectangle; the arch opens into the hall.
+- **Balcony** at one short end (over the foyer side); spiral staircase in the foyer beside it.
+- **Foyer** (cream marble) at the balcony end, between the ballroom and a service corridor; **bar room** is the separate room at the top-left with 4 tables and an oval bar.
+- Tour viewer: https://my.matterport.com/show/?m=K76R3QeJThF&brand=0

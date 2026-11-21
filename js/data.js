@@ -144,7 +144,9 @@ export const BOARD_SECTIONS = [
    Fixed features are locked; areas are Betel's to place. See VENUE.md. */
 const opening = (wall, at, kind, w = 4, style) => ({ wall, at, kind, w, ...(style && { style }) });
 export function seedRoom() {
-  const w = 50, h = 80;
+  // MEASURED from the Matterport floor plan on The Knot (m=K76R3QeJThF), calibrated to the published 4,000 sq ft: main hall ≈ 50 × 75 ft.
+  // The stage is the domed bay with columns, centered on the long left wall ≈ 34 ft from the balcony end. See VENUE.md.
+  const w = 50, h = 75;
   // OBSERVED: 5 arched French doors, evenly pitched, centered on the far wall. ESTIMATE: ~9 ft pitch, ~5 ft wide (from the balcony photo vs 5 ft round tables)
   const far = [-2, -1, 0, 1, 2].map((i) => opening('top', w / 2 + i * 9, 'french', 5));
   // Long walls as the balcony photo shows them (far → near). They differ: left has a square-top door + one
@@ -158,7 +160,7 @@ export function seedRoom() {
     name: 'Ballroom', w, h,
     fixed: {
       openings: [...far, ...sides, opening('bottom', w / 2, 'entrance', 8)],
-      stage: { cx: 0, cy: 64, r: 9, steps: 3 },        // semicircle against the left wall
+      stage: { cx: 0, cy: 41, r: 10, steps: 3 },       // columned bay on the left long wall, ~34 ft from the balcony end
       balcony: { depth: 12 },                          // overhead mezzanine across the near wall
     },
     areas: [{ id: 'dance', preset: 'dance', label: 'Dance floor', x: 17, y: 13, w: 16, h: 18 }],

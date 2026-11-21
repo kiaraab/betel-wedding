@@ -54,7 +54,7 @@ function load() {
   if (!saved || !saved.data || typeof saved.data !== 'object') return fresh();
   const { data } = saved;
   // Doors/windows are venue facts (locked), so saved plans always pick up the latest survey of them
-  if (data.version === VERSION) return { ...fresh(), ...data, room: { ...seedRoom(), ...data.room, fixed: { ...seedRoom().fixed, ...data.room?.fixed, openings: seedRoom().fixed.openings } } };
+  if (data.version === VERSION) return { ...fresh(), ...data, room: { ...seedRoom(), ...data.room, w: seedRoom().w, h: seedRoom().h, fixed: { ...seedRoom().fixed, ...data.room?.fixed, openings: seedRoom().fixed.openings, stage: seedRoom().fixed.stage, balcony: seedRoom().fixed.balcony } }, tables: (data.tables || []).map((t) => (t.y > seedRoom().h - 3 ? { ...t, y: seedRoom().h - 3 } : t)) };
   if (data.version < VERSION) {
     try { localStorage.setItem(`${KEY}-backup-v${data.version}`, saved.raw); } catch { /* storage full */ }
     return migrate(data);

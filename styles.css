@@ -2215,3 +2215,4 @@ table.guests td { overflow: hidden; } table.guests td .select, table.guests td .
 .foot .linklike:hover { background: #f3e1e3; color: #5e1a29; text-decoration: none; }
 .foot-acts { gap: 10px; }
 .banner-names i { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 1.05em; letter-spacing: 0; padding: 0 .12em; }
+.tour-link { font: 500 12px var(--sans); letter-spacing: .06em; color: var(--wine); text-decoration: underline; text-underline-offset: 4px; align-self: center; margin-left: 14px; }
