@@ -2055,3 +2055,64 @@ table.guests .detail-row td { padding: 14px 16px 16px; }
 .more.addr-btn { width: auto; padding: 4px 10px; font: 500 12px var(--sans); border-radius: 3px; }
 .more.addr-btn.warn { color: var(--wine); }
 .ab-t em { font-style: normal; opacity: .6; }
+
+/* =========================================================
+   Round 5 — Theme A "Editorial": open, light, hairlines only, flat colour.
+   Last in the file on purpose: re-points the old tokens and strips borders/shadows.
+   ========================================================= */
+:root {
+  --moss-900: #2a1a1d; --moss-800: #5e1a29; --moss-700: #7a2434; --moss-500: #8a3a48; --moss-300: #c9a0a6;
+  --sage-200: #efe3e1; --sage-100: #f4eae8;
+  --paper: #f6f1ea; --paper-2: #efe8de; --card: #fbf8f3;
+  --wine: #6e1f2e; --wine-2: #8a2c3c; --wine-100: #f3e1e3;
+  --gold: #8a6b5a; --gold-2: #c9a0a6;
+  --ink: #2a1a1d; --ink-soft: #5e4c4f; --ink-faint: #85727a;
+  --line: #e6ddd2; --line-strong: #d9cdc0;
+  --radius: 3px;
+}
+body { background: var(--paper); color: var(--ink); }
+/* header: open, no bar */
+.masthead { background: var(--paper); box-shadow: none; border-bottom: 1px solid var(--line); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.masthead .brand, .masthead .brand span { color: var(--ink); }
+.mainnav a { color: var(--ink-soft); background: none; border-radius: 0; padding: 6px 2px; margin: 0 10px; box-shadow: inset 0 -1px 0 transparent; transition: color .2s, box-shadow .2s; }
+.mainnav a:hover { color: var(--wine); background: none; }
+.mainnav a.active { color: var(--ink); box-shadow: inset 0 -1px 0 var(--ink); background: none; }
+.masthead .countdown { background: none; border: 0; border-radius: 0; color: var(--ink-soft); padding: 0; }
+.masthead .countdown b { color: var(--wine); }
+/* surfaces: no boxes */
+.card, .ov-card, .stat, .stats > * { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none; padding-left: 0; padding-right: 0; }
+.card.flush { border-top: 0; }
+.btn, .btn.line, .btn.moss { border-radius: 3px; box-shadow: none; }
+.btn.line { background: transparent; border-color: var(--line-strong); color: var(--ink); }
+.btn.line:hover { border-color: var(--wine); color: var(--wine); }
+.btn.moss { background: var(--wine); color: #fff; }
+.btn.moss:hover { background: var(--wine-2); }
+.input, .select, input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="tel"], input[type="email"], textarea, select {
+  background: transparent; border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; box-shadow: none;
+}
+.input:focus, .select:focus, input:focus, textarea:focus, select:focus { border-bottom-color: var(--wine); box-shadow: none; outline: none; }
+/* team: open cards, filled ones stay flat colour */
+.tcard { border: 0; background: transparent; border-top: 1px solid var(--line); border-radius: 0; padding-left: 0; padding-right: 0; }
+.tcard.c-pink, .tcard.c-burgundy, .tcard.c-green { border-radius: 3px; padding-left: 14px; padding-right: 14px; border-top: 0; }
+.tcard.c-pink { background: #f1d6d9; } .tcard.c-burgundy { background: #6e1f2e; } .tcard.c-green { background: #4f6a45; }
+.tc-role { border-top: 0; }
+.stbtn { background: transparent; padding: 3px 0; }
+.stbtn:hover, .stbtn:focus-visible { background: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.stbtn.in-progress { background: transparent; }
+.tf-select select { background: transparent; border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; padding-left: 0; }
+/* tables / lists: hairlines between rows only */
+table.guests th { font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); border-bottom: 1px solid var(--line); }
+table.guests td { border-bottom: 1px solid var(--line); }
+/* toast = dark flat bar like her reference */
+.toast { background: #2a1a1d; color: #f6f1ea; border: 0; border-radius: 3px; box-shadow: 0 8px 24px -12px rgba(0,0,0,.4); }
+.toast button { color: #f6f1ea; font-weight: 600; }
+/* footer */
+.foot, body[data-route] .foot { background: var(--paper); border-top: 1px solid var(--line); }
+/* scrollbars: thin, quiet, everywhere */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; } ::-webkit-scrollbar-track { background: transparent; }
+.tc-roles { scrollbar-width: none; } .tc-roles::-webkit-scrollbar { display: none; }
+/* popovers / menus keep a soft edge so they read above the page */
+.pop, .tc-menu, .gf-menu, .graph-choose, .graph-suggest { border: 0; border-radius: 3px; box-shadow: 0 10px 30px -12px rgba(42, 26, 29, .35); background: #fffdfa; }
+.tc-link { width: 22px; appearance: none; -webkit-appearance: none; text-align: center; font-size: 14px; padding: 0; }
+.t-add { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; min-height: 0; }

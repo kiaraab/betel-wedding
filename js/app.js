@@ -219,7 +219,7 @@ let menuFor = null;       // person id whose colour menu is open
 const statusDots = (r) => `<button type="button" class="stbtn ${statusKey(r.status)}" data-role="${r.id}" title="Change status" aria-label="Status: ${r.status}. Click to change"><i></i><span>${r.status}</span></button>`;
 const linkSelect = (r, p) => {
   const others = state.people.filter((x) => !r.people.includes(x.id));
-  return others.length ? `<select class="tc-link" data-linkrole="${r.id}" aria-label="Add a person to ${esc(r.title)}"><option value="">+ person</option>${others.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : '';
+  return others.length ? `<select class="tc-link" data-linkrole="${r.id}" aria-label="Add a person to ${esc(r.title)}"><option value="">+</option>${others.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : '';
 };
 
 function personCard(p) {
