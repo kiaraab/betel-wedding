@@ -2116,3 +2116,17 @@ table.guests td { border-bottom: 1px solid var(--line); }
 .pop, .tc-menu, .gf-menu, .graph-choose, .graph-suggest { border: 0; border-radius: 3px; box-shadow: 0 10px 30px -12px rgba(42, 26, 29, .35); background: #fffdfa; }
 .tc-link { width: 22px; appearance: none; -webkit-appearance: none; text-align: center; font-size: 14px; padding: 0; }
 .t-add { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; min-height: 0; }
+/* connections: plain node graph, three relationship kinds */
+.graph .edge { stroke-width: 1.2; }
+.graph .edge.love { stroke: var(--wine); stroke-width: 2.4; }
+.graph .edge.like, .graph .edge.together { stroke: #4f6a45; stroke-width: 1.4; opacity: .8; }
+.graph .edge.apart { stroke: var(--ink-faint); stroke-dasharray: 3 5; opacity: .8; }
+.ln.love { background: var(--wine); } .ln.like { background: #4f6a45; }
+.dot-love { background: var(--wine); } .dot-like, .dot-together { background: #4f6a45; }
+.gc-pick { width: 100%; margin-top: 6px; }
+/* team roles: full names wrap, nothing is cut off or tacked on the end */
+.tc-title { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+.tc-title small { display: block; font-size: 11px; opacity: .7; }
+.tc-role { align-items: flex-start; }
+.tc-link, .stbtn { margin-top: 1px; }
+.tc-roles { overflow-y: visible; }

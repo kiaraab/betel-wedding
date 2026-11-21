@@ -245,7 +245,7 @@ function personCard(p) {
       <ul class="tc-roles">
         ${rs.map((r) => {
           const w = r.people.length > 1 || r.with ? [...r.people.filter((x) => x !== p.id).map(personName), r.with].filter(Boolean).join(' & ') : '';
-          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title" title="${esc(r.title)}${w ? ' · with ' + esc(w) : ''}">${esc(r.title)}${w ? `<small> · ${esc(w)}</small>` : ''}</span>${linkSelect(r, p)}${statusDots(r)}</li>`;
+          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}${w ? `<small>with ${esc(w)}</small>` : ''}</span>${linkSelect(r, p)}${statusDots(r)}</li>`;
         }).join('')}
       </ul>
       <form class="tc-add" data-addrole="${p.id}" autocomplete="off"><input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/></form>

@@ -17,7 +17,7 @@ function fresh() {
     guestTarget: 60,         // expected headcount, drives the layout suggestion
     tables: seedTables(),
     inspo: seedInspoStrip(),
-    links: [],               // guest connections: { a, b, type: 'together' | 'apart' }
+    links: [],               // guest connections: { a, b, type: 'love' | 'like' | 'apart' (older 'together' = like) }
     room: seedRoom(),
     mood: 'vineyard-dusk',
     milestones: structuredClone(MILESTONES), // sourced dates only; editable on the overview

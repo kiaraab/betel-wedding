@@ -378,7 +378,7 @@ export function findFreeSpot(room, tables, t) {
 export function togetherGroups(guests, links = []) {
   const parent = new Map(guests.map((g) => [g.id, g.id]));
   const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
-  links.filter((l) => l.type === 'together' && parent.has(l.a) && parent.has(l.b)).forEach((l) => parent.set(find(l.a), find(l.b)));
+  links.filter((l) => ['together', 'like', 'love'].includes(l.type) && parent.has(l.a) && parent.has(l.b)).forEach((l) => parent.set(find(l.a), find(l.b)));
   const groups = new Map();
   guests.forEach((g) => { const r = find(g.id); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(g); });
   return [...groups.values()];
