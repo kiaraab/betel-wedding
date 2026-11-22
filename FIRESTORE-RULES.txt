@@ -7,6 +7,7 @@ service cloud.firestore {
     function editor() { return verified() && (owner() || mail() == 'betelmekonnen@gmail.com' || exists(/databases/$(db)/documents/editors/$(mail()))); }
     match /plans/{id} { allow read, write: if editor(); }
     match /editors/{e} { allow read, write: if owner(); }
+    match /secrets/{s} { allow read: if editor(); allow write: if owner(); }
     match /requests/{e} { allow create, update: if verified() && e == mail(); allow read, delete: if owner(); }
   }
 }

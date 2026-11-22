@@ -9,6 +9,7 @@
  */
 import { onSave, mergeRemote, snapshot } from './store.js';
 import { esc, toast } from './util.js';
+import { setSharedKey, registerShare } from './ai.js';
 
 const CONFIG = {
   apiKey: 'AIzaSyC40htk19028Tz86iJni_CPeHrBiZeCkjk',
@@ -52,6 +53,16 @@ async function checkRole() {
   try { await fb.F.getDoc(planRef()); return 'editor'; } catch { return 'pending'; } // the rules deny people who are not approved
 }
 
+const aiRef = () => fb.F.doc(fb.db, 'secrets', 'ai');
+async function loadSharedKey() {
+  try { const d = await fb.F.getDoc(aiRef()); setSharedKey(d.exists() ? d.data().key : ''); } catch { /* none shared, or no access */ }
+}
+registerShare({
+  can: () => role === 'owner',
+  save: async (key) => { await fb.F.setDoc(aiRef(), { key }); },
+  remove: async () => { await fb.F.deleteDoc(aiRef()); },
+});
+
 function take(d) {
   try {
     applying = true;
@@ -69,6 +80,7 @@ async function startLive() {
     await push(true);
   }
   store(SYNCED_KEY, '1');
+  loadSharedKey();
   unsub?.();
   unsub = fb.F.onSnapshot(planRef(), (snap) => {
     if (!snap.exists() || snap.metadata.hasPendingWrites) return;

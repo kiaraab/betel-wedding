@@ -2522,3 +2522,4 @@ table.guests td.row-actions .more.addr-btn.open, .more.addr-btn.warn.open { colo
 .gate-card h1 { font-family: "Cinzel", serif; letter-spacing: .08em; text-transform: uppercase; font-size: clamp(30px, 6vw, 54px); }
 .gate-card input { border-radius: 4px; background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .4); }
 .gate-card button { border-radius: 4px; }
+.ai-share{display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0}

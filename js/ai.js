@@ -6,7 +6,11 @@ const URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini
 const MAX_PER_MIN = 10, TIMEOUT = 25_000;
 const calls = [];
 
-export const getKey = () => { try { return localStorage.getItem(KEY_NAME) || ''; } catch { return ''; } };
+let sharedKey = ''; // the key the owner shared with everyone who can edit (js/sync.js loads it after sign-in)
+let share = { can: () => false, save: async () => {}, remove: async () => {} };
+export const setSharedKey = (k) => { sharedKey = k || ''; };
+export const registerShare = (h) => { share = h; };
+export const getKey = () => { try { return localStorage.getItem(KEY_NAME) || sharedKey; } catch { return sharedKey; } };
 export function setKey(k) {
   try { k = String(k || '').trim(); k ? localStorage.setItem(KEY_NAME, k) : localStorage.removeItem(KEY_NAME); } catch { /* private mode */ }
 }
@@ -71,15 +75,15 @@ export function openAiSettings(onChange) {
     <form class="ai-card" role="dialog" aria-modal="true" aria-label="AI settings">
       <h2>AI</h2>
       <label class="ai-f"><span>Gemini API key</span><input class="input" type="password" name="key" autocomplete="off" spellcheck="false" value="${esc(getKey())}"/></label>
-      <p class="ai-note">Stored in this browser only.</p>
+      ${share.can() ? '<label class="ai-share"><input type="checkbox" name="share" checked/> Share with everyone who can edit (Betel, Carter…)</label><p class="ai-note">Shared keys are readable only by approved editors.</p>' : '<p class="ai-note">Stored in this browser only.</p>'}
       <div class="ai-foot"><button type="button" class="btn line sm" data-rm>Remove</button><span class="spacer"></span><button type="button" class="btn line sm" data-x>Close</button><button class="btn moss sm">Save</button></div>
     </form>`;
   document.body.append(d);
   const close = () => { d.remove(); onChange?.(); };
   const f = d.querySelector('form');
   f.key.focus();
-  f.onsubmit = (e) => { e.preventDefault(); setKey(f.key.value); toast(aiAvailable() ? 'AI key saved' : 'AI key removed'); close(); };
-  d.querySelector('[data-rm]').onclick = () => { setKey(''); toast('AI key removed'); close(); };
+  f.onsubmit = async (e) => { e.preventDefault(); setKey(f.key.value); if (f.share?.checked && f.key.value.trim()) { try { await share.save(f.key.value.trim()); } catch { toast('Saved here, but sharing failed'); } } toast(aiAvailable() ? 'AI key saved' : 'AI key removed'); close(); };
+  d.querySelector('[data-rm]').onclick = async () => { setKey(''); if (share.can()) { try { await share.remove(); } catch { /* not shared */ } } setSharedKey(''); toast('AI key removed'); close(); };
   d.querySelector('[data-x]').onclick = close;
   d.addEventListener('pointerdown', (e) => { if (e.target === d) close(); });
   d.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
