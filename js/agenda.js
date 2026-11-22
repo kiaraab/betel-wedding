@@ -23,8 +23,8 @@ const toMin = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number);
 const toTime = (min) => { const m = ((Math.round(min) % DAY) + DAY) % DAY; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 const fmt = (t) => { const m = toMin(t), h = Math.floor(m / 60), mm = m % 60; return `${(h % 12) || 12}${mm ? ':' + String(mm).padStart(2, '0') : ''}${h >= 12 ? 'pm' : 'am'}`; };
 // Minutes from midnight of the wedding day; a block may run past midnight (end <= start) or start after it (day2)
-const S = (a) => S(a) + (a.day2 ? DAY : 0);
-const E = (a) => { let e = E(a) + (a.day2 ? DAY : 0); if (e <= S(a)) e += DAY; return e; };
+const S = (a) => toMin(a.start) + (a.day2 ? DAY : 0);
+const E = (a) => { let e = toMin(a.end) + (a.day2 ? DAY : 0); if (e <= S(a)) e += DAY; return e; };
 const setTimes = (a, s, e) => { a.start = toTime(s); a.end = toTime(e); a.day2 = s >= DAY; };
 const snap = (m) => Math.round(m / SNAP) * SNAP;
 const ceremonyMin = () => { const r = WEDDING.date.match(/T(\d{2}):(\d{2})/); return r ? +r[1] * 60 + +r[2] : 16 * 60; };

@@ -2359,3 +2359,7 @@ table.guests .detail-row td { position: static; background: rgba(86, 105, 75, .0
   .seat-layout.is-plan .plan { height: calc(100vh - 215px); max-height: none; min-height: 440px; }
 }
 @media (prefers-reduced-motion: reduce) { .stage-wrap, .glass-pop { transition: none; animation: none; } }
+/* team tiles never push the page sideways */
+.st-tabs { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.st-tabs::-webkit-scrollbar { display: none; }
+@media (max-width: 760px) { .st-tabs { gap: 18px; margin-left: 0; width: 100%; } .st-tabs b { font-size: 26px; } }
