@@ -4,7 +4,7 @@ import { seatCount, RELATIONS, relationOf } from './layout.js';
 import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
 import { enableAddressLookup } from './address.js';
-import { esc, toast, daysUntil, fmtDate, confirmDialog } from './util.js';
+import { esc, toast, daysUntil, fmtDate, confirmDialog, initTablists } from './util.js';
 import { openPerson } from './person.js';
 import { detailsHTML, wireDetails } from './guest-details.js';
 import { renderAgenda } from './agenda.js';
@@ -605,8 +605,40 @@ function guests() {
   };
   const wireFilter = () => {
     const gf = view.querySelector('#gFilter');
-    gf.querySelector('.gf-btn').onclick = () => { const o = gf.classList.toggle('open'); gf.querySelector('.gf-btn').setAttribute('aria-expanded', o); };
-    gf.querySelectorAll('[data-gf]').forEach((b) => b.onclick = () => { guestFilter = b.dataset.gf; guests(); });
+    const btn = gf.querySelector('.gf-btn');
+    const opts = () => [...gf.querySelectorAll('[role="option"]')];
+    const setOpen = (o, focusOpt) => {
+      gf.classList.toggle('open', o); btn.setAttribute('aria-expanded', o);
+      if (o && focusOpt) (focusOpt === 'last' ? opts().at(-1) : opts().find((x) => x.getAttribute('aria-selected') === 'true') || opts()[0])?.focus();
+      if (!o && gf.contains(document.activeElement)) btn.focus();
+    };
+    // listbox (APG): options are not separate tab stops; arrows / Home / End / type-ahead move, Enter or Space picks, Esc closes
+    opts().forEach((o) => { o.tabIndex = -1; });
+    btn.onclick = (e) => { const o = !gf.classList.contains('open'); setOpen(o, o && e.detail === 0); }; // Enter / Space (detail 0) moves focus into the list
+    btn.onkeydown = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setOpen(true, e.key === 'ArrowUp' ? 'last' : true); }
+      else if (e.key === 'Escape' && gf.classList.contains('open')) { e.stopPropagation(); setOpen(false); }
+    };
+    gf.querySelector('.gf-menu').onkeydown = (e) => {
+      const list = opts(), i = list.indexOf(document.activeElement);
+      const go = (n) => { e.preventDefault(); list[(n + list.length) % list.length]?.focus(); };
+      if (e.key === 'ArrowDown') go(i + 1);
+      else if (e.key === 'ArrowUp') go(i - 1);
+      else if (e.key === 'Home') go(0);
+      else if (e.key === 'End') go(list.length - 1);
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); }
+      else if (e.key === 'Tab') setOpen(false);
+      else if (e.key.length === 1 && /\S/.test(e.key)) {
+        const k = e.key.toLowerCase(), order = [...list.slice(i + 1), ...list.slice(0, i + 1)];
+        const hit = order.find((o) => o.firstChild?.textContent.trim().toLowerCase().startsWith(k));
+        if (hit) { e.preventDefault(); hit.focus(); }
+      }
+    };
+    gf.querySelectorAll('[data-gf]').forEach((b) => b.onclick = () => {
+      const kb = gf.contains(document.activeElement);
+      guestFilter = b.dataset.gf; guests();
+      if (kb) view.querySelector('#gFilter .gf-btn')?.focus();
+    });
   };
   // counts follow quiet edits (relation, table…) without redrawing the list
   const refreshFilter = () => { const old = view.querySelector('#gFilter'); if (!old) return; old.outerHTML = guestFilterMenu(); wireFilter(); };
@@ -717,6 +749,7 @@ function tickCountdown() { // the header pill is gone (REQ-21); the count lives 
 
 mountLive(document.getElementById('liveBtn'));
 initSync();
+initTablists();
 document.getElementById('resetBtn').onclick = async () => {
   const live = syncInfo().live; // editing together: clearing the plan clears it for every editor
   if (!(await confirmDialog({ title: 'Start over?', body: live ? 'This clears the plan for Betel, Carter and Kiara.' : 'This clears everything you’ve planned.', confirmLabel: live ? 'Continue' : 'Start over', cancelLabel: 'Cancel' }))) return;

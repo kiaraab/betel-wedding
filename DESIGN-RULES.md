@@ -36,3 +36,7 @@ These come straight from the owner's feedback on the first live version. Breakin
 
 ## Toasts
 - Plain rectangle, flat color, text + Undo. No seal/icon art (owner will supply a toast style to copy).
+
+## Accessibility is a soft request (Kiara, Nov 22 2026)
+- Her friends are able-bodied with good vision. Do NOT add harsh high-contrast colours, heavy chips/tiles or opaque surfaces just to hit a contrast ratio. Aim for WCAG AA where it costs nothing visually (soft target; ~3:1 for muted text is fine). Keep the cheap basics: visible focus ring, Esc closes popovers, labels on controls, no keyboard traps. The soft, airy Vow + Betel look wins.
+- The help button is a glass circle (translucent cream, blur, hairline), never a solid green square.

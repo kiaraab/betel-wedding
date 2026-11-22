@@ -103,6 +103,51 @@ export function restoreFocus(prev) {
   t?.focus?.({ preventScroll: true });
 }
 
+/** A selector that finds "the same" control again after a re-render (first data-* attribute, else the id). */
+const sameAs = (el) => {
+  const a = [...el.attributes].find((x) => x.name.startsWith('data-'));
+  if (a) return `[role="tab"][${a.name}="${String(a.value).replace(/["\\]/g, '\\$&')}"]`;
+  return el.id ? `#${CSS.escape(el.id)}` : null;
+};
+
+/** ARIA tabs (APG): one tab stop per tablist (roving tabindex), Left/Right (Up/Down when vertical), Home/End.
+ *  Automatic activation (the tab is clicked as focus moves), except tablists that load something heavy
+ *  (`.spaces`, the 3D/plan `.view-pill`): there arrows only move focus and Enter/Space activates. Call once. */
+export function initTablists() {
+  const sync = () => {
+    for (const list of document.querySelectorAll('[role="tablist"]')) {
+      const tabs = [...list.querySelectorAll('[role="tab"]')];
+      if (!tabs.length) continue;
+      const sel = tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      const cur = tabs.includes(document.activeElement) ? document.activeElement : sel;
+      for (const t of tabs) t.tabIndex = t === cur ? 0 : -1;
+    }
+  };
+  let queued = 0;
+  new MutationObserver(() => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; sync(); }); })
+    .observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-selected'] });
+  sync();
+  document.addEventListener('keydown', (e) => {
+    const tab = e.target.closest?.('[role="tab"]');
+    const list = tab?.closest('[role="tablist"]');
+    if (!list || e.altKey || e.ctrlKey || e.metaKey) return;
+    const tabs = [...list.querySelectorAll('[role="tab"]')].filter((t) => !t.disabled && t.getClientRects().length);
+    const vertical = list.getAttribute('aria-orientation') === 'vertical';
+    const step = { ArrowRight: vertical ? 0 : 1, ArrowLeft: vertical ? 0 : -1, ArrowDown: vertical ? 1 : 0, ArrowUp: vertical ? -1 : 0 }[e.key];
+    const i = tabs.indexOf(tab);
+    const to = e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length - 1] : step ? tabs[(i + step + tabs.length) % tabs.length] : null;
+    if (!to) return;
+    e.preventDefault();
+    for (const t of tabs) t.tabIndex = t === to ? 0 : -1;
+    to.focus();
+    if (list.matches('.spaces, .view-pill')) return; // manual activation
+    const key = sameAs(to);
+    to.click();
+    // the click may re-render the tablist: put focus back on the same tab in the new markup
+    requestAnimationFrame(() => { if (!to.isConnected && key) document.querySelector(key)?.focus(); });
+  });
+}
+
 /** Modal focus handling: Tab stays inside `box`, focus returns to the opener on release. */
 export function trapFocus(box) {
   const prev = document.activeElement;
