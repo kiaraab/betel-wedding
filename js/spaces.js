@@ -118,7 +118,7 @@ export function suggestHangout(room, n) {
   const ok = (x, y, picked) => {
     const b = { x1: x - fp.hw, x2: x + fp.hw, y1: y - fp.hh, y2: y + fp.hh };
     return x - fp.hw >= 2 && x + fp.hw <= room.w - 2 && y - fp.hh >= 2 && y + fp.hh <= room.h - 2
-      && !base.some((z) => overlap(b, z)) && !(queue && overlap(b, queue)) && picked.every((p) => Math.hypot(p.x - x, p.y - y) >= 9);
+      && !base.some((z) => overlap(b, z)) && !(queue && overlap(b, queue)) && picked.every((p) => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) >= fp.hw * 2 + 1.7); // chair rings >= 1.5 ft apart (the standing clearance), measured the way the check does (box gap, not centre distance)
   };
   const lounge = room.areas.find((a) => a.preset === 'lounge');
   const mid = { x: bist ? room.w / 2 : (lounge ? lounge.x + lounge.w : 12) + (room.w - 14) / 2, y: room.h * 0.45 };
@@ -199,8 +199,9 @@ export function wireSpaceTools(root, space, ctx) {
       let s = suggestCeremony(probe, n, pool());
       while (!s.fits && probe.h < 150) { probe.h += 5; s = suggestCeremony(probe, n, pool()); }
       const grew = probe.h - room().h;
+      if (!s.fits) { ctx.toast(`Needs a bigger room for ${n}`); return; }
       ctx.animate();
-      ctx.undoable(s.fits ? `${n} chairs · ${s.rows} rows${grew ? ' · room grown' : ''}` : `Only some rows fit`, () => {
+      ctx.undoable(`${n} chairs · ${s.rows} rows${grew ? ' · room grown' : ''}`, () => {
         room().chairs = n; // chairs for THIS space only; the headcount (state.guestTarget) is not touched
         room().h = probe.h;
         SP().tables = s.tables;
@@ -220,8 +221,9 @@ export function wireSpaceTools(root, space, ctx) {
     root.querySelector('#hGo').onclick = () => {
       const n = Math.max(2, +root.querySelector('#hCount').value || 2);
       const s = suggestHangout(SP().room, n);
+      if (!s.fits) { ctx.toast(`Needs a bigger room for ${n}`); return; } // never place tables that would conflict
       ctx.animate();
-      ctx.undoable(s.fits ? `${s.tables.length} tables placed` : `Only ${s.tables.length} of ${s.needed} tables fit`, () => { SP().tables = s.tables; }, ctx.toast);
+      ctx.undoable(`${s.tables.length} tables placed`, () => { SP().tables = s.tables; }, ctx.toast);
     };
   }
 }

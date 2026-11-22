@@ -142,7 +142,7 @@ function makeTable(style, x, y) {
 }
 
 /** Dance floor sizes to try, biggest first: 20 x 20 centered mid-hall leaves room for a ~25 ft first-dance ring; 16 x 18 is the minimum (photos #119, #124). */
-const DANCE_SIZES = [[20, 20], [18, 20], [16, 18]];
+const DANCE_SIZES = [[20, 20], [18, 20], [16, 18], [14, 16], [12, 14]]; // the two smallest only when a big guest count needs the floor space
 const clearHead = (h) => h && { ...h, len: undefined, dia: undefined, arc: undefined, face: undefined, seats: undefined };
 /**
  * Run `run()` with the dance area centered mid-hall (tables on 3 sides, not pushed to the far wall); take the biggest floor that seats everyone,
@@ -179,10 +179,11 @@ export function suggestTables(room, guestCount, style = 'round8', head) {
   const r = plain
     ? (style === 'family'
       // rows run the long way, so the dance floor moves toward the lounge end
-      ? withDance(room, () => suggestInner(room, guestCount, style, home), { sizes: [...DANCE_SIZES, [14, 16]], shifts: [0, -4, 4, -8], pos: (dw, dh) => ({ x: Math.round((room.w - dw) / 2), y: room.h - (room.fixed?.balcony?.depth || 0) - 10 - dh - 1 }) })
+      ? withDance(room, () => suggestInner(room, guestCount, style, home), { sizes: DANCE_SIZES, shifts: [0, -4, 4, -8], pos: (dw, dh) => ({ x: Math.round((room.w - dw) / 2), y: room.h - (room.fixed?.balcony?.depth || 0) - 10 - dh - 1 }) })
       : withDance(room, () => suggestInner(room, guestCount, style, home)))
     : suggestInner(room, guestCount, style, own ? head : home);
   if (style === 'round8' && !r.fits) growTables(room, r, guestCount, home || head);
+  prune(room, r, own ? head : home); // never hand back a plan with a conflict: a room that is too small reports fits:false instead
   return { ...r, ...(head && !own ? { head: home } : {}) };
 }
 /** When the hall can't hold enough 8-tops, swap tables for 10-tops (72" rounds, VENUE-PHOTOS.md) one at a time while nothing conflicts (chairs >= 3.5 ft apart, keep-outs clear). */
@@ -272,7 +273,8 @@ function suggestOpen(room, guestCount, head) {
   const cands = [];
   const blocked = blockedNow();
   for (let y = Math.ceil(fp.hh + 2.5); y + fp.hh <= maxY; y++) for (let x = fp.hw + 2; x + fp.hw <= w - 2; x += 0.5) {
-    if (!blocked.some((z) => overlap(box(x, y, fp.hw, fp.hh), z))) cands.push({ x, y, d: Math.min(x, w - x, y) });
+    // blockers() pads other tables by 2 ft; dining tables need 3.5 ft between chair rings
+    if (!blocked.some((z) => overlap(box(x, y, fp.hw, fp.hh), z)) && placed.every((p) => { const f = footprint(p.t); return Math.max(Math.abs(x - p.x) - fp.hw - f.hw, Math.abs(y - p.y) - fp.hh - f.hh) >= 3.5; })) cands.push({ x, y, d: Math.min(x, w - x, y) });
   }
   cands.sort((a, b) => Math.round(a.d / 3) - Math.round(b.d / 3) || a.y - b.y || a.d - b.d); // wall band first, packed from the far end so rows stay tight
   const rounds = [];
@@ -325,7 +327,7 @@ const CUSTOM = {
     cake.rot = 0; cake.x = bx - cake.w / 2; cake.y = by + 4.5 - cake.h / 2;
     const n = Math.max(1, Math.ceil(Math.max(0, guestCount - 2) / 8));
     // Try roomier plans first; the 50 x 75 ft room is tight with the stage zone, so fall back to a smaller floor, tighter aisles, then the lounge end
-    const tries = [{ s: [20, 20], gap: 3.5, end: nearEnd(room) }, { s: [18, 20], gap: 3.5, end: nearEnd(room) }, { s: [16, 18], gap: 2.5, end: nearEnd(room) }, { s: [14, 16], gap: 2.5, end: nearEnd(room) }, { s: [14, 16], gap: 2, end: room.h - 3 }];
+    const tries = [{ s: [20, 20], gap: 3.5, end: nearEnd(room) }, { s: [18, 20], gap: 3.5, end: nearEnd(room) }, { s: [16, 18], gap: 3.5, end: nearEnd(room) }, { s: [14, 16], gap: 3.5, end: nearEnd(room) }, { s: [12, 14], gap: 3.5, end: nearEnd(room) }];
     let best = null;
     const dx = st ? (st.keep ?? 8) + 4 : 17;
     for (const o of tries) {
@@ -524,6 +526,36 @@ export function autoSeat(guests, tables, { onlyUnseated = true, links = [] } = {
   return { seated, left };
 }
 
+/** Is the box wholly on the stage platform (the domed bay outside the hall wall)? */
+function inBay(room, b) {
+  const st = room.fixed?.stage; if (!st) return false;
+  const d = st.d || 15;
+  return st.wall === 'top' ? b.y1 >= -d - 0.01 && b.y2 <= 0.01 && b.x1 >= st.cx - st.r - 0.01 && b.x2 <= st.cx + st.r + 0.01
+    : b.x1 >= -d - 0.01 && b.x2 <= 0.01 && b.y1 >= st.cy - st.r - 0.01 && b.y2 <= st.cy + st.r + 0.01;
+}
+
+/** True when a table's footprint (chairs included) sits on fixed decor, an area (dance floor, bar, DJ, cake, aisle ...), the stage keep-out, a door path or the balcony. Used to vet Suggest results. */
+export function keepOutHit(room, t) {
+  const f = footprint(t), b = { x1: t.x - f.hw, x2: t.x + f.hw, y1: t.y - f.hh, y2: t.y + f.hh };
+  if (t.id === 'head' && inBay(room, b)) return false;
+  return blockers(room, [], { areaPad: 0 }).some((z) => overlap(b, { x1: z.x1 + 0.01, x2: z.x2 - 0.01, y1: z.y1 + 0.01, y2: z.y2 - 0.01 }));
+}
+
+/** Safety net for every Suggest: drop the table involved in the most conflicts until none remain (then `fits` is false and the caller says the room is too small). */
+function prune(room, r, head, minGap = 3.5) {
+  const hd = r.head || head;
+  for (let guard = 0; guard < 200; guard++) {
+    const all = [...(hd ? [hd] : []), ...r.tables];
+    const { items } = clearanceIssues(room, all, minGap);
+    const score = new Map(r.tables.map((t) => [t.id, (keepOutHit(room, t) ? 1 : 0) + items.filter((i) => i.ids.includes(t.id)).length]));
+    const worst = [...r.tables].reverse().reduce((w, t) => (score.get(t.id) > (w ? score.get(w.id) : 0) ? t : w), null);
+    if (!worst) break;
+    r.tables = r.tables.filter((t) => t !== worst); r.fits = false;
+  }
+  r.tables.forEach((t, i) => { t.name = String(i + 1); t.o = i + 1; });
+  return r;
+}
+
 /**
  * Clearance check for the plan: chair-to-chair gap between dining tables < 3.5 ft, or a table inside the stage keep-out, under the balcony rail,
  * or in a door's clear zone. Ceremony rows are skipped (they sit back to back by design). Returns { ids: Set of table ids, items: [{ids, msg}] }.
@@ -544,6 +576,7 @@ export function clearanceIssues(room, tables, minGap = 3.5) {
   const bal = room.fixed?.balcony;
   dining.forEach((t) => {
     const b = bx(t);
+    if (t.id === 'head' && inBay(room, b)) return; // the sweetheart table on the stage platform (Head on stage) is meant to sit in the bay
     if (b.x1 < 0 || b.y1 < 0 || b.x2 > room.w || b.y2 > room.h) flag([t], `${t.name}: outside the room`, `${lbl(t)} · outside the room`);
     else if (t.id !== 'head' && zones.some((z) => overlap(b, z))) flag([t], `${t.name}: blocks the stage steps or a door`, `${lbl(t)} · blocks the stage steps or a door`);
     else if (t.id !== 'head' && bal && b.y2 > room.h - bal.depth + 0.01) flag([t], `${t.name}: under the balcony rail`, `${lbl(t)} · under the balcony rail`);

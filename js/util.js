@@ -199,3 +199,118 @@ export function initSlideInk() {
   document.fonts?.ready.then(queue);
   queue();
 }
+
+/** Cute loader: a heart drawn from small round dots that ripple. Use anywhere something loads: el.innerHTML = heartLoaderHTML('Opening the venue…'). */
+export function heartLoaderHTML(label = '', { sm = false } = {}) {
+  const S = 3.4, dots = [];
+  for (let gy = -7; gy <= 7; gy++) for (let gx = -8; gx <= 8; gx++) {
+    const x = gx / 7.6, y = -gy / 7.6 + 0.12; // heart curve: (x²+y²-1)³ - x²y³ ≤ 0
+    if ((x * x + y * y - 1) ** 3 - x * x * y ** 3 <= 0) dots.push([gx, gy]);
+  }
+  const W = 17 * S, H = 15 * S;
+  const circles = dots.map(([gx, gy], i) => `<circle class="hl-dot" cx="${(gx + 8.5) * S}" cy="${(gy + 7.5) * S}" r="${S * 0.36}" style="--d:${((gx + 8) * 0.045 + (gy + 7) * 0.035).toFixed(2)}s"/>`).join('');
+  return `<div class="heart-loader${sm ? ' sm' : ''}" role="status" aria-live="polite"><svg viewBox="0 0 ${W} ${H}" width="${W * 1.6}" height="${H * 1.6}" aria-hidden="true">${circles}</svg>${label ? `<span class="hl-label">${label}</span>` : ''}</div>`;
+}
+
+/* ---------- bubbly selects: a native <select data-bub> keeps the value; a button + floating glass menu is what you see ---------- */
+const BS_CHEV = '<svg class="bs-chev" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M3 5.2l4 3.8 4-3.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+export const BS_CHECK = '<svg class="bs-ck" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const G = (d, extra = '') => `<svg class="bs-gl" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</g>${extra}</svg>`;
+/** Small line glyphs for a select's values (data-bub="rsvp"). The label stays as tooltip + aria-label. */
+export const GLYPHS = {
+  rsvp: {
+    'Not invited yet': G('<circle cx="8" cy="8" r="5.6" stroke-dasharray="2 2.3"/>'),
+    'Invited': G('<rect x="2.4" y="3.9" width="11.2" height="8.2" rx="1.6"/><path d="M3 5l5 4 5-4"/>'),
+    'Yes': G('<circle cx="8" cy="8" r="5.6"/><path d="M5.5 8.2l1.8 1.8 3.2-3.6"/>'),
+    'Maybe': G('<circle cx="8" cy="8" r="5.6"/><path d="M6.6 6.5a1.5 1.5 0 1 1 2.2 1.3c-.5.3-.8.6-.8 1.2"/>', '<circle cx="8" cy="11.2" r=".9" fill="currentColor"/>'),
+    'Declined': G('<circle cx="8" cy="8" r="5.6"/><path d="M6 6l4 4M10 6l-4 4"/>'),
+  },
+};
+let bs = null; // the one open menu: { menu, btn, off }
+
+function closeBS(restore) {
+  if (!bs) return;
+  const { menu, btn, off } = bs; bs = null;
+  btn.setAttribute('aria-expanded', 'false');
+  menu.classList.add('out');
+  setTimeout(() => menu.remove(), 120);
+  for (const [t, f, o] of off) removeEventListener(t, f, o);
+  if (restore) btn.focus({ preventScroll: true });
+}
+
+function openBS(sel, btn, glyphs) {
+  closeBS();
+  const menu = document.createElement('div');
+  menu.className = 'bs-menu';
+  menu.setAttribute('role', 'listbox');
+  menu.setAttribute('aria-label', sel.getAttribute('aria-label') || '');
+  menu.innerHTML = [...sel.options].map((o) => `<button type="button" role="option" tabindex="-1" data-v="${esc(o.value)}" aria-selected="${o.value === sel.value}" class="${o.value === sel.value ? 'on' : ''}"${o.disabled ? ' disabled' : ''}>${glyphs?.[o.value] || ''}<span class="bs-ol">${esc(o.textContent)}</span>${BS_CHECK}</button>`).join('');
+  document.body.append(menu);
+  const place = () => {
+    const r = btn.getBoundingClientRect();
+    menu.style.minWidth = Math.max(r.width, glyphs ? 190 : 176) + 'px';
+    const mh = menu.offsetHeight, mw = menu.offsetWidth;
+    const below = innerHeight - r.bottom - 12, above = r.top - 12;
+    const up = mh > below && above > below;
+    menu.style.maxHeight = Math.max(160, up ? above : below) + 'px';
+    menu.style.left = Math.max(8, Math.min(r.left, innerWidth - mw - 8)) + 'px';
+    menu.style.top = (up ? Math.max(8, r.top - 8 - menu.offsetHeight) : r.bottom + 8) + 'px';
+  };
+  place();
+  btn.setAttribute('aria-expanded', 'true');
+  const items = () => [...menu.querySelectorAll('[role="option"]:not(:disabled)')];
+  const pick = (o) => { sel.value = o.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); closeBS(true); };
+  const onKey = (e) => {
+    const list = items(), i = list.indexOf(document.activeElement);
+    const go = (n) => { e.preventDefault(); e.stopPropagation(); list[(n + list.length) % list.length]?.focus(); };
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeBS(true); }
+    else if (e.key === 'Tab') closeBS(false);
+    else if (e.key === 'ArrowDown') go(i + 1);
+    else if (e.key === 'ArrowUp') go(i - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(list.length - 1);
+    else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) { e.preventDefault(); e.stopPropagation(); pick(list[i]); }
+    else if (e.key.length === 1 && /\S/.test(e.key)) {
+      const k = e.key.toLowerCase(), hit = [...list.slice(i + 1), ...list.slice(0, i + 1)].find((o) => o.textContent.trim().toLowerCase().startsWith(k));
+      if (hit) { e.preventDefault(); hit.focus(); }
+    }
+  };
+  const onDown = (e) => { if (!menu.contains(e.target) && !btn.contains(e.target)) closeBS(false); };
+  const onScroll = (e) => { if (!menu.contains(e.target)) closeBS(false); };
+  const off = [['keydown', onKey, true], ['pointerdown', onDown, true], ['scroll', onScroll, true], ['resize', () => closeBS(false), false]];
+  for (const [t, f, o] of off) addEventListener(t, f, o);
+  menu.addEventListener('click', (e) => { const o = e.target.closest('[role="option"]'); if (o) pick(o); });
+  bs = { menu, btn, off };
+  (items().find((o) => o.classList.contains('on')) || items()[0])?.focus({ preventScroll: true });
+}
+
+/** Turn every `select[data-bub]` under root into a bubbly button + menu. Safe to call after every render.
+ *  The select stays in the DOM (hidden) and still gets its `change` event, so existing handlers keep working. */
+export function bubbleSelects(root = document) {
+  root.querySelectorAll('select[data-bub]:not([data-bub-on])').forEach((sel) => {
+    sel.dataset.bubOn = '1';
+    sel.style.display = 'none';
+    sel.tabIndex = -1;
+    sel.setAttribute('aria-hidden', 'true');
+    const glyphs = GLYPHS[sel.dataset.bub];
+    const name = sel.getAttribute('aria-label') || '';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bs-btn' + (glyphs ? ' bs-ic' : '');
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.setAttribute('aria-expanded', 'false');
+    const paint = () => {
+      const o = sel.selectedOptions[0] || sel.options[0];
+      const label = o ? o.textContent.trim() : '';
+      btn.dataset.v = sel.value;
+      btn.title = glyphs ? `${name ? name + ': ' : ''}${label}` : name;
+      btn.setAttribute('aria-label', `${name ? name + ': ' : ''}${label}`);
+      btn.innerHTML = (glyphs ? glyphs[sel.value] || '' : `<span class="bs-l">${esc(label)}</span>`) + BS_CHEV;
+    };
+    paint();
+    sel.addEventListener('change', paint);
+    btn.onclick = () => { if (bs?.btn === btn) closeBS(true); else openBS(sel, btn, glyphs); };
+    btn.onkeydown = (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openBS(sel, btn, glyphs); } };
+    sel.after(btn);
+  });
+}

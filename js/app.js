@@ -4,7 +4,8 @@ import { seatCount, RELATIONS, relationOf } from './layout.js';
 import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
 import { enableAddressLookup } from './address.js';
-import { esc, toast, daysUntil, fmtDate, confirmDialog, initTablists, initSlideInk } from './util.js';
+import { esc, toast, daysUntil, fmtDate, confirmDialog, initTablists, initSlideInk, bubbleSelects, BS_CHECK } from './util.js';
+import { wireTeamDrag } from './team-drag.js';
 import { openPerson } from './person.js';
 import { detailsHTML, wireDetails } from './guest-details.js';
 import { renderAgenda } from './agenda.js';
@@ -16,6 +17,7 @@ import { mountPaste, openPaste, pasteIsOpen } from './guest-paste.js';
 const view = document.getElementById('view');
 let guestFilter = 'all';
 let guestQuery = '';
+let colsOpen = false;   // keep the column menu open while toggling several
 let guestView = 'list'; // 'list' | 'graph'
 const openGuests = new Set();
 const openRoles = new Set();
@@ -266,11 +268,13 @@ function personCard(p) {
         <button class="tc-name" data-openperson="${p.id}">${esc(p.name)}</button>
         ${p.tag ? `<span class="tc-tag">${esc(p.tag)}</span>` : ''}
         <span class="tc-tools">
-          <button class="tc-btn" data-menu="${p.id}" aria-label="Card colour" aria-expanded="${menuFor === p.id}">⋯</button>
+          <button class="tc-btn tc-grip" type="button" aria-label="Move ${esc(p.name)}'s card. Drag, or use the arrow keys" title="Drag to rearrange (or Alt + arrow keys)">${GRIP_ICON}</button>
+          <button class="tc-btn" data-menu="${p.id}" aria-label="Card colour and position" aria-expanded="${menuFor === p.id}">⋯</button>
           <button class="tc-btn" data-delperson="${p.id}" aria-label="Remove ${esc(p.name)}">×</button>
         </span>
-        ${menuFor === p.id ? `<div class="tc-menu" role="menu" aria-label="Card colour">
+        ${menuFor === p.id ? `<div class="tc-menu" role="menu" aria-label="Card colour and position">
           ${Object.entries(TEAM_COLORS).map(([k, l]) => `<button role="menuitemradio" aria-checked="${colorOf(p) === k}" class="sw sw-${k}${colorOf(p) === k ? ' on' : ''}" data-setcolor="${k}" title="${l}" aria-label="${l}"></button>`).join('')}
+          <span class="tc-mv"><button type="button" class="tc-mvb" data-move="-1" aria-label="Move card earlier" title="Move earlier">${MOVE_L}</button><button type="button" class="tc-mvb" data-move="1" aria-label="Move card later" title="Move later">${MOVE_R}</button></span>
         </div>` : ''}
       </header>
       ${asking ? `<div class="tc-confirm" role="alertdialog" aria-label="Remove ${esc(p.name)}?">
@@ -307,6 +311,25 @@ function matchesFilter(p) {
   return kind === 'st' ? rs.some((r) => statusKey(r.status) === val) : rs.some((r) => r.title === val);
 }
 
+const GRIP_ICON = '<svg viewBox="0 0 12 16" width="10" height="14" aria-hidden="true"><g fill="currentColor"><circle cx="3.5" cy="3" r="1.3"/><circle cx="8.5" cy="3" r="1.3"/><circle cx="3.5" cy="8" r="1.3"/><circle cx="8.5" cy="8" r="1.3"/><circle cx="3.5" cy="13" r="1.3"/><circle cx="8.5" cy="13" r="1.3"/></g></svg>';
+const MOVE_L = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const MOVE_R = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+/* Betel's own order (state.teamOrder = person ids). Until she moves a card the colours alternate; anyone new goes last. */
+function orderedPeople() {
+  const base = mixColors(state.people);
+  if (!Array.isArray(state.teamOrder)) return base;
+  const at = new Map(state.teamOrder.map((id, i) => [id, i]));
+  return base.slice().sort((a, b) => (at.has(a.id) ? at.get(a.id) : 1e6) - (at.has(b.id) ? at.get(b.id) : 1e6));
+}
+/** The visible cards were rearranged: keep everyone else where they were, put the visible ones in the new order. */
+function saveTeamOrder(visibleIds) {
+  const vis = new Set(visibleIds);
+  let k = 0;
+  state.teamOrder = orderedPeople().map((p) => (vis.has(p.id) ? visibleIds[k++] : p.id));
+  commit({ silent: true });
+}
+
 /* order the grid so pink / burgundy / green alternate instead of sitting in blocks; uncoloured cards go last */
 function mixColors(list) {
   const by = { pink: [], burgundy: [], green: [], none: [] };
@@ -318,7 +341,7 @@ function mixColors(list) {
 
 function team() {
   const titles = [...new Set(state.roles.map((r) => r.title))].sort((a, b) => a.localeCompare(b));
-  const people = mixColors(state.people.filter(matchesFilter));
+  const people = orderedPeople().filter(matchesFilter);
   view.innerHTML = `
     <div class="page-head team-head">
       <h1>Team</h1>
@@ -327,7 +350,7 @@ function team() {
         ${STATUSES.map((st) => `<button type="button" aria-pressed="${teamFilter === 'st:' + statusKey(st)}" class="${statusKey(st)}${teamFilter === 'st:' + statusKey(st) ? ' on' : ''}" data-f="st:${statusKey(st)}"><span class="n"><b>${state.roles.filter((r) => r.status === st).length}</b><i class="shp" aria-hidden="true"></i></span><span class="l">${st}</span></button>`).join('')}
       </div>
       <label class="tf-select"><span class="sr-only">Role</span>
-        <select id="teamFilter" aria-label="Filter by role"><option value="all">All roles</option>${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</select>
+        <select id="teamFilter" data-bub aria-label="Filter by role"><option value="all">All roles</option>${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</select>
       </label>
     </div>
     <div class="tgrid">
@@ -339,6 +362,9 @@ function team() {
   sel.value = teamFilter.startsWith('role:') ? teamFilter : 'all';
   sel.onchange = () => { teamFilter = sel.value; team(); };
   view.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { teamFilter = teamFilter === b.dataset.f ? 'all' : b.dataset.f; team(); });
+  bubbleSelects(view);
+  const drag = wireTeamDrag(view.querySelector('.tgrid'), { save: saveTeamOrder });
+  view.querySelectorAll('[data-move]').forEach((b) => b.onclick = () => { drag.move(b.closest('.tcard'), +b.dataset.move); b.focus({ preventScroll: true }); });
 
   const P = (id) => state.people.find((p) => p.id === id);
   // Status cycles in place (no re-render); legend counts follow
@@ -421,6 +447,7 @@ function team() {
     const name = e.target.elements.who.value.trim();
     if (!name) return;
     state.people.push({ id: uid(), name, tag: '', color: 'none', links: [], updates: [] });
+    if (Array.isArray(state.teamOrder)) state.teamOrder.push(state.people.at(-1).id);
     ensureAutoGuests();
     commit();
     toast(`${name} added`);
@@ -436,13 +463,46 @@ const needsAddress = (g) => !g.street && g.party !== 'couple';
 // small map-pin: the row's address & details button
 const PIN = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>';
 const SIDES = ['Betel', 'Carter', 'Both'];
-const MEALS = ['Chicken', 'Beef', 'Fish', 'Vegetarian', 'Vegan', 'Kids meal'];
 const DETAIL_FIELDS = [
   ['street', 'Street', 'text'], ['city', 'City', 'text'], ['state', 'State', 'text'], ['zip', 'ZIP', 'text'],
   ['household', 'Household', 'text'], ['plusOne', 'Plus-one', 'text'],
   ['diet', 'Dietary', 'text'], ['notes', 'Notes', 'text'],
 ];
-const CSV_COLS = [['name', 'Name'], ['side', 'Side'], ['relation', 'Relation'], ['rsvp', 'RSVP'], ['meal', 'Meal'], ['table', 'Table'], ...DETAIL_FIELDS.map(([k, l]) => [k, l])];
+const CSV_COLS = [['name', 'Name'], ['side', 'Side'], ['relation', 'Relation'], ['rsvp', 'RSVP'], ['table', 'Table'], ...DETAIL_FIELDS.map(([k, l]) => [k, l])];
+
+/* Guest table columns: the person picks which to show (state.guestCols, saved with the plan). Name and the Details button are always there. */
+const GCOLS = [
+  { k: 'side', label: 'Side', w: 104 },
+  { k: 'rsvp', label: 'RSVP', w: 60, icon: true },
+  { k: 'relation', label: 'Relationship', w: 156 },
+  { k: 'table', label: 'Table', w: 112 },
+  { k: 'household', label: 'Household', w: 150 },
+  { k: 'plusOne', label: 'Plus-one', w: 140 },
+  { k: 'notes', label: 'Notes', w: 220 },
+];
+const GCOLS_DEFAULT = ['side', 'rsvp', 'relation'];
+const visibleCols = () => { const on = Array.isArray(state.guestCols) ? state.guestCols : GCOLS_DEFAULT; return GCOLS.filter((c) => on.includes(c.k)); };
+const RSVP_HEAD = '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.4" y="3.9" width="11.2" height="8.2" rx="1.6"/><path d="M3 5l5 4 5-4"/></g></svg>';
+const SLIDERS = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="15" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
+const FUNNEL = '<svg class="gf-ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 5.5h16l-6 7.2V19l-4-2v-4.3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+const tableLabel = (g) => { const t = state.tables.find((x) => x.id === g.tableId); return t ? (t.id === 'head' ? 'Sweetheart' : /^\d+$/.test(t.name) ? `Table ${t.name}` : t.name) : ''; };
+const selectHTML = (g, k, opts, extra = '') => `<select class="select" data-k="${k}" data-bub aria-label="${extra || k}">${opts}</select>`;
+/** One table cell. Couple rows show a single "Couple" tag across Side + RSVP and leave the rest plain. */
+function guestCell(g, k, cols) {
+  const bare = (inner, cls = '') => `<td class="c-${k} ${cls}">${inner}</td>`;
+  if (g.party === 'couple') {
+    if (k === 'side') return `<td class="c-side c-couple" colspan="${cols.some((c) => c.k === 'rsvp') ? 2 : 1}"><span class="couple-tag">Couple</span></td>`;
+    if (k === 'rsvp') return '';
+    if (k === 'table') return bare(`<span class="c-txt">${esc(tableLabel(g))}</span>`);
+    if (k === 'relation') return bare('');
+  }
+  if (k === 'side') return bare(selectHTML(g, 'side', SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join(''), 'Side'));
+  if (k === 'rsvp') return bare(`<select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-bub="rsvp" data-v="${esc(g.rsvp)}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select>`);
+  if (k === 'relation') return bare(`<select class="select" data-k="relation" data-bub aria-label="Relationship" data-v="${esc(relationOf(g))}"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select>`);
+  if (k === 'table') return bare(`<span class="c-txt">${esc(tableLabel(g)) || '—'}</span>`);
+  const label = GCOLS.find((c) => c.k === k).label;
+  return bare(`<input class="input" data-k="${k}" value="${esc(g[k] || '')}" placeholder="—" aria-label="${label}" spellcheck="false"/>`);
+}
 
 function guestsCSV() {
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -459,7 +519,7 @@ function guestsCSV() {
 const going = (g) => g.rsvp !== 'Declined';
 const GUEST_FILTERS = [
   [['all', 'Everyone', () => true],
-   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !g.meal || !g.street || !isSeated(g))],
+   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !g.street || !isSeated(g))],
    ['unseated', 'Still to seat', (g) => going(g) && !isSeated(g) && g.party !== 'couple'],
    ['reception', 'Reception guests', going],
    ['notinvited', 'Not invited yet', (g) => g.rsvp === 'Not invited yet'],
@@ -481,16 +541,16 @@ const guestFilterMenu = () => {
   const cur = filterDef(guestFilter);
   return `
     <div class="gfilter" id="gFilter">
-      <button class="gf-btn ${guestFilter === 'all' ? '' : 'set'}" aria-haspopup="listbox" aria-expanded="false"><span>${esc(cur[1])}</span><b>${state.guests.filter(cur[2]).length}</b><i aria-hidden="true"></i></button>
+      <button class="gf-btn ${guestFilter === 'all' ? '' : 'set'}" aria-haspopup="listbox" aria-expanded="false">${FUNNEL}<span>${esc(cur[1])}</span><b>${state.guests.filter(cur[2]).length}</b><i aria-hidden="true"></i></button>
       ${guestFilter === 'all' ? '' : '<button class="gf-clear" data-gf="all" aria-label="Show everyone">×</button>'}
       <div class="gf-menu" role="listbox">${guestFilters().map((grp, gi) => `<div class="gf-grp">${gi ? `<div class="gf-h">${FILTER_HEADS[gi - 1]}</div>` : ''}${grp.map(([k, l, fn]) => {
         const n = state.guests.filter(fn).length;
-        return `<button role="option" data-gf="${esc(k)}" class="${k === guestFilter ? 'on' : ''} ${n ? '' : 'none'}" aria-selected="${k === guestFilter}">${esc(l)}<span>${n}</span></button>`;
+        return `<button role="option" data-gf="${esc(k)}" class="${k === guestFilter ? 'on' : ''} ${n ? '' : 'none'}" aria-selected="${k === guestFilter}">${BS_CHECK}<span class="gf-l">${esc(l)}</span><span class="gf-n">${n}</span></button>`;
       }).join('')}</div>`).join('')}</div>
     </div>`;
 };
-addEventListener('pointerdown', (e) => { const m = document.querySelector('.gfilter.open'); if (m && !m.contains(e.target)) m.classList.remove('open'); });
-addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelector('.gfilter.open')?.classList.remove('open'); });
+addEventListener('pointerdown', (e) => { for (const m of document.querySelectorAll('.gfilter.open, .gcols.open')) if (!m.contains(e.target)) { m.classList.remove('open'); m.querySelector('.gcols-btn')?.setAttribute('aria-expanded', 'false'); } });
+addEventListener('keydown', (e) => { if (e.key === 'Escape') for (const m of document.querySelectorAll('.gfilter.open, .gcols.open')) { m.classList.remove('open'); m.querySelector('.gcols-btn')?.setAttribute('aria-expanded', 'false'); } });
 
 /* List | Connections toggle */
 const guestViewToggle = () => `
@@ -530,6 +590,8 @@ function guests() {
   const list = state.guests.filter((g) => fil(g)
     && (!q || [g.name, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
   const c = (fn) => state.guests.filter(fn).length;
+  const cols = visibleCols();
+  const tw = cols.reduce((n, x) => n + x.w, 0) + 236 + 104;   // name column + actions column
 
   view.innerHTML = `
     <div class="page-head">
@@ -542,7 +604,7 @@ function guests() {
 
     <form class="guest-add" id="gForm">
       <input class="input" name="name" placeholder="Add guests" aria-label="Guest name" required/>
-      <select class="select" name="side" aria-label="Side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
+      <select class="select" name="side" data-bub aria-label="Side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
       <button class="btn moss">Add</button>
       <button type="button" class="btn line icon-btn paste-btn" id="pasteBtn" aria-expanded="false" aria-label="Paste a list" title="Paste a list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M9 4.5h6v3H9zM15 6h2.5a1 1 0 0 1 1 1v12.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H9M8.5 12h7M8.5 15.5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
@@ -550,29 +612,45 @@ function guests() {
 
     <div class="guest-tools">
       ${guestFilterMenu()}
+      <div class="gcols" id="gCols">
+        <button type="button" class="btn line icon-btn gcols-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Choose columns" title="Columns">${SLIDERS}</button>
+        <div class="gc-menu" role="menu" aria-label="Columns">${GCOLS.map((c) => `<button type="button" role="menuitemcheckbox" data-gcol="${c.k}" aria-checked="${cols.some((x) => x.k === c.k)}" class="${cols.some((x) => x.k === c.k) ? 'on' : ''}">${BS_CHECK}<span>${c.label}</span></button>`).join('')}</div>
+      </div>
     </div>
 
     <section class="card flush">
-      ${list.length ? `<div class="table-wrap"><table class="guests"><colgroup><col class="w-name"><col class="w-side"><col class="w-rsvp"><col class="w-meal"><col class="w-act"></colgroup>
-        <thead><tr><th>Name</th><th>Side</th><th>RSVP</th><th>Meal</th><th><span class="sr">Details</span></th></tr></thead>
+      ${list.length ? `<div class="table-wrap"><table class="guests" style="--gw:${tw}px"><colgroup><col>${cols.map((x) => `<col style="width:${x.w}px">`).join('')}<col class="w-act"></colgroup>
+        <thead><tr><th>Name</th>${cols.map((x) => `<th class="h-${x.k}">${x.icon ? `<span title="${x.label}" aria-label="${x.label}">${RSVP_HEAD}</span>` : x.label}</th>`).join('')}<th><span class="sr">Details</span></th></tr></thead>
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
             <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/></div></td>
-            ${g.party === 'couple' ? '<td class="c-side c-couple" colspan="2"><span class="couple-tag">Couple</span></td>' : `<td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-            <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>`}
-            <td class="c-meal"><select class="select" data-k="meal" data-v="${esc(g.meal || '')}" aria-label="Meal"><option value="">—</option>${[...MEALS, ...(g.meal && !MEALS.includes(g.meal) ? [g.meal] : [])].map((m) => `<option ${m === g.meal ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td>
+            ${cols.map((x) => guestCell(g, x.k, cols)).join('')}
             <td class="row-actions">
               <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Details" aria-label="Details for ${esc(g.name)}"><svg viewBox="0 0 4 16" width="4" height="16" aria-hidden="true"><circle cx="2" cy="2" r="1.6"/><circle cx="2" cy="8" r="1.6"/><circle cx="2" cy="14" r="1.6"/></svg></button>
               ${g.party === 'couple' ? '<span class="x" aria-hidden="true" style="visibility:hidden">×</span>' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
             </td>
           </tr>
-          ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="5">${detailsHTML(g, { extra: true })}</td></tr>` : ''}`).join('')}</tbody></table></div>
+          ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="${cols.reduce((n, x) => n + 1, 0) + 2}">${detailsHTML(g, { extra: true })}</td></tr>` : ''}`).join('')}</tbody></table></div>
 `
       : `<p class="muted" style="margin:0;padding:20px">${guestFilter === 'unseated' && !q ? 'Everyone has a seat.' : `No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.`}</p>`}
     </section>`;
 
   const add = (name, side = 'Both') => state.guests.push({ id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null });
   view.querySelector('#csv').onclick = () => guestsCSV();
+  // column picker (bubbly menu of toggles)
+  const gcols = view.querySelector('#gCols'), gcBtn = gcols.querySelector('.gcols-btn');
+  const gcOpen = (o) => { gcols.classList.toggle('open', o); gcBtn.setAttribute('aria-expanded', String(o)); };
+  gcBtn.onclick = () => gcOpen(!gcols.classList.contains('open'));
+  gcols.querySelectorAll('[data-gcol]').forEach((b) => b.onclick = () => {
+    const on = new Set(visibleCols().map((x) => x.k));
+    on.has(b.dataset.gcol) ? on.delete(b.dataset.gcol) : on.add(b.dataset.gcol);
+    state.guestCols = GCOLS.filter((x) => on.has(x.k)).map((x) => x.k);
+    commit({ silent: true });
+    colsOpen = true;
+    guests();
+  });
+  if (colsOpen) { gcOpen(true); colsOpen = false; }
+  bubbleSelects(view);
   wireGuestViewToggle(); wireGuestCount(view);
   const gForm = view.querySelector('#gForm');
   const typing = () => gForm.classList.toggle('typing', !!gForm.name.value.trim());
@@ -630,7 +708,7 @@ function guests() {
       else if (e.key === 'Tab') setOpen(false);
       else if (e.key.length === 1 && /\S/.test(e.key)) {
         const k = e.key.toLowerCase(), order = [...list.slice(i + 1), ...list.slice(0, i + 1)];
-        const hit = order.find((o) => o.firstChild?.textContent.trim().toLowerCase().startsWith(k));
+        const hit = order.find((o) => o.querySelector('.gf-l')?.textContent.trim().toLowerCase().startsWith(k));
         if (hit) { e.preventDefault(); hit.focus(); }
       }
     };
@@ -655,7 +733,7 @@ function guests() {
         const k = el.dataset.k;
         if (k === 'name' && !el.value.trim()) { el.value = g.name; return; }
         g[k] = el.value || (k === 'tableId' ? null : '');
-        if (k === 'rsvp' || k === 'meal') el.dataset.v = el.value;
+        if (k === 'rsvp') el.dataset.v = el.value;
         if (k === 'relation') el.dataset.v = relationOf(g);
         if (k === 'name') { g.name = el.value.trim(); const p = state.people.find((x) => x.id === g.personId); if (p) p.name = g.name; }
         refreshFilter();
@@ -746,7 +824,7 @@ subscribe(() => route());
 
 function tickCountdown() { // the header pill is gone (REQ-21); the count lives on the Overview hero
   const el = document.getElementById('countdown');
-  if (el) el.innerHTML = `<b>${Math.max(0, daysUntil(WEDDING.date))}</b> days`;
+  if (el) { const n = Math.max(0, daysUntil(WEDDING.date)); el.textContent = `${n} ${n === 1 ? 'day' : 'days'}`; }
 }
 
 mountLive(document.getElementById('liveBtn'));

@@ -273,7 +273,8 @@ function seedIndoor() {
  */
 export function seedCocktail() {
   const w = 60, h = 50;
-  const bistro = [[13, 9], [27, 9], [41, 9], [10.5, 17], [10.5, 27], [49, 17], [41, 30], [49, 31]].map(([x, y], i) => ({ id: sid('ht', i), name: String(i + 1), shape: 'round', seats: 3, x, y, rot: 0, o: i }));
+  // every pair >= 1.5 ft between chair rings (centres >= 9.1 ft apart on one axis), clear of the building wings, fountain keep-out and the entrance edge
+  const bistro = [[13, 10], [23.5, 10], [34, 10], [44.5, 10], [10.5, 22], [10.5, 34], [49.5, 22], [49.5, 34]].map(([x, y], i) => ({ id: sid('ht', i), name: String(i + 1), shape: 'round', seats: 3, x, y, rot: 0, o: i }));
   return {
     room: {
       name: 'Courtyard', w, h, approx: true, floor: 'concrete', bistro: true,
@@ -316,20 +317,28 @@ function seedTasting() {
 export const seedSpaces = () => ({ ceremony: seedCeremony(), indoor: seedIndoor(), cocktail: seedCocktail(), tasting: seedTasting() });
 
 /* ---------- Morais' own album (shown beside the 3D view; order is Betel's, saved as state.morais) ---------- */
+/* Each photo says which space it shows (for: reception | ceremony | cocktail (Hangout spot) | tasting); the Venue photos panel lists only the current space's. People-heavy shots are left out. */
 export const MORAIS_PHOTOS = [
-  { id: 'ballroom', src: 'assets/venue/ballroom.jpg', name: 'Ballroom', w: 1050, h: 1400 },
-  { id: 'tasting-room', src: 'assets/venue/tasting-room.jpg', name: 'Tasting room', w: 1050, h: 1400 },
-  { id: 'tasting-room-2', src: 'assets/venue/tasting-room-2.jpg', name: 'Tasting room', w: 1050, h: 1400 },
-  // The Knot listing photos (real photos; credit stays with the photographers)
-  { id: 'knot-ballroom-rounds', src: 'assets/venue/knot/028_bf7b0fcf.jpg', name: 'Ballroom, rounds', w: 600, h: 400 },
-  { id: 'knot-ballroom-rows', src: 'assets/venue/knot/029_e524b771.jpg', name: 'Ballroom, ceremony rows', w: 600, h: 399 },
-  { id: 'knot-lawn', src: 'assets/venue/knot/022_60ec6619.jpg', name: 'Ceremony lawn', w: 600, h: 400 },
-  { id: 'knot-greenhouse', src: 'assets/venue/knot/020_96c1cd2b.jpg', name: 'Greenhouse', w: 1400, h: 940 },
-  { id: 'knot-fountain', src: 'assets/venue/knot/056_229129c2.jpg', name: 'Fountain courtyard', w: 1400, h: 940 },
-  { id: 'knot-fountain-2', src: 'assets/venue/knot/055_331a1877.jpg', name: 'Fountain courtyard', w: 1280, h: 854 },
-  { id: 'knot-courtyard-glass', src: 'assets/venue/knot/026_a783fc6d.jpg', name: 'Courtyard, cocktail hour', w: 400, h: 600 },
-  { id: 'knot-dusk', src: 'assets/venue/knot/023_4efb749d.jpg', name: 'Palacio at dusk', w: 600, h: 400 },
-  { id: 'knot-wine-wall', src: 'assets/venue/knot/057_0d23a108.jpg', name: 'Wine wall', w: 1280, h: 853 },
+  { id: 'ballroom', src: 'assets/venue/ballroom.jpg', name: 'Ballroom', w: 1050, h: 1400, for: ['reception'] },
+  { id: 'knot-ballroom-rounds', src: 'assets/venue/knot/028_bf7b0fcf.jpg', name: 'Ballroom, rounds', w: 600, h: 400, for: ['reception'] },
+  { id: 'site-ballroom-rounds', src: 'assets/venue/site/morais-vineyards-wedding-photo-191-scaled.jpg', name: 'Ballroom, balcony and rounds', w: 2048, h: 1366, for: ['reception'] },
+  { id: 'knot-lawn', src: 'assets/venue/knot/022_60ec6619.jpg', name: 'Ceremony lawn', w: 600, h: 400, for: ['ceremony'] },
+  { id: 'site-pergola', src: 'assets/venue/courtyard-ceremony.png', name: 'Pergola and chairs', w: 675, h: 375, for: ['ceremony'] },
+  { id: 'site-pergola-path', src: 'assets/venue/site/ceremony-locations-pergola-1-2Blog-Images-0043.jpg', name: 'Pergola path', w: 1000, h: 667, for: ['ceremony'] },
+  { id: 'knot-ballroom-rows', src: 'assets/venue/knot/029_e524b771.jpg', name: 'Indoor ceremony, rows', w: 600, h: 399, for: ['ceremony'] },
+  { id: 'site-chapel', src: 'assets/venue/site/ceremony-locations-chapel-1-1.jpg', name: 'Chapel', w: 450, h: 675, for: ['ceremony'] },
+  { id: 'courtyard', src: 'assets/venue/courtyard.jpg', name: 'Courtyard pavers', w: 1200, h: 2133, for: ['cocktail'] },
+  { id: 'knot-fountain', src: 'assets/venue/knot/056_229129c2.jpg', name: 'Fountain courtyard', w: 1400, h: 940, for: ['cocktail'] },
+  { id: 'knot-fountain-2', src: 'assets/venue/knot/055_331a1877.jpg', name: 'Fountain courtyard', w: 1280, h: 854, for: ['cocktail'] },
+  { id: 'knot-courtyard-glass', src: 'assets/venue/knot/026_a783fc6d.jpg', name: 'Courtyard, cocktail hour', w: 400, h: 600, for: ['cocktail'] },
+  { id: 'site-courtyard-dusk', src: 'assets/venue/site/the-palacio-package-the-palacio-new-1.jpg', name: 'Courtyard fountain at dusk', w: 1000, h: 667, for: ['cocktail'] },
+  { id: 'knot-dusk', src: 'assets/venue/knot/023_4efb749d.jpg', name: 'Palacio at dusk', w: 600, h: 400, for: ['cocktail'] },
+  { id: 'knot-greenhouse', src: 'assets/venue/knot/020_96c1cd2b.jpg', name: 'Greenhouse', w: 1400, h: 940, for: ['cocktail'] },
+  { id: 'tasting-room', src: 'assets/venue/tasting-room.jpg', name: 'Tasting room', w: 1050, h: 1400, for: ['tasting'] },
+  { id: 'tasting-room-2', src: 'assets/venue/tasting-room-2.jpg', name: 'Tasting room', w: 1050, h: 1400, for: ['tasting'] },
+  { id: 'site-tasting-hall', src: 'assets/venue/site/A7409521-edit-scaled.jpg', name: 'Tasting room, fireplace', w: 2560, h: 1707, for: ['tasting'] },
+  { id: 'site-redondo', src: 'assets/venue/site/redondo-room-RedondoRoom-TJBStudios-51.jpg', name: 'Redondo Room', w: 1000, h: 666, for: ['tasting'] },
+  { id: 'knot-wine-wall', src: 'assets/venue/knot/057_0d23a108.jpg', name: 'Wine wall', w: 1280, h: 853, for: ['tasting'] },
 ];
 
 export const headTable = () => ({ id: 'head', name: 'Mr. & Mrs. Griffin', shape: 'rect', x: 25, y: 7, sides: { top: 2, bottom: 0, left: 0, right: 0 }, rot: 0, o: 0 });

@@ -38,13 +38,14 @@ Legacy names such as `--moss-800` and `--gold` still exist because older rules u
 | Pick a view | `.viewseg` (+ `.view-pill` over the 3D) | hairline box, selected tile is a wine fill |
 | Switch a panel | `role="tablist"` with `.vs-tabs` / `.ref-tabs` | muted to ink, 2px wine underline |
 | Filter toggle | `.chip` (`.on`) | 3px, hairline, wine when on |
-| Pick a value | native `select.select` | |
+| Pick a value | `select.select[data-bub]` (button + bubbly menu, `bubbleSelects()` in `js/util.js`; icons via `GLYPHS`) | 12px glass menu, 14px dark chevron, check on the picked row |
+| Show / hide columns | `.gcols` + `.gc-menu` | bubbly menu of toggles, saved in `state.guestCols` |
 | Menu / popover | `.gf-menu`, `.pop`, `.tc-menu` … | flat surface on cream, glass only over a photo or the 3D |
 | Confirm | `confirmDialog()` (`.cd`) | only for things that can't be undone |
 | Feedback | `toast()` | solid ink rectangle with Undo |
 
 ## The rules
-- **Corners:** 4px, chips 3px. No pills. Circles only for tiny status dots, real photos and the floating help button (`.guide-q`, glass).
+- **Corners:** 4px, chips 3px. No pills. Exception (Kiara, round 10): dropdown menus (`.gf-menu`, `.gc-menu`, `.bs-menu`) and pill chips/closed selects (`.bs-btn`, `.gf-btn`) may go up to 12-14px; set it with `--r`, never a new radius rule. Circles only for tiny status dots, real photos and the floating help button (`.guide-q`, glass).
 - **Hover** changes colour or underline only. Nothing moves, lifts or grows a shadow.
 - **Glass** only for layers that float over a photo, the 3D or the page (seating toolbar, view pill, popovers, dialogs, the Team page over its photo, the help button). Cards and menus on plain cream are flat.
 - **No gradients, no generated art, no initials.**

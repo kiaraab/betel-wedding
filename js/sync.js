@@ -8,7 +8,7 @@
  *  - After that every save is pushed (debounced); remote changes are merged part by part (store.mergeRemote).
  */
 import { onSave, mergeRemote, snapshot } from './store.js';
-import { esc, toast, promptDialog } from './util.js';
+import { esc, toast, promptDialog, heartLoaderHTML } from './util.js';
 import { setSharedKey, registerShare } from './ai.js';
 
 const CONFIG = {
@@ -258,15 +258,16 @@ export function mountLive(btn) {
     const draw = async () => {
       const i = info();
       if (i.failed || (i.role === 'out' && i.email)) {
-        pop.innerHTML = `<h3>${esc(i.status)}</h3><p>${esc(i.email || 'Not connected')}</p><button class="btn moss" data-retry>Retry</button> <button class="btn" data-out>Sign out</button><p class="live-note" role="status"></p>`;
-        pop.querySelector('[data-retry]').onclick = async () => { pop.querySelector('.live-note').textContent = 'Connecting…'; await retrySync(); draw(); };
+        pop.innerHTML = /^(Re)?connecting/i.test(i.status) ? `<div class="live-wait">${heartLoaderHTML('Connecting', { sm: true })}</div><p>${esc(i.email || '')}</p>` : `<h3>${esc(i.status)}</h3><p>${esc(i.email || 'Not connected')}</p><button class="btn moss" data-retry>Retry</button> <button class="btn" data-out>Sign out</button><p class="live-note" role="status"></p>`;
+        const retry = pop.querySelector('[data-retry]');
+        if (retry) retry.onclick = async () => { pop.querySelector('.live-note').innerHTML = heartLoaderHTML('', { sm: true }); await retrySync(); draw(); };
       } else if (i.role === 'out') {
         pop.innerHTML = `<h3>Edit together</h3><p>Sign in to share changes live. We email you a link.</p>
           <form class="live-form"><input type="email" required placeholder="you@email.com" aria-label="Email" autocomplete="email"/><button class="btn">Send link</button></form><p class="live-note" role="status"></p>`;
         pop.querySelector('form').onsubmit = async (e) => {
           e.preventDefault();
           const note = pop.querySelector('.live-note');
-          note.textContent = 'Sending…';
+          note.innerHTML = heartLoaderHTML('', { sm: true });
           try { await sendLink(e.target.querySelector('input').value); note.textContent = 'Link sent. Open it on this device.'; }
           catch { note.textContent = 'Could not send. Check the email and try again.'; }
         };
@@ -278,7 +279,7 @@ export function mountLive(btn) {
         };
       } else {
         const reqs = await listRequests().catch(() => []);
-        pop.innerHTML = `<h3>${esc(i.status)}</h3><p>${esc(i.email)}</p>
+        pop.innerHTML = `${/^(Re)?connecting/i.test(i.status) ? `<div class="live-wait">${heartLoaderHTML('Connecting', { sm: true })}</div>` : `<h3>${esc(i.status)}</h3>`}<p>${esc(i.email)}</p>
           ${reqs.length ? `<ul class="live-reqs">${reqs.map((r) => `<li>${esc(r)} <button class="btn" data-ok="${esc(r)}">Approve</button></li>`).join('')}</ul>` : ''}
           <button class="btn" data-out>Sign out</button>`;
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });

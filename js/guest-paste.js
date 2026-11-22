@@ -1,7 +1,7 @@
 // "Paste a list": text or a picture of a list -> AI (when a key is saved) or the built-in parser -> an editable review table -> add.
 import { state, uid, undoable } from './store.js';
 import { RELATIONS } from './layout.js';
-import { esc, toast } from './util.js';
+import { esc, toast, heartLoaderHTML } from './util.js';
 import { parseGuestList, normalizeAiGuests } from './guest-parse.js';
 import { addPlusOne } from './guest-details.js';
 import { aiAvailable, askGemini, fileToImage, aiLinkHTML, wireAiLink } from './ai.js';
@@ -94,7 +94,7 @@ export function mountPaste(host, { defaultSide = 'Both' } = {}) {
   const runAi = async (images) => {
     if (busy) return;
     if (!images && !panel.text.trim()) { status.textContent = 'Paste some names first'; return; }
-    busy = true; status.textContent = 'Reading…';
+    busy = true; status.innerHTML = heartLoaderHTML('Reading', { sm: true });
     const btns = host.querySelectorAll('[data-ai-text],[data-ai-img]');
     btns.forEach((b) => { b.disabled = true; });
     try {

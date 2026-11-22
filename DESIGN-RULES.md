@@ -44,3 +44,6 @@ These come straight from the owner's feedback on the first live version. Breakin
 ## Direction update (Nov 22 2026)
 - No more accessibility passes. Prefer dynamic, less flat looks: soft translucent glass, white-glass masthead, depth from blur/shadow/photo layers (still NO gradients).
 - Motion: tiny, simple, quaint transitions only (120-220ms ease-out: fade + 4px rise on appear, sliding tab underline, soft popover fade/scale-in). Never overdone. No hover movement. State changes only.
+
+## Round 10 (Kiara)
+- Dropdown menus and pill chips may be bubbly (up to 12-14px). Everything else keeps the 2-6px rule. Prefer a clean line icon (title + aria-label) over a word on small utility buttons. Content is ~8-10% smaller in a 1120px column so the blurred photos show. Loaders are the heart (`heartLoaderHTML`).

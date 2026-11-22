@@ -1,8 +1,8 @@
 import { state, commit as baseCommit, uid, undoable, exportJSON, importJSON, isSeated } from './store.js';
 import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
 import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers, clearanceIssues } from './layout.js';
-import { esc, toast } from './util.js';
-import { spaceToolsHTML, wireSpaceTools, partySVG } from './spaces.js';
+import { esc, toast, heartLoaderHTML } from './util.js';
+import { spaceToolsHTML, wireSpaceTools, partySVG, suggestHangout } from './spaces.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const M = 3; // margin around the room (ft)
@@ -17,15 +17,19 @@ let cleanup = null;      // AbortController for document listeners of the curren
 let view = null;         // current viewBox { x, y, w, h } — persists across re-renders
 let mode = '3d';         // 'plan' | '3d' (reception opens on the 3D hero)
 let space = 'reception'; // 'ceremony' | 'indoor' | 'cocktail' | 'reception' — tabs above the plan
-let inkFrom = null;       // where the tab underline glides from after a space switch
+let inkFrom = null;       // where the tab underline glides from after a space switch ({ x, y, w })
 /** The space being edited: the reception lives at the top of the plan (room/tables), the others in state.spaces. */
 function SP() {
   if (space === 'reception') return state;
   return state.spaces?.[space] || seedSpaces()[space]; // store.healSeats() fills missing spaces at load; this is only a safety net
 }
 const spaceInfo = () => ({ ...SPACES.find((x) => x.id === space), label: SPACE_LABEL[space] || SPACES.find((x) => x.id === space).label });
-const TAB_ORDER = ['ceremony', 'indoor', 'reception', 'cocktail', 'tasting']; // pergola lawn · rain plan in the bay · ballroom · hangout spot last
-const SPACE_LABEL = { cocktail: 'Hangout spot', indoor: 'Indoor', tasting: 'Tasting room' };  // data key stays 'cocktail'
+const TAB_ORDER = ['reception', 'ceremony', 'cocktail', 'tasting']; // Reception is the big row (full 3D + the 360 tour); the rest sit smaller beneath
+const SPACE_LABEL = { cocktail: 'Hangout spot', indoor: 'Ceremony', tasting: 'Tasting room' };  // data keys stay 'cocktail' / 'indoor'
+/** One Ceremony tab, two variants with their own saved chairs: 'ceremony' = outdoor pergola, 'indoor' = indoor bay (data keys unchanged, so saved plans keep working). */
+const CER_VARIANTS = [['ceremony', 'Outdoor pergola'], ['indoor', 'Indoor bay']];
+let cerVariant = 'ceremony';
+const tabOn = (id) => id === space || (id === 'ceremony' && space === 'indoor');
 const kindOf = () => SPACES.find((x) => x.id === space)?.kind || space; // 'ceremony' | 'cocktail' | 'reception'
 const tabList = () => TAB_ORDER.map((id) => SPACES.find((x) => x.id === id)).filter(Boolean).map((x) => ({ ...x, label: SPACE_LABEL[x.id] || x.label }));
 /** One quiet line under the tabs */
@@ -602,8 +606,21 @@ function clearBalcony() {
   });
   if (moved.length) commit({ silent: true });
 }
+/** The first Hangout-spot seed had tables 0.4 ft apart (every one but two flagged). A saved plan that still holds exactly that seed gets the conflict-free one; anything she moved is left alone. */
+const OLD_HANGOUT = '13,9|27,9|41,9|10.5,17|10.5,27|49,17|41,30|49,31';
+function healHangout() {
+  let changed = false;
+  for (const id of ['cocktail', 'tasting']) {
+    const sp = state.spaces?.[id]; if (!sp?.tables?.length || sp.healed10) continue;
+    sp.healed10 = true; changed = true; // once only: later hand-placed tables are never moved
+    if (id === 'cocktail' && sp.tables.map((t) => t.x + ',' + t.y).join('|') === OLD_HANGOUT) { sp.tables = seedSpaces().cocktail.tables; changed = true; continue; }
+    // a layout the old Suggest left with tables too close (nobody sits at hangout tables, so nothing is lost): lay it out again without conflicts, only when that fits
+    if (clearanceIssues(sp.room, sp.tables, 1.5).items.length) { for (let k = sp.tables.length; k >= 2; k--) { const r = suggestHangout(structuredClone(sp.room), k * (sp.room.bistro ? 7.5 : 10)); if (r.fits) { sp.tables = r.tables; changed = true; break; } } }
+  }
+  if (changed) commit({ silent: true });
+}
 export function renderSeating(root) {
-  clearBalcony();
+  clearBalcony(); healHangout();
   const rec = space === 'reception';
   setBackdrop(BACKDROP[space] || BACKDROP.reception);
   if (!rec) mode = 'plan'; // 3D is the ballroom only (for now)
@@ -645,14 +662,15 @@ export function renderSeating(root) {
       <div>
         <h1 class="sr-only">${esc(info.label)}</h1>
         <div class="spaces" role="tablist" aria-label="Spaces">
-          ${tabList().map((x) => `<button role="tab" data-space="${x.id}" aria-selected="${x.id === space}" class="${x.id === space ? 'on' : ''}">${x.label}</button>`).join('')}
+          ${(() => { const tb = (x, c) => `<button role="tab" data-space="${x.id}" aria-selected="${tabOn(x.id)}" class="${c}${tabOn(x.id) ? ' on' : ''}">${x.label}</button>`, l = tabList(); return `<div class="sp-row sp-row-main">${tb(l[0], 'sp-main')}</div><div class="sp-row sp-row-sub">${l.slice(1).map((x) => tb(x, 'sp-sub')).join('')}</div>`; })()}
           <span class="spaces-ink" aria-hidden="true"></span>
         </div>
+        ${kindOf() === 'ceremony' ? `<div class="viewseg cer-seg" role="tablist" aria-label="Ceremony setting">${CER_VARIANTS.map(([id, l]) => `<button role="tab" data-variant="${id}" aria-selected="${space === id}" class="${space === id ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
         <p class="lede" id="lede"></p>
         ${kindOf() === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
       </div>
 
-      <a class="tour-link" href="https://my.matterport.com/show/?m=K76R3QeJThF&brand=0" target="_blank" rel="noopener">Venue 360° tour ↗</a>
+      ${rec ? '<a class="tour-link" href="https://my.matterport.com/show/?m=K76R3QeJThF&brand=0" target="_blank" rel="noopener">Venue 360° tour ↗</a>' : ''}
     </div>
     <div class="seat-layout${vow ? ' vow' : mode === 'plan' ? ' is-plan' : ''}" data-mode="${mode}">
       ${vow ? `<aside class="side-panel vow-side" data-tab="${vsTab}">${vowSideHTML(info)}</aside>` : ''}
@@ -702,21 +720,24 @@ export function renderSeating(root) {
 
   /* ---- spaces: ceremony · cocktail · reception ---- */
   const tabs = root.querySelector('.spaces'), ink = tabs.querySelector('.spaces-ink');
-  const moveInk = (b) => { ink.style.setProperty('--x', b.offsetLeft + 'px'); ink.style.setProperty('--w', b.offsetWidth + 'px'); };
+  const moveInk = (b) => { ink.style.setProperty('--x', b.offsetLeft + 'px'); ink.style.setProperty('--y', b.offsetTop + b.offsetHeight - 2 + 'px'); ink.style.setProperty('--w', b.offsetWidth + 'px'); };
   if (inkFrom) { // glide the underline from the tab that was just left
-    ink.style.transition = 'none'; ink.style.setProperty('--x', inkFrom.x + 'px'); ink.style.setProperty('--w', inkFrom.w + 'px');
+    ink.style.transition = 'none'; ink.style.setProperty('--x', inkFrom.x + 'px'); ink.style.setProperty('--y', inkFrom.y + 'px'); ink.style.setProperty('--w', inkFrom.w + 'px');
     void ink.offsetWidth; ink.style.transition = ''; inkFrom = null;
   }
   moveInk(tabs.querySelector('.on'));
   document.fonts?.ready.then(() => tabs.isConnected && moveInk(tabs.querySelector('.on')));
-  tabs.querySelectorAll('[data-space]').forEach((b) => b.onclick = () => {
-    if (b.dataset.space === space) return;
-    space = b.dataset.space; sel = null; view = null; enterAnim = true; lastFilled.clear();
+  const goSpace = (id, from) => {
+    if (id === space) return;
+    if (id === 'ceremony' || id === 'indoor') cerVariant = id;
+    space = id; sel = null; view = null; enterAnim = true; lastFilled.clear();
     if (space === 'reception') mode = '3d';
     const was = tabs.querySelector('.on');
-    inkFrom = { x: was.offsetLeft, w: was.offsetWidth };
+    inkFrom = { x: was.offsetLeft, y: was.offsetTop + was.offsetHeight - 2, w: was.offsetWidth };
     renderSeating(root);
-  });
+  };
+  tabs.querySelectorAll('[data-space]').forEach((b) => b.onclick = () => goSpace(b.dataset.space === 'ceremony' ? cerVariant : b.dataset.space));
+  root.querySelectorAll('[data-variant]').forEach((b) => b.onclick = () => goSpace(b.dataset.variant));
 
   let inspect = () => {};
   /* ---- reception sidebar (Layout / Seat guests / Look), units, "In your plan" inspector ---- */
@@ -823,6 +844,9 @@ export function renderSeating(root) {
       const ring = document.createElementNS(SVGNS, 'rect');
       ring.setAttribute('class', 'clash-ring'); ring.setAttribute('x', -fp.hw); ring.setAttribute('y', -fp.hh); ring.setAttribute('width', fp.hw * 2); ring.setAttribute('height', fp.hh * 2); ring.setAttribute('rx', 0.6);
       g.prepend(ring);
+      const tri = document.createElementNS(SVGNS, 'g'); tri.setAttribute('class', 'clash-tri'); tri.setAttribute('transform', `translate(${fp.hw - 1.1} ${-fp.hh + 1.1})`);
+      tri.innerHTML = '<title>Needs more room</title><path class="tri" d="M0 -1 L1 .8 L-1 .8 Z"/><path class="bang" d="M0 -.35 V.2 M0 .5 V.55"/>';
+      g.append(tri);
     });
   };
   const drawPlan = () => {
@@ -1178,7 +1202,7 @@ export function renderSeating(root) {
     });
   } else {
     // 3D view (loaded on demand); a quiet loader fades in until the scene is ready
-    host.innerHTML = '<div class="three-loading"><span></span>Opening the venue…</div>';
+    host.innerHTML = `<div class="three-loading">${heartLoaderHTML('Opening the venue…')}</div>`;
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
       three = host.__three = threeInst = await m.mount(host, state, moodNow(), {
@@ -1245,7 +1269,7 @@ export function renderSeating(root) {
     // (the dance floor's size and spot are chosen by suggestTables: ~20 x 20 mid-hall, smaller only when the tables need the room)
     return { n, head, room, s: suggestTables(room, n, style.value, head) };
   };
-  preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b>only ${s.tables.length} fit</b>`}`; };
+  preview = () => { const { n, s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b>needs a bigger room for ${n}</b>`}`; };
   count.oninput = preview;
   // the one guest-count control: edits state.guestTarget (also set from Overview) and re-lays out
   count.onchange = () => { const n = Math.max(2, Math.min(300, +count.value || 2)); count.value = n; if (n !== state.guestTarget) suggest(); };
@@ -1256,6 +1280,7 @@ export function renderSeating(root) {
   const suggest = () => {
     const { n, head, room, s } = plan();
     closePop(); closeSug();
+    if (!s.fits) { toast(`Needs a bigger room for ${n}`); return; } // never lay out a plan with conflicts
     localUndo(s.fits ? `${s.tables.length} tables laid out` : `Only ${s.tables.length} of ${s.needed} tables fit`, () => {
       state.guestTarget = n; state.lastStyle = style.value;
       SP().room.areas = room.areas;
@@ -1332,8 +1357,8 @@ export function renderSeating(root) {
 let threeInst = null; // live 3D scene, disposed on re-render / leaving the page
 
 /* ---- Morais' photos beside the 3D view: drag to rearrange (saved), tap to see the whole photo ---- */
-function moraisOrder() {
-  const ids = MORAIS_PHOTOS.map((p) => p.id);
+function moraisOrder(sp = space) {
+  const ids = MORAIS_PHOTOS.filter((p) => !p.for || p.for.includes(sp)).map((p) => p.id); // only the current space's photos
   const saved = (Array.isArray(state.morais) ? state.morais : []).filter((id) => ids.includes(id));
   return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => MORAIS_PHOTOS.find((p) => p.id === id));
 }
@@ -1385,7 +1410,7 @@ function refHTML(rec) {
     <div class="ref-head">${rec && mode === 'plan' ? `<div class="ref-tabs" role="tablist"><button role="tab" data-ref="ideas" aria-selected="${tab === 'ideas'}" class="${tab === 'ideas' ? 'on' : ''}">Layout ideas</button><button role="tab" data-ref="venue" aria-selected="${tab === 'venue'}" class="${tab === 'venue' ? 'on' : ''}">Venue photos</button></div>` : '<h3>Venue photos</h3>'}</div>
     ${rec && mode === 'plan' ? `<div class="idea-grid" id="ideasGrid"${tab === 'ideas' ? '' : ' hidden'}>${IDEAS.map((d) => `<figure class="idea"><img src="${d.src}" alt="${esc(TABLE_STYLES[d.key].label)}" loading="lazy" draggable="false"/><figcaption><b>${esc(TABLE_STYLES[d.key].label)}</b><button type="button" class="idea-use" data-idea="${d.key}">Use this layout</button></figcaption></figure>`).join('')}</div>` : ''}
     <div class="ref-grid morais-grid"${tab === 'venue' ? '' : ' hidden'}>
-      ${moraisOrder().map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" width="${p.w}" height="${p.h}" alt="${esc(p.name)}" draggable="false" loading="lazy" decoding="async"/><span class="morais-cap">${esc(p.name)}</span></button>`).join('')}
+      ${moraisOrder(space).map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" width="${p.w}" height="${p.h}" alt="${esc(p.name)}" draggable="false" loading="lazy" decoding="async"/><span class="morais-cap">${esc(p.name)}</span></button>`).join('')}
     </div>
   </section>`;
 }
@@ -1394,7 +1419,7 @@ function wireMorais(root, signal) {
   if (!grid) return;
   const thumbs = () => [...grid.querySelectorAll('.morais-th')];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const saveOrder = () => { state.morais = thumbs().map((t) => t.dataset.ph); commit({ silent: true }); };
+  const saveOrder = () => { const vis = thumbs().map((t) => t.dataset.ph); state.morais = [...vis, ...(Array.isArray(state.morais) ? state.morais : []).filter((id) => !vis.includes(id))]; commit({ silent: true }); }; // other spaces' photos keep their saved order
 
   /* --- rearrange: drag a photo, the others glide out of its way --- */
   const flip = (moveDom) => {
