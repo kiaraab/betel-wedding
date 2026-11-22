@@ -277,7 +277,7 @@ export function renderAgenda(view) {
     <div class="ag-bar">
       <div class="ag-title"><span class="ag-kicker">Agenda</span><h1>${dayText(0, { weekday: 'long', month: 'long', day: 'numeric' })}</h1></div>
       <div class="ag-tools" role="toolbar" aria-label="Agenda tools">
-        <button type="button" class="ag-ib" id="agToday" aria-label="Jump to now" title="Jump to now">${ICONS.today}</button>
+        <button type="button" class="ag-tb ag-now" id="agToday" aria-label="Jump to now" title="Scroll to the current time">${ICONS.today}<span>Now</span></button>
         <button type="button" class="ag-ib" id="agAdd" aria-label="Add event" title="Add event">${ICONS.plus}</button>
         <button type="button" class="ag-tb" id="agSuggest" aria-label="Suggest an agenda" title="Suggest an agenda" aria-pressed="${suggesting}">Suggest</button>
       </div>

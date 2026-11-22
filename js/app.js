@@ -473,7 +473,7 @@ const CSV_COLS = [['name', 'Name'], ['side', 'Side'], ['relation', 'Relation'], 
 /* Guest table columns: the person picks which to show (state.guestCols, saved with the plan). Name and the Details button are always there. */
 const GCOLS = [
   { k: 'side', label: 'Side', w: 104 },
-  { k: 'rsvp', label: 'RSVP', w: 60, icon: true },
+  { k: 'rsvp', label: 'RSVP', w: 78 },
   { k: 'relation', label: 'Relationship', w: 156 },
   { k: 'table', label: 'Table', w: 112 },
   { k: 'household', label: 'Household', w: 150 },
@@ -591,7 +591,9 @@ function guests() {
     && (!q || [g.name, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
   const c = (fn) => state.guests.filter(fn).length;
   const cols = visibleCols();
-  const tw = cols.reduce((n, x) => n + x.w, 0) + 236 + 104;   // name column + actions column
+  const cw = (k, d) => Math.max(56, Math.min(520, +(state.guestColW || {})[k] || d));   // resizable widths, saved with the plan
+  const nameW = cw('name', 190);
+  const tw = cols.reduce((n, x) => n + cw(x.k, x.w), 0) + nameW + 104;   // name column + actions column
 
   view.innerHTML = `
     <div class="page-head">
@@ -619,8 +621,8 @@ function guests() {
     </div>
 
     <section class="card flush">
-      ${list.length ? `<div class="table-wrap"><table class="guests" style="--gw:${tw}px"><colgroup><col>${cols.map((x) => `<col style="width:${x.w}px">`).join('')}<col class="w-act"></colgroup>
-        <thead><tr><th>Name</th>${cols.map((x) => `<th class="h-${x.k}">${x.icon ? `<span title="${x.label}" aria-label="${x.label}">${RSVP_HEAD}</span>` : x.label}</th>`).join('')}<th><span class="sr">Details</span></th></tr></thead>
+      ${list.length ? `<div class="table-wrap"><table class="guests" style="--gw:${tw}px"><colgroup><col data-ck="name" style="width:${nameW}px">${cols.map((x) => `<col data-ck="${x.k}" style="width:${cw(x.k, x.w)}px">`).join('')}<col class="w-act"></colgroup>
+        <thead><tr><th>Name<i class="col-rs" data-rs="name" title="Drag to resize"></i></th>${cols.map((x) => `<th class="h-${x.k}">${x.label}<i class="col-rs" data-rs="${x.k}" title="Drag to resize"></i></th>`).join('')}<th><span class="sr">Details</span></th></tr></thead>
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
             <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/></div></td>
@@ -650,6 +652,18 @@ function guests() {
     guests();
   });
   if (colsOpen) { gcOpen(true); colsOpen = false; }
+  // drag a header edge to resize a column; double-click resets it
+  view.querySelectorAll('.col-rs').forEach((h) => {
+    const k = h.dataset.rs, col = view.querySelector(`col[data-ck="${k}"]`), tbl = view.querySelector('table.guests');
+    const total = () => [...tbl.querySelectorAll('col')].reduce((n, c) => n + (parseFloat(c.style.width) || 104), 0);
+    h.onpointerdown = (e) => {
+      e.preventDefault(); e.stopPropagation(); h.setPointerCapture(e.pointerId);
+      const x0 = e.clientX, w0 = parseFloat(col.style.width); h.classList.add('on');
+      h.onpointermove = (m) => { const w = Math.max(56, Math.min(520, Math.round(w0 + m.clientX - x0))); col.style.width = w + 'px'; tbl.style.setProperty('--gw', total() + 'px'); };
+      h.onpointerup = h.onpointercancel = () => { h.onpointermove = h.onpointerup = h.onpointercancel = null; h.classList.remove('on'); state.guestColW = { ...(state.guestColW || {}), [k]: Math.round(parseFloat(col.style.width)) }; commit({ silent: true }); };
+    };
+    h.ondblclick = () => { const o = { ...(state.guestColW || {}) }; delete o[k]; state.guestColW = o; commit({ silent: true }); guests(); };
+  });
   bubbleSelects(view);
   wireGuestViewToggle(); wireGuestCount(view);
   const gForm = view.querySelector('#gForm');

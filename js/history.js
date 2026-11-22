@@ -9,7 +9,7 @@ const KEEP = 100;
 const WINDOW = 3 * 60 * 1000; // edits closer together than this become one version
 const SKIP = new Set(['updatedAt', 'version']);
 const LABEL = {
-  guests: 'Guests', links: 'Guests', guestTarget: 'Guests', autoGuests: 'Guests', guestCols: 'Guests', teamOrder: 'Team',
+  guests: 'Guests', links: 'Guests', guestTarget: 'Guests', autoGuests: 'Guests', guestCols: 'Guests', guestColW: 'Guests', teamOrder: 'Team',
   tables: 'Seating', room: 'Seating', spaces: 'Seating', lastStyle: 'Seating', morais: 'Seating',
   people: 'Team', roles: 'Team', milestones: 'Milestones', agenda: 'Agenda', mood: 'Colors',
 };

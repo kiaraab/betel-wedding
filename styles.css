@@ -3063,3 +3063,20 @@ table.guests td .input[data-k] { width: 100%; }
 .gf-grp { --r: 0px; }
 .bs-menu.out { pointer-events: none; }
 @media (max-width: 760px) { .gc-menu { left: auto; right: 0; transform-origin: top right; } }
+
+/* --- round 11: resizable guest columns, Now button, Agenda panels float over the calendar --- */
+table.guests th { position: relative; }
+.col-rs { position: absolute; right: 0; top: 6px; bottom: 6px; width: 9px; cursor: col-resize; touch-action: none; }
+.col-rs::after { content: ""; position: absolute; right: 4px; top: 0; bottom: 0; width: 1px; background: var(--line-strong); opacity: 0; transition: opacity .15s, background-color .15s; }
+table.guests th:hover .col-rs::after, .col-rs.on::after { opacity: 1; }
+.col-rs.on::after { background: var(--wine); width: 2px; }
+@media (max-width: 760px) { .col-rs { display: none; } }
+.ag-now { display: inline-flex; align-items: center; gap: 6px; }
+.ag-now svg { width: 15px; height: 15px; }
+@media (min-width: 761px) {
+  .ag-wrap.with-panel { grid-template-columns: minmax(0, 1fr); }
+  .ag-panel { position: fixed; z-index: 40; top: calc(var(--top-h, 64px) + 84px); right: max(18px, calc((100vw - 1280px) / 2 + 18px)); width: 316px; max-height: calc(100vh - var(--top-h, 64px) - var(--foot-h, 40px) - 110px); overflow-y: auto; animation: pop .16s var(--ease); }
+}
+/* Suggest popover: solid enough to read over the floor plan, above everything in the stage */
+.glass-pop { z-index: 80; background: rgba(255, 253, 250, .97); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+#sugWrap { position: relative; z-index: 81; }
