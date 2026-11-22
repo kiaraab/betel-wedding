@@ -103,6 +103,13 @@ function addSuggested(fresh) {
   }, toast);
 }
 
+/** Events the team entered themselves are fixed: the AI plans around them (internal context, never shown as suggestions). */
+function fixedNote() {
+  const own = state.agenda.filter((a) => !a.suggested && a.title);
+  if (!own.length) return '';
+  return 'Fixed events already on the day (do not move, rename, duplicate or overlap them; plan the rest of the day around them): ' + own.map((a) => `${toTime(S(a))}-${toTime(E(a))} ${a.title}`).join('; ') + '.';
+}
+
 const AI_SYSTEM = `You plan a wedding-day timeline at Morais Vineyards. Reply with JSON only: an array of {"title","start","end","venue","notes"}. start/end are 24h "HH:MM" and a time past midnight is fine. Events must be in order, must not overlap, and must fit inside the window given. venue must be exactly one of: ${VENUES.map((v) => v[0]).join(', ')} (or ""). Notes are short. The first event starts exactly at the window start.`;
 
 /* ---------- layout ---------- */
@@ -339,7 +346,7 @@ export function renderAgenda(view) {
       if (aiAvailable() && sug.want.trim()) {
         thinking = true; aiPrev = null; rerender();
         try {
-          const data = await askGemini({ system: AI_SYSTEM, json: true, prompt: `Window: ${sug.from} to ${sug.to}. Ceremony time on the invitation: ${toTime(ceremonyMin())}. Guests: ${state.guestTarget}. Request: ${sug.want}` });
+          const data = await askGemini({ system: AI_SYSTEM, json: true, prompt: `Window: ${sug.from} to ${sug.to}. ${fixedNote()} Ceremony time on the invitation: ${toTime(ceremonyMin())}. Guests: ${state.guestTarget}. Request: ${sug.want}` });
           const list = blocksFromAi(data, from, to);
           if (!list.length) throw new Error('The AI plan did not fit the window.');
           aiPrev = list;
