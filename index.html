@@ -12,6 +12,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f3823'/%3E%3Ctext x='32' y='44' font-family='Georgia' font-size='34' text-anchor='middle' fill='%23efe7d4'%3EG%3C/text%3E%3C/svg%3E" />
 </head>
 <body class="locked">
+  <a class="skip" href="#view" onclick="event.preventDefault();document.getElementById('view').focus()">Skip to content</a>
   <header class="masthead">
     <div class="mast-inner">
       <a class="brand" href="#overview">Betel <span>&amp;</span> Carter</a>
@@ -26,14 +27,14 @@
     </div>
   </header>
 
-  <main id="view" tabindex="-1"></main>
+  <main id="view" tabindex="-1" aria-label="Wedding plan"></main>
   <footer class="foot"><a class="foot-name" href="https://moraisvineyards.com/" target="_blank" rel="noopener">Morais Vineyards</a><span class="foot-acts">
     <button class="foot-ic" id="liveBtn" aria-label="Edit together" title="Edit together"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 19c.6-3.4 3-5 6-5s5.4 1.6 6 5M16 5.5a3 3 0 0 1 0 5.6M18 14.4c1.7.6 2.7 2 3 4.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><i class="live-dot" data-s="off"></i></button>
-    <button class="foot-ic" id="historyBtn" aria-label="History" title="History"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4.5H8M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
-    <button class="foot-ic" id="resetBtn" aria-label="Start fresh" title="Start fresh"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+    <button class="foot-ic" id="historyBtn" hidden aria-label="History" title="History"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4.5H8M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+    <button class="foot-ic" id="resetBtn" hidden aria-label="Start fresh" title="Start fresh"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
   </span></footer>
 
-  <div class="toast" id="toast" role="status"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script type="importmap">
     { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",

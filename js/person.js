@@ -2,7 +2,7 @@
 // (team members map to their guest by personId), so Team, Guests, Seating and Connections agree.
 import { state, commit } from './store.js';
 import { RELATIONS, relationOf } from './layout.js';
-import { esc } from './util.js';
+import { esc, trapFocus } from './util.js';
 import { detailsHTML, wireDetails } from './guest-details.js';
 
 const STATUS = ['Not invited yet', 'Invited', 'Yes', 'Maybe', 'Declined'];
@@ -131,12 +131,14 @@ export function openPerson(idOrPerson) {
   const close = (instant) => {
     if (!scrim.isConnected) return;
     removeEventListener('keydown', onKey, true);
+    release();
     open = null;
     if (dirty) commit(); // let the page underneath redraw with the edits
     if (instant) return scrim.remove();
     scrim.classList.remove('in'); scrim.classList.add('out');
     setTimeout(() => scrim.remove(), 260);
   };
+  const release = trapFocus(card);
   const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
   addEventListener('keydown', onKey, true);
   scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) close(); });

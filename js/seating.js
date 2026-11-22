@@ -1,6 +1,6 @@
 import { state, commit, uid, undoable, exportJSON, importJSON } from './store.js';
 import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
-import { TABLE_STYLES, relationOf, seatCount, roundRadius, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers } from './layout.js';
+import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers } from './layout.js';
 import { esc, toast } from './util.js';
 import { spaceToolsHTML, wireSpaceTools, partySVG } from './spaces.js';
 
@@ -10,7 +10,7 @@ let sel = null;          // { kind: 'table' | 'area', id }
 let cleanup = null;      // AbortController for document listeners of the current render
 let view = null;         // current viewBox { x, y, w, h } — persists across re-renders
 let mode = 'plan';       // 'plan' | '3d'
-let space = 'reception'; // 'ceremony' | 'cocktail' | 'reception' — tabs above the plan
+let space = 'reception'; // 'ceremony' | 'indoor' | 'cocktail' | 'reception' — tabs above the plan
 let inkFrom = null;       // where the tab underline glides from after a space switch
 /** The space being edited: the reception lives at the top of the plan (room/tables), the others in state.spaces. */
 function SP() {
@@ -20,14 +20,15 @@ function SP() {
   return state.spaces[space];
 }
 const spaceInfo = () => ({ ...SPACES.find((x) => x.id === space), label: SPACE_LABEL[space] || SPACES.find((x) => x.id === space).label });
-const TAB_ORDER = ['ceremony', 'reception', 'cocktail'];            // Hangout spot last
-const SPACE_LABEL = { cocktail: 'Hangout spot' };                  // data key stays 'cocktail'
+const TAB_ORDER = ['ceremony', 'indoor', 'reception', 'cocktail']; // pergola lawn · rain plan in the bay · ballroom · hangout spot last
+const SPACE_LABEL = { cocktail: 'Hangout spot', indoor: 'Indoor' };  // data key stays 'cocktail'
+const kindOf = () => SPACES.find((x) => x.id === space)?.kind || space; // 'ceremony' | 'cocktail' | 'reception'
 const tabList = () => TAB_ORDER.map((id) => SPACES.find((x) => x.id === id)).filter(Boolean).map((x) => ({ ...x, label: SPACE_LABEL[x.id] || x.label }));
 /** One quiet line under the tabs */
 function spaceLede() {
   const ts = SP().tables, seats = ts.reduce((n, t) => n + seatCount(t), 0);
-  if (space === 'ceremony') return `${seats} seats · ${new Set(ts.map((t) => t.y)).size} rows`; // rows = lines of chairs (left + right halves count once)
-  if (space === 'cocktail') return `${ts.length} high-tops · ${seats} stools`;
+  if (kindOf() === 'ceremony') return `${seats} seats · ${new Set(ts.map((t) => t.y)).size} rows`; // rows = lines of chairs (left + right halves count once)
+  if (kindOf() === 'cocktail') return SP().room.bistro ? `${ts.length} bistro tables · ${seats} seats` : `${ts.length} high-tops · ${seats} stools`;
   return `${state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
 }
 let showPhotos = false;  // plan toolbar 'Photos': seated guests with a picture show it in their seat
@@ -35,7 +36,7 @@ let refTab = 'ideas';    // side panel tab: 'ideas' | 'venue'
 let flip = null;         // Map tableId -> {x,y} of the plan before a layout change: tables glide from there
 let partySel = null;     // ceremony: the wedding-party dot that was tapped (just highlights it)
 // Come back to the floor plan each time Seating is opened; 3D only loads when its tab is clicked
-addEventListener('hashchange', () => { if (location.hash !== '#seating') { mode = 'plan'; sel = null; partySel = null; } });
+addEventListener('hashchange', () => { if (location.hash !== '#seating') { mode = 'plan'; sel = null; partySel = null; clearBackdrop(); } });
 let modeAnim = false;    // the plan <-> 3D switch just happened: the stage eases in
 let enterAnim = false;   // play the "tables glide in" animation on next draw
 const lastFilled = new Map(); // tableId -> seated count last drawn (for the seat "pop")
@@ -44,7 +45,9 @@ const guestsAt = (tid) => state.guests.filter((g) => (space === 'reception' ? g.
 const going = () => state.guests.filter((g) => g.rsvp !== 'Declined');
 const listFor = (kind) => (kind === 'area' ? SP().room.areas : SP().tables);
 const findItem = (s) => s && listFor(s.kind).find((x) => x.id === s.id);
-const baseView = () => ({ x: -M, y: -M, w: SP().room.w + M * 2, h: SP().room.h + M * 2 });
+// The stage bay sits OUTSIDE the hall (left long wall in the ballroom, top wall in the indoor ceremony): the view makes room for it
+const bayOut = () => { const st = SP().room.fixed?.stage; return st ? (st.d || 15) : 0; };
+const baseView = () => { const st = SP().room.fixed?.stage, b = bayOut(), top = st?.wall === 'top'; return { x: -M - (st && !top ? b : 0), y: -M - (top ? b : 0), w: SP().room.w + M * 2 + (st && !top ? b : 0), h: SP().room.h + M * 2 + (top ? b : 0) }; };
 const moodNow = () => MOODS.find((m) => m.id === state.mood) || MOODS[0];
 const areaTransform = (a) => `translate(${a.x} ${a.y}) rotate(${a.rot || 0} ${a.w / 2} ${a.h / 2})`;
 // Little rotate knob on a stalk, shown on the selected item
@@ -75,6 +78,22 @@ const IDEAS = [
   { key: 'open', src: 'assets/refs/owner-ref-6.webp' },
 ];
 
+/* ---------------- backdrop: a soft blurred photo of the space being planned (real photos only), crossfading when the space changes ---------------- */
+const BACKDROP = { reception: 'assets/venue/ballroom.jpg', ceremony: 'assets/venue/site/ceremony-locations-pergola-1-2Blog-Images-0043.jpg', indoor: 'assets/venue/site/ceremony-locations-indoor-ceremony-1.jpg', cocktail: 'assets/venue/courtyard.jpg' };
+let bgEl = null;
+function setBackdrop(src) {
+  if (!bgEl || !bgEl.isConnected) { bgEl = document.createElement('div'); bgEl.className = 'seat-bg'; bgEl.setAttribute('aria-hidden', 'true'); document.body.prepend(bgEl); }
+  document.body.classList.add('seat-on');
+  if (bgEl.dataset.src === src) return;
+  bgEl.dataset.src = src;
+  const img = document.createElement('div'); img.className = 'seat-bg-img'; img.style.backgroundImage = `url("${src}")`;
+  bgEl.append(img);
+  requestAnimationFrame(() => requestAnimationFrame(() => img.classList.add('on')));
+  const old = [...bgEl.querySelectorAll('.seat-bg-img')].slice(0, -1);
+  setTimeout(() => old.forEach((o) => o.remove()), 900);
+}
+function clearBackdrop() { document.body.classList.remove('seat-on'); bgEl?.remove(); bgEl = null; }
+
 /* ---------------- drawing ---------------- */
 function tableSVG(t, mood, i) {
   const g = document.createElementNS(SVGNS, 'g');
@@ -102,7 +121,7 @@ function tableSVG(t, mood, i) {
     room = 0;
     top = `<rect class="row-hit" x="${-L / 2}" y="-1.1" width="${L}" height="2.2" rx="1.1"/>`;
   } else if (t.shape === 'round') {
-    const r = roundRadius(t.seats);
+    const r = tableR(t);
     room = r * 1.7;
     top = `<circle class="top${t.high ? ' high' : ''}" r="${r}"/><circle cx="0" cy="${-r + .75}" r=".42" fill="${bloom}"/><circle cx=".55" cy="${-r + .95}" r=".26" fill="${leaf}"/><circle cx="-.55" cy="${-r + .95}" r=".24" fill="${leaf}"/>`;
   } else {
@@ -115,11 +134,12 @@ function tableSVG(t, mood, i) {
   const isHead = t.id === 'head';
   const row = t.shape === 'row';
   const turnedHead = isHead && t.shape === 'rect' && !!(rot % 180);
+  const roundHead = isHead && t.shape === 'round' && !!t.arc; // sweetheart table on the stage: name in two short lines on the top
   const ly = t.shape === 'round' ? fs * 0.35 : row ? 0 : turnedHead ? rectDims(t).L / 2 + 2 : (rot % 180 ? 0 : rectDims(t).D / 2 + (t.sides.bottom ? 3.6 : 1.6));
-  const D0 = row ? 1.8 : t.shape === 'round' ? 0 : rectDims(t).D;
-  const knob = sel?.id === t.id && t.shape !== 'round' ? `<g transform="rotate(${rot})">${rotHandle(0, -(D0 / 2 + 4.2), 0, -D0 / 2)}</g>` : '';
+  const D0 = row ? 1.8 : t.shape === 'round' ? (t.arc ? tableR(t) * 2 : 0) : rectDims(t).D;
+  const knob = sel?.id === t.id && (t.shape !== 'round' || t.arc) ? `<g transform="rotate(${rot})">${rotHandle(0, -(D0 / 2 + 4.2), 0, -D0 / 2)}</g>` : '';
   const inner = `<g transform="rotate(${rot})">${chairs}${top}</g>
-    ${row ? '' : turnedHead ? `<text class="head-label" y="${ly}" style="font-size:1.3px">${esc(t.name).replace(/^(.*?\S)\s+(\S+)$/, '<tspan x="0">$1</tspan><tspan x="0" dy="1.5">$2</tspan>')}</text>` : `<text class="${isHead ? 'head-label' : 'num'}" y="${ly}" style="font-size:${isHead ? 1.5 : fs}px">${esc(t.name)}</text>`}${knob}`;
+    ${row ? '' : roundHead ? `<text class="head-label" y="-.2" style="font-size:.95px">${esc(t.name).replace(/^(.*?\S)\s+(\S+)$/, '<tspan x="0">$1</tspan><tspan x="0" dy="1.1">$2</tspan>')}</text>` : turnedHead ? `<text class="head-label" y="${ly}" style="font-size:1.3px">${esc(t.name).replace(/^(.*?\S)\s+(\S+)$/, '<tspan x="0">$1</tspan><tspan x="0" dy="1.5">$2</tspan>')}</text>` : `<text class="${isHead ? 'head-label' : 'num'}" y="${ly}" style="font-size:${isHead ? 1.5 : fs}px">${esc(t.name)}</text>`}${knob}`;
   // Fly in from the entrance doors when a layout is suggested (inner group animates; outer keeps its position)
   const was = flip?.get(t.id);
   if (was && (was.x !== t.x || was.y !== t.y)) { g.dataset.fromx = was.x; g.dataset.fromy = was.y; }
@@ -179,15 +199,6 @@ function fixedSVG() {
     const d = fixed.balcony.depth;
     s += `<rect class="balcony" x="0" y="${h - d}" width="${w}" height="${d}"/><text class="fixed-label" x="${w / 2}" y="${h - d + 2.2}">Balcony above</text>`;
   }
-  // Round tiered stage against the left wall
-  if (fixed.stage) {
-    const { cx, cy, r, steps } = fixed.stage, dep = fixed.stage.d || r;
-    for (let i = 0; i < steps; i++) {
-      const k = 1 - i / (steps + 1), rr = r * k;
-      s += `<path class="stage" d="M ${cx} ${cy - rr} A ${dep * k} ${rr} 0 0 1 ${cx} ${cy + rr} Z"/>`;
-    }
-    s += `<text class="fixed-label" x="${cx + dep * 0.78}" y="${cy + .5}">Stage</text>`;
-  }
   // Courtyard / tasting-room features (fixed, drawn from VENUE.md facts only)
   (fixed.decor || []).forEach((d) => {
     const mx = d.x + d.w / 2, my = d.y + d.h / 2;
@@ -200,9 +211,17 @@ function fixedSVG() {
       const c = Math.min(d.w, d.h) * 0.29; // octagon corner cut
       const pts = [[d.x + c, d.y], [d.x + d.w - c, d.y], [d.x + d.w, d.y + c], [d.x + d.w, d.y + d.h - c], [d.x + d.w - c, d.y + d.h], [d.x + c, d.y + d.h], [d.x, d.y + d.h - c], [d.x, d.y + c]];
       s += `<polygon class="dc-sunroom" points="${pts.map((p) => p.join(',')).join(' ')}"/><circle class="dc-skylight" cx="${mx}" cy="${my}" r="${c}"/>`;
-    } else if (d.kind === 'bar') s += `<rect class="dc-bar" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx="1.1"/><text class="fixed-label" x="${mx}" y="${d.y + d.h + 1.6}">Bar</text>`;
+    } else if (d.kind === 'pergola') {
+      s += `<rect class="dc-pergola" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}"/>`;
+      [[0, 0], [1, 0], [0, 1], [1, 1], [1 / 3, 0], [2 / 3, 0], [1 / 3, 1], [2 / 3, 1]].forEach(([fx, fy]) => { s += `<rect class="dc-col" x="${d.x + fx * d.w - 0.5}" y="${d.y + fy * d.h - 0.5}" width="1" height="1"/>`; });
+      s += `<text class="fixed-label" x="${mx}" y="${d.y + d.h - 1}">${esc(d.label || '')}</text>`;
+    } else if (d.kind === 'balustrade') s += `<rect class="dc-stone" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}"/>${d.label ? `<text class="fixed-label" x="${mx}" y="${d.y + d.h + 1.6}">${esc(d.label)}</text>` : ''}`;
+    else if (d.kind === 'building') s += `<rect class="dc-building" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}"/>${d.label ? `<text class="fixed-label" x="${mx}" y="${my + .5}">${esc(d.label)}</text>` : ''}`;
+    else if (d.kind === 'fountain') s += `<circle class="dc-fountain" cx="${mx}" cy="${my}" r="${d.w / 2}"/><circle class="dc-fountain-in" cx="${mx}" cy="${my}" r="${d.w * 0.2}"/><text class="fixed-label" x="${mx}" y="${my + d.w / 2 + 1.6}">${esc(d.label || '')}</text>`;
+    else if (d.kind === 'tree') s += `<circle class="dc-tree" cx="${mx}" cy="${my}" r="${d.w / 2}"/>${d.label ? `<text class="fixed-label" x="${mx}" y="${my + .5}">${esc(d.label)}</text>` : ''}`;
+    else if (d.kind === 'bar') s += `<rect class="dc-bar" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx="1.1"/><text class="fixed-label" x="${mx}" y="${d.y + d.h + 1.6}">Bar</text>`;
   });
-  if (space === 'ceremony') s += partySVG(SP().room, partyPool(), enterAnim, partySel); // wedding party dots
+  if (kindOf() === 'ceremony') s += partySVG(SP().room, partyPool(), enterAnim, partySel); // wedding party dots
   // Walls with openings cut in
   s += `<rect class="wall" x="0" y="0" width="${w}" height="${h}"/>`;
   fixed.openings.forEach((o) => {
@@ -219,10 +238,31 @@ function fixedSVG() {
       if (o.wall === 'bottom') s += sweep(o.at - half, h, 0, -half, o.at, h, 1) + sweep(o.at + half, h, 0, -half, o.at, h, 0);
       if (o.wall === 'left') s += sweep(0, o.at - half, half, 0, 0, o.at, 1) + sweep(0, o.at + half, half, 0, 0, o.at, 0);
       if (o.wall === 'right') s += sweep(w, o.at - half, -half, 0, w, o.at, 0) + sweep(w, o.at + half, -half, 0, w, o.at, 1);
-      if (o.kind === 'entrance') s += `<text class="fixed-label entrance" x="${o.at}" y="${h - 1.6}">Entrance</text>`;
+      if (o.kind === 'entrance' && o.wall === 'bottom') s += `<text class="fixed-label entrance" x="${o.at}" y="${h - 1.6}">Entrance</text>`;
     }
   });
+  if (fixed.stage) s += stageSVG(fixed.stage);
   return s;
+}
+
+/**
+ * The stage: a domed octagonal bay with columns, OUTSIDE the hall (u = along the wall, v = out of the hall), 3 curved tile-faced steps that reach
+ * only ~4.5 ft in (photos #031, #061, #100, Matterport). Drawn after the walls so it reads as an opening in the wall.
+ */
+function stageSVG(st) {
+  const top = st.wall === 'top', d = st.d || 15, r = st.r, k = d / 15, steps = st.steps || 3, reach = st.stepD ?? 4.5;
+  const P = (u, v) => (top ? [st.cx + u, -v] : [-v, st.cy + u]);
+  const poly = (pts, cls) => `<polygon class="${cls}" points="${pts.map(([u, v]) => P(u, v).map((n) => +n.toFixed(2)).join(',')).join(' ')}"/>`;
+  const half = [[-r, 0], [-r, 5 * k], [-6.5, 11 * k], [-3, d]]; // left half, then mirrored
+  let s = poly([...half, ...half.slice().reverse().map(([u, v]) => [-u, v])], 'stage-bay');
+  for (let i = 0; i < steps; i++) { // outermost step is the lowest and widest
+    const e = reach * (1 - i / steps), hw = r - i * 0.7, pts = [];
+    for (let a = 0; a <= 16; a++) { const th = (a / 16) * Math.PI; pts.push([hw * Math.cos(th), -e * Math.sin(th)]); }
+    s += poly(pts, `stage s${i}`);
+  }
+  [-r, r].forEach((u) => { const [x, y] = P(u, 0); s += `<circle class="stage-col" cx="${x}" cy="${y}" r=".8"/>`; });
+  const [lx, ly] = P(0, d - 1.8);
+  return s + `<text class="fixed-label" x="${lx}" y="${ly + .4}">Stage</text>`;
 }
 
 function planSVG() {
@@ -236,7 +276,7 @@ function planSVG() {
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', `${SP().room.name || 'Reception'} floor plan`);
-  const floorFill = { pavers: 'url(#pavers)', tile: 'url(#tile)' }[SP().room.floor];
+  const floorFill = { pavers: 'url(#pavers)', tile: 'url(#tile)', lawn: '#dde6cb', concrete: '#e8e4d8' }[SP().room.floor]; // flat colors only
   let grid = '';
   for (let x = 10; x < w; x += 10) grid += `<line class="grid-line" x1="${x}" y1="0" x2="${x}" y2="${h}"/>`;
   for (let y = 10; y < h; y += 10) grid += `<line class="grid-line" x1="0" y1="${y}" x2="${w}" y2="${y}"/>`;
@@ -336,8 +376,18 @@ function attachPointers(svg, { onTap, onMove, onDrop, onView }) {
     const area = drag.kind === 'area';
     const fpd = area ? null : footprint(it);
     const [x0, x1, y0, y1] = area ? [0, w - it.w, 0, h - it.h] : [fpd.hw, w - fpd.hw, fpd.hh, h - fpd.hh];
-    const nx = Math.min(Math.max(snap(p.x - drag.dx), x0), x1);
-    const ny = Math.min(Math.max(snap(p.y - drag.dy), y0), y1);
+    let nx = Math.min(Math.max(snap(p.x - drag.dx), x0), x1);
+    let ny = Math.min(Math.max(snap(p.y - drag.dy), y0), y1);
+    // The sweetheart table and the cake table may go up into the stage bay (left long wall, outside the hall); there they stay on the platform
+    const st = SP().room.fixed?.stage;
+    if (st && st.wall !== 'top' && (area ? it.preset === 'cake' : it.id === 'head')) {
+      const hw = area ? it.w / 2 : fpd.hw - 1.2, hh = area ? it.h / 2 : fpd.hh - 1.2, d = st.d || 15;
+      const wantX = snap(p.x - drag.dx) + (area ? it.w / 2 : 0), wantY = snap(p.y - drag.dy) + (area ? it.h / 2 : 0);
+      if (wantX - hw < 0 && wantY > st.cy - st.r - 0.5 && wantY < st.cy + st.r + 0.5) {
+        const cx = Math.max(-d + hw + 1.5, wantX), cy = Math.min(Math.max(wantY, st.cy - st.r + hh + 0.5), st.cy + st.r - hh - 0.5);
+        nx = area ? cx - it.w / 2 : cx; ny = area ? cy - it.h / 2 : cy;
+      }
+    }
     if (nx === it.x && ny === it.y) return;
     if (!drag.moved) { drag.moved = true; drag.g.classList.add('dragging'); onMove(false); }
     it.x = nx; it.y = ny;
@@ -526,6 +576,7 @@ function readImage(file) {
 /* ---------------- page ---------------- */
 export function renderSeating(root) {
   const rec = space === 'reception';
+  setBackdrop(BACKDROP[space] || BACKDROP.reception);
   if (!rec) mode = 'plan'; // 3D is the ballroom only (for now)
   const info = spaceInfo();
   root.innerHTML = `
@@ -537,7 +588,7 @@ export function renderSeating(root) {
           <span class="spaces-ink" aria-hidden="true"></span>
         </div>
         <p class="lede" id="lede"></p>
-        ${space === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
+        ${kindOf() === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
       </div>
       ${rec ? `<div class="viewseg" role="tablist" aria-label="View">
         <button role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Floor plan</button>
@@ -582,7 +633,7 @@ export function renderSeating(root) {
         </div>
       </div>
       <aside class="side-panel">
-        ${rec ? '' : spaceToolsHTML(space, { state, SP, pool: partyPool })}
+        ${rec ? '' : spaceToolsHTML(kindOf(), { state, SP, pool: partyPool })}
         ${rec && mode === 'plan' ? seatPanelHTML() : ''}
         ${refHTML(rec)}
       </aside>
@@ -1035,10 +1086,7 @@ export function renderSeating(root) {
     const n = Math.max(2, +count.value || 2);
     const head = SP().tables.find((t) => t.id === 'head') || headTable();
     const room = structuredClone(SP().room);
-    // Family rows run the long way, so the dance floor moves toward the lounge end
-    const dance = room.areas.find((a) => a.preset === 'dance');
-    if (style.value === 'family' && dance) { dance.x = (room.w - dance.w) / 2; dance.y = room.h - (room.fixed.balcony?.depth || 0) - 10 - dance.h - 1; }
-    if (style.value !== 'family' && !['open', 'stage', 'banquet', 'headlong'].includes(style.value) && dance) { dance.x = (room.w - dance.w) / 2; dance.y = 13; }
+    // (the dance floor's size and spot are chosen by suggestTables: ~20 x 20 mid-hall, smaller only when the tables need the room)
     return { n, head, room, s: suggestTables(room, n, style.value, head) };
   };
   preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b>only ${s.tables.length} fit</b>`}`; };
@@ -1104,7 +1152,7 @@ export function renderSeating(root) {
   seatPanelRefresh();
   }
 
-  if (!rec) wireSpaceTools(root, space, { state, SP, commit, toast, pool: partyPool, draw: () => drawPlan(), lede: () => lede(),
+  if (!rec) wireSpaceTools(root, kindOf(), { state, SP, commit, toast, pool: partyPool, draw: () => drawPlan(), lede: () => lede(),
     undoable: (msg, fn) => localUndo(msg, fn), animate: () => { closePop(); view = null; zoomBack = null; },
     selectParty: (key) => { partySel = partySel === key ? null : key; drawPlan(); markChips(); }, partySel: () => partySel });
 

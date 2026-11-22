@@ -169,18 +169,43 @@ async function approve(email) {
 /* ---------- Live panel: glass popover opened from the footer button ---------- */
 export function mountLive(btn) {
   const dot = btn.querySelector('.live-dot');
-  const paint = () => { const i = info(); btn.title = `Edit together · ${i.status}`; dot?.setAttribute('data-s', i.live ? 'on' : i.role === 'pending' ? 'wait' : 'off'); };
+  const paint = () => { const i = info(); btn.title = `Edit together · ${i.status}`; btn.setAttribute('aria-label', `Edit together, ${i.live ? 'live' : i.role === 'pending' ? 'waiting for approval' : 'offline'}`); dot?.setAttribute('data-s', i.live ? 'on' : i.role === 'pending' ? 'wait' : 'off'); };
   onSyncChange(paint); paint();
+  btn.setAttribute('aria-haspopup', 'dialog');
+  btn.setAttribute('aria-expanded', 'false');
+  let close = null;
   btn.onclick = async () => {
-    if (document.querySelector('.live-pop')) { document.querySelector('.live-pop').remove(); return; }
+    if (close) { close(true); return; }
     const pop = document.createElement('div');
     pop.className = 'live-pop';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Edit together');
     document.body.appendChild(pop);
+    btn.setAttribute('aria-expanded', 'true');
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close(true); }
+      else if (e.key === 'Tab') {
+        const f = [...pop.querySelectorAll('button,input,a[href]')].filter((x) => !x.disabled);
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        else if (!pop.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+      }
+    };
+    const off = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(false); };
+    close = (restore) => {
+      pop.remove(); close = null;
+      btn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('pointerdown', off, true);
+      document.removeEventListener('keydown', onKey, true);
+      if (restore) btn.focus({ preventScroll: true });
+    };
     const draw = async () => {
       const i = info();
       if (i.role === 'out') {
         pop.innerHTML = `<h3>Edit together</h3><p>Sign in to share changes live. We email you a link.</p>
-          <form class="live-form"><input type="email" required placeholder="you@email.com" aria-label="Email"/><button class="btn">Send link</button></form><p class="live-note" aria-live="polite"></p>`;
+          <form class="live-form"><input type="email" required placeholder="you@email.com" aria-label="Email" autocomplete="email"/><button class="btn">Send link</button></form><p class="live-note" role="status"></p>`;
         pop.querySelector('form').onsubmit = async (e) => {
           e.preventDefault();
           const note = pop.querySelector('.live-note');
@@ -189,7 +214,7 @@ export function mountLive(btn) {
           catch { note.textContent = 'Could not send. Check the email and try again.'; }
         };
       } else if (i.role === 'pending') {
-        pop.innerHTML = `<h3>${esc(i.email)}</h3><p>You are signed in but not approved yet.</p><button class="btn" data-ask>Ask for access</button> <button class="btn" data-out>Sign out</button><p class="live-note" aria-live="polite"></p>`;
+        pop.innerHTML = `<h3>${esc(i.email)}</h3><p>You are signed in but not approved yet.</p><button class="btn" data-ask>Ask for access</button> <button class="btn" data-out>Sign out</button><p class="live-note" role="status"></p>`;
         pop.querySelector('[data-ask]').onclick = async () => {
           const note = pop.querySelector('.live-note');
           try { await requestAccess(); note.textContent = 'Asked. Kiara will approve you.'; } catch { note.textContent = 'Could not send the request.'; }
@@ -201,10 +226,14 @@ export function mountLive(btn) {
           <button class="btn" data-out>Sign out</button>`;
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });
       }
-      pop.querySelector('[data-out]')?.addEventListener('click', async () => { await signOutLive(); pop.remove(); });
+      pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-reset>Start over</button></div>');
+      pop.querySelector('[data-hist]').onclick = () => { close(false); document.getElementById('historyBtn')?.click(); };
+      pop.querySelector('[data-reset]').onclick = () => { close(false); document.getElementById('resetBtn')?.click(); };
+      pop.querySelector('[data-out]')?.addEventListener('click', async () => { await signOutLive(); close(true); });
     };
     await draw();
-    const off = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) { pop.remove(); document.removeEventListener('pointerdown', off, true); } };
+    document.addEventListener('keydown', onKey, true);
     setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+    (pop.querySelector('input,button') || pop).focus?.();
   };
 }

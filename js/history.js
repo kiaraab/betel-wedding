@@ -2,7 +2,7 @@
 // the last 30 kept. Compact: each top-level part (guests, tables, roles…) is stored once and shared by every
 // version where it didn't change. Photos (data: images) are never copied — restoring leaves them as they are.
 import { state, onSave, undoable } from './store.js';
-import { esc, toast } from './util.js';
+import { esc, toast, trapFocus } from './util.js';
 
 const HKEY = 'betel-carter-history';
 const KEEP = 30;
@@ -102,7 +102,8 @@ function openPanel() {
       <div class="hist-peek" hidden></div>
     </aside>`;
   document.body.append(scrim);
-  const close = () => { scrim.classList.add('out'); setTimeout(() => scrim.remove(), 240); };
+  const release = trapFocus(scrim);
+  const close = () => { release(); scrim.classList.add('out'); setTimeout(() => scrim.remove(), 240); };
   scrim.addEventListener('click', (e) => { if (e.target === scrim || e.target.closest('[data-close]')) close(); });
   scrim.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   const peek = scrim.querySelector('.hist-peek');

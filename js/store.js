@@ -53,7 +53,8 @@ function load() {
   const saved = readSaved();
   if (!saved || !saved.data || typeof saved.data !== 'object') return fresh();
   const { data } = saved;
-  // Doors/windows are venue facts (locked), so saved plans always pick up the latest survey of them
+  // Doors/windows, the stage bay (+ its steps / keep-out) and the balcony are venue facts (locked), so saved plans always pick up the latest survey of them
+  // (room size, the two double doors + corner doors, the bay). Saved tables, areas and spaces are the user's and are NEVER moved or deleted here.
   if (data.version === VERSION) return { ...fresh(), ...data, room: { ...seedRoom(), ...data.room, w: seedRoom().w, h: seedRoom().h, fixed: { ...seedRoom().fixed, ...data.room?.fixed, openings: seedRoom().fixed.openings, stage: seedRoom().fixed.stage, balcony: seedRoom().fixed.balcony } }, tables: (data.tables || []).map((t) => (t.y > seedRoom().h - 3 ? { ...t, y: seedRoom().h - 3 } : t)) };
   if (data.version < VERSION) {
     try { localStorage.setItem(`${KEY}-backup-v${data.version}`, saved.raw); } catch { /* storage full */ }

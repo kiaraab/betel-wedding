@@ -1,5 +1,5 @@
 // Gemini client for the browser. The key is NEVER in the code: it lives in this browser's localStorage only.
-import { esc, toast } from './util.js';
+import { esc, toast, trapFocus } from './util.js';
 
 const KEY_NAME = 'betel-ai-key';
 const URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
@@ -79,7 +79,8 @@ export function openAiSettings(onChange) {
       <div class="ai-foot"><button type="button" class="btn line sm" data-rm>Remove</button><span class="spacer"></span><button type="button" class="btn line sm" data-x>Close</button><button class="btn moss sm">Save</button></div>
     </form>`;
   document.body.append(d);
-  const close = () => { d.remove(); onChange?.(); };
+  const release = trapFocus(d);
+  const close = () => { release(); d.remove(); onChange?.(); };
   const f = d.querySelector('form');
   f.key.focus();
   f.onsubmit = async (e) => { e.preventDefault(); setKey(f.key.value); if (f.share?.checked && f.key.value.trim()) { try { await share.save(f.key.value.trim()); } catch { toast('Saved here, but sharing failed'); } } toast(aiAvailable() ? 'AI key saved' : 'AI key removed'); close(); };

@@ -241,9 +241,10 @@ const COLOR_OF = { kiara: 'pink', monica: 'pink', ashlyn: 'burgundy', eden: 'bur
 const colorOf = (p) => p.color || COLOR_OF[p.id] || 'none';
 let teamFilter = 'all';   // 'all' | 'st:<status-key>' | 'role:<title>'
 let confirmDel = null;    // person id showing the inline "Remove X?"
+let editingRole = null;  // role id being edited on a team card
 let menuFor = null;       // person id whose colour menu is open
 
-const statusDots = (r) => `<button type="button" class="stbtn ${statusKey(r.status)}" data-role="${r.id}" title="Change status" aria-label="Status: ${r.status}. Click to change"><i></i><span>${r.status}</span></button>`;
+const statusDots = (r) => `<button type="button" class="stbtn ${statusKey(r.status)}" data-role="${r.id}" title="Change status" aria-label="Status: ${r.status}. Click to change"><i aria-hidden="true"></i><span>${r.status}</span></button>`;
 
 /** Agenda blocks this person is responsible for (the Agenda page stays the source) */
 function agendaOf(pid) {
@@ -252,6 +253,7 @@ function agendaOf(pid) {
   const t = (x) => { const [h, m] = String(x || '0:0').split(':').map(Number); return `${(h % 12) || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${h >= 12 ? 'pm' : 'am'}`; };
   return `<ul class="tc-ag" aria-label="On the agenda">${list.map((a) => `<li><a href="#agenda">${t(a.start)} ${esc(a.title || 'Event')}</a></li>`).join('')}</ul>`;
 }
+const EDIT_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
 const SHARE_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="9" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 19c.5-3 2.7-4.5 5.5-4.5s5 1.5 5.5 4.5M17 7v6M14 10h6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
 /** Roles this person could join (a shared role is one role with several people, so status moves together). */
 const sharable = (p) => state.roles.filter((r) => !r.people.includes(p.id));
@@ -278,7 +280,12 @@ function personCard(p) {
       <ul class="tc-roles">
         ${rs.map((r) => {
           const w = r.people.length > 1 || r.with ? [...r.people.filter((x) => x !== p.id).map(personName), r.with].filter(Boolean).join(' & ') : '';
-          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}${w ? `<small>with ${esc(w)}</small>` : ''}</span>${statusDots(r)}</li>`;
+          if (editingRole === r.id) return `<li class="tc-role editing"><form class="tc-redit" data-saverole="${r.id}" autocomplete="off">
+            <input name="title" value="${esc(r.title)}" required maxlength="80" aria-label="Role name"/>
+            <div class="tc-chips" role="group" aria-label="Who has this role">${state.people.map((x) => `<button type="button" class="tc-chip" data-rwith="${x.id}" aria-pressed="${r.people.includes(x.id)}">${esc(x.name)}</button>`).join('')}</div>
+            <div class="tc-redit-foot"><button type="button" class="tc-no" data-delrole="${r.id}">Delete role</button><span class="spacer"></span><button type="button" class="tc-no" data-canceledit>Cancel</button><button class="tc-yes">Save</button></div>
+          </form></li>`;
+          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}</span><button class="tc-btn tc-edit" data-editrole="${r.id}" aria-label="Edit role ${esc(r.title)}" title="Edit role">${EDIT_ICON}</button><div class="tc-meta">${statusDots(r)}${w ? `<small class="tc-with">with ${esc(w)}</small>` : ''}</div></li>`;
         }).join('')}
       </ul>
       ${agendaOf(p.id)}
@@ -315,23 +322,23 @@ function team() {
   view.innerHTML = `
     <div class="page-head team-head">
       <h1>Team</h1>
-      <div class="st-tabs" role="tablist" aria-label="Filter by status">
-        <button role="tab" class="${teamFilter === 'all' ? 'on' : ''}" data-f="all"><b>${state.people.length}</b><span>Everyone</span></button>
-        ${STATUSES.map((st) => `<button role="tab" class="${statusKey(st)}${teamFilter === 'st:' + statusKey(st) ? ' on' : ''}" data-f="st:${statusKey(st)}"><b>${state.roles.filter((r) => r.status === st).length}</b><span>${st}</span></button>`).join('')}
+      <div class="st-tabs" role="group" aria-label="Filter by status">
+        <button type="button" aria-pressed="${teamFilter === 'all'}" class="${teamFilter === 'all' ? 'on' : ''}" data-f="all"><span class="n"><b>${state.people.length}</b></span><span class="l">Everyone</span></button>
+        ${STATUSES.map((st) => `<button type="button" aria-pressed="${teamFilter === 'st:' + statusKey(st)}" class="${statusKey(st)}${teamFilter === 'st:' + statusKey(st) ? ' on' : ''}" data-f="st:${statusKey(st)}"><span class="n"><b>${state.roles.filter((r) => r.status === st).length}</b><i class="shp" aria-hidden="true"></i></span><span class="l">${st}</span></button>`).join('')}
       </div>
       <label class="tf-select"><span class="sr-only">Role</span>
-        <select id="teamFilter"><option value="all">All roles</option>${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</select>
+        <select id="teamFilter" aria-label="Filter by role"><option value="all">All roles</option>${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</select>
       </label>
     </div>
     <div class="tgrid">
       ${people.map(personCard).join('')}
       ${teamFilter === 'all' ? `<form class="tcard t-add" id="addPerson" autocomplete="off"><input name="who" placeholder="+ Add someone" aria-label="New team member's name"/></form>` : ''}
     </div>
-    ${people.length ? '' : '<p class="tf-none">No one matches.</p>'}`;
+    ${people.length ? '' : `<div class="tf-none"><p>No one has a role in this view.</p><button type="button" class="tc-yes" data-f="all">Show everyone</button></div>`}`;
   const sel = view.querySelector('#teamFilter');
   sel.value = teamFilter.startsWith('role:') ? teamFilter : 'all';
   sel.onchange = () => { teamFilter = sel.value; team(); };
-  view.querySelectorAll('.st-tabs [data-f]').forEach((b) => b.onclick = () => { teamFilter = teamFilter === b.dataset.f ? 'all' : b.dataset.f; team(); });
+  view.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { teamFilter = teamFilter === b.dataset.f ? 'all' : b.dataset.f; team(); });
 
   const P = (id) => state.people.find((p) => p.id === id);
   // Status cycles in place (no re-render); legend counts follow
@@ -363,6 +370,29 @@ function team() {
     state.roles.push({ id: uid(), title, people: who, status: 'Not started', details: [], links: [] });
     commit();
     view.querySelector(`[data-addrole="${CSS.escape(f.dataset.addrole)}"] input`)?.focus();
+  });
+  view.querySelectorAll('[data-editrole]').forEach((b) => b.onclick = () => { editingRole = b.dataset.editrole; menuFor = null; team(); view.querySelector('.tc-redit input')?.focus(); });
+  view.querySelectorAll('[data-canceledit]').forEach((b) => b.onclick = () => { editingRole = null; team(); });
+  view.querySelectorAll('[data-rwith]').forEach((b) => b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')));
+  view.querySelectorAll('[data-saverole]').forEach((f) => f.onsubmit = (e) => {
+    e.preventDefault();
+    const r = state.roles.find((x) => x.id === f.dataset.saverole);
+    const title = f.elements.title.value.trim();
+    const who = [...f.querySelectorAll('[data-rwith][aria-pressed="true"]')].map((b) => b.dataset.rwith);
+    if (!r || !title) return;
+    if (!who.length) { toast('Pick at least one person for this role'); return; }
+    r.title = title; r.people = who;
+    editingRole = null;
+    commit();
+  });
+  view.querySelectorAll('[data-delrole]').forEach((b) => b.onclick = async () => {
+    const r = state.roles.find((x) => x.id === b.dataset.delrole);
+    if (!r) return;
+    if (await confirmDialog({ title: 'Delete this role?', body: `“${r.title}” comes off everyone’s card. This can’t be undone.`, confirmLabel: 'Delete', cancelLabel: 'Keep' })) {
+      state.roles = state.roles.filter((x) => x.id !== r.id);
+      editingRole = null;
+      commit();
+    }
   });
   view.querySelectorAll('[data-share]').forEach((b) => b.onclick = () => {
     const panel = b.closest('form').querySelector('.tc-share');
@@ -426,6 +456,7 @@ function guestsCSV() {
 const going = (g) => g.rsvp !== 'Declined';
 const GUEST_FILTERS = [
   [['all', 'Everyone', () => true],
+   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !g.meal || !g.street || !g.tableId)],
    ['unseated', 'Still to seat', (g) => going(g) && !g.tableId && g.party !== 'couple'],
    ['reception', 'Reception guests', going],
    ['notinvited', 'Not invited yet', (g) => g.rsvp === 'Not invited yet'],
@@ -503,14 +534,14 @@ function guests() {
         <h1>Guests</h1>
         <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()} · ${c((g) => g.rsvp === 'Yes')} yes</p>
       </div>
-      <div class="head-actions">${guestViewToggle()}<button class="btn line" id="csv">Export CSV</button></div>
+      <div class="head-actions">${guestViewToggle()}<button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     </div>
 
     <form class="guest-add" id="gForm">
-      <input class="input" name="name" placeholder="Add guests" required/>
-      <select class="select" name="side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
+      <input class="input" name="name" placeholder="Add guests" aria-label="Guest name" required/>
+      <select class="select" name="side" aria-label="Side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
       <button class="btn moss">Add</button>
-      <button type="button" class="btn line paste-btn" id="pasteBtn" aria-expanded="false">Paste a list</button>
+      <button type="button" class="btn line icon-btn paste-btn" id="pasteBtn" aria-expanded="false" aria-label="Paste a list" title="Paste a list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M9 4.5h6v3H9zM15 6h2.5a1 1 0 0 1 1 1v12.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H9M8.5 12h7M8.5 15.5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
     <div id="pasteHost"></div>
 
@@ -663,7 +694,7 @@ function route(opts = {}) {
   const [name, sub] = (location.hash.slice(1) || 'overview').split('/');   // '#seating/ceremony' opens that Seating space
   const fn = ROUTES[name] || overview;
   document.body.dataset.route = ROUTES[name] ? name : 'overview';
-  document.querySelectorAll('.mainnav a').forEach((a) => a.classList.toggle('active', a.dataset.route === name));
+  document.querySelectorAll('.mainnav a').forEach((a) => { const on = a.dataset.route === name; a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   moveInk();
   // Keep scroll position when re-rendering the same page (e.g. after posting an update)
   const y = window.scrollY;

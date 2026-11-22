@@ -9,7 +9,7 @@ export const TABLE_STYLES = {
   round10: { label: 'Rounds · 10', shape: 'round', size: 10 },
   family: { label: 'Family rows · 20', shape: 'rect', size: 20, rot: 90 },
   open: { label: 'Open floor', shape: 'round', size: 8, open: true }, // big dance floor, rounds on the perimeter, 2 long tables up front
-  stage: { label: 'Head on stage', shape: 'round', size: 8, custom: 'stage' },   // sweetheart table up on the round stage
+  stage: { label: 'Head on stage', shape: 'round', size: 8, custom: 'stage' },   // sweetheart (~5 ft round) + cake table up in the domed stage bay on the long wall
   banquet: { label: 'Long banquet', shape: 'rect', size: 20, custom: 'banquet' }, // two long tables + a cross table in a U around the floor
   headlong: { label: 'Long head table', shape: 'round', size: 8, custom: 'headlong' }, // long head table at the arched doors + rounds
 };
@@ -27,6 +27,9 @@ export function roundRadius(seats) {
   return 3 + (seats - 10) * 0.25;
 }
 
+/** Radius of a round table's top: an explicit `dia` (feet, e.g. the 5 ft sweetheart table) wins over the seat-based size. */
+export const tableR = (t) => (t.dia ? t.dia / 2 : roundRadius(t.seats));
+
 export function rectDims(t) {
   const { top, bottom, left, right } = t.sides;
   return { L: Math.max(Math.max(top, bottom) * 2.1 + 0.6, t.len || 0, 3), D: Math.max(Math.max(left, right) * 2.1 + 0.4, 2.6) };
@@ -35,7 +38,7 @@ export function rectDims(t) {
 /** Footprint incl. chairs, after rotation: half-width / half-height */
 export function footprint(t) {
   if (t.box) return t.box; // explicit half-size (used to place areas)
-  if (t.shape === 'round') { const r = roundRadius(t.seats) + 2; return { hw: r, hh: r }; }
+  if (t.shape === 'round') { const r = tableR(t) + 2; return { hw: r, hh: r }; }
   if (t.shape === 'row') return rotatedHalf((t.seats * ROW_PITCH) / 2 + 0.3, 0.9, t.rot || 0);
   const { L, D } = rectDims(t);
   const { top, bottom, left, right } = t.sides;
@@ -59,7 +62,12 @@ export function rotatedHalf(hw, hh, deg) {
 export function chairPositions(t) {
   const pts = [];
   if (t.shape === 'round') {
-    const R = roundRadius(t.seats) + 1.4;
+    const R = tableR(t) + 1.4;
+    if (t.arc) { // a few chairs on ONE side (sweetheart table: both seats face the room). face = degrees from +x, arc = total spread
+      const f = ((t.face ?? 0) * Math.PI) / 180, span = (t.arc * Math.PI) / 180;
+      for (let i = 0; i < t.seats; i++) { const a = f + (t.seats > 1 ? (i / (t.seats - 1) - 0.5) * span : 0); pts.push([Math.cos(a) * R, Math.sin(a) * R]); }
+      return pts;
+    }
     for (let i = 0; i < t.seats; i++) {
       const a = (i / t.seats) * Math.PI * 2 - Math.PI / 2;
       pts.push([Math.cos(a) * R, Math.sin(a) * R]);
@@ -94,22 +102,31 @@ const overlap = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.
 const box = (x, y, hw, hh, pad = 0) => ({ x1: x - hw - pad, x2: x + hw + pad, y1: y - hh - pad, y2: y + hh + pad });
 const rbox = (r, pad = 0) => ({ x1: r.x - pad, x2: r.x + r.w + pad, y1: r.y - pad, y2: r.y + r.h + pad });
 
-/** Everything a table must stay clear of: stage, clear paths at doors, the entrance aisle, areas, other tables. */
+/** The near end under the balcony stays an arrival lounge: balcony depth + 6 ft of standing room (door clearances are separate). */
+export const loungeDepth = (room) => (room.fixed?.balcony ? room.fixed.balcony.depth + 6 : 0);
+
+/** Everything a table must stay clear of: stage steps, clear paths at doors, the entrance aisle, areas, other tables. */
 export function blockers(room, tables = [], { areaPad = 4, noStage = false } = {}) {
   const b = [];
   const st = room.fixed?.stage;
-  if (st && !noStage) b.push({ x1: st.cx - st.r - 3, x2: st.cx + (st.d || st.r) + 3, y1: st.cy - st.r - 3, y2: st.cy + st.r + 3 });
+  // The bay is OUTSIDE the hall (x < 0). Only the 3 steps (~4-5 ft) reach in, so keep ~8 ft from the wall, as wide as the arch + 3 ft (photos #061, #124, #100)
+  if (st && !noStage) {
+    const dep = (st.d || 15) + 3, keep = st.keep ?? 8;
+    b.push(st.wall === 'top' ? { x1: st.cx - st.r - 3, x2: st.cx + st.r + 3, y1: -dep, y2: keep } : { x1: -dep, x2: keep, y1: st.cy - st.r - 3, y2: st.cy + st.r + 3 });
+  }
   (room.fixed?.openings || []).forEach((o) => {
     if (o.kind === 'window') return;
-    const clear = o.kind === 'entrance' ? 14 : 4; // 44" in front of exits; a real aisle in from the entrance
+    // 44" in front of exits; ~8 ft (6-8) in front of the balcony-end doors (photo #143); a real aisle in from the others
+    const clear = o.kind === 'entrance' ? 8 : o.wall === 'bottom' ? 6 : 4;
     const r = openingRect(room, o, clear);
     b.push(rbox(r, o.kind === 'entrance' ? 0 : 0.5));
   });
   // Fixed decor that takes floor space (fireplace, bar, hedges, statues, trees)
-  (room.fixed?.decor || []).forEach((d) => { if (d.block) b.push(rbox(d, 0.5)); });
+  (room.fixed?.decor || []).forEach((d) => { if (d.block) b.push(rbox(d, d.pad ?? 0.5)); });
   (room.areas || []).forEach((a) => {
     const r = rotatedHalf(a.w / 2, a.h / 2, a.rot || 0);
-    b.push(box(a.x + a.w / 2, a.y + a.h / 2, r.hw, r.hh, areaPad));
+    // bar / DJ / cake hug the walls, so chairs may come within ~1 ft of them (the table footprint already includes its chairs)
+    b.push(box(a.x + a.w / 2, a.y + a.h / 2, r.hw, r.hh, ['bar', 'dj', 'cake'].includes(a.preset) ? Math.min(areaPad, 1) : areaPad));
   });
   // 2 ft walkway around dining tables; ceremony rows sit back to back (the row pitch is the legroom)
   tables.forEach((t) => { const f = footprint(t); b.push(box(t.x, t.y, f.hw, f.hh, t.shape === 'row' ? 0 : 2)); });
@@ -122,6 +139,29 @@ function makeTable(style, x, y) {
   return { shape: 'rect', sides: { top: s.size / 2, bottom: s.size / 2, left: 0, right: 0 }, x, y, rot: s.rot || 0 };
 }
 
+/** Dance floor sizes to try, biggest first: 20 x 20 centered mid-hall leaves room for a ~25 ft first-dance ring; 16 x 18 is the minimum (photos #119, #124). */
+const DANCE_SIZES = [[20, 20], [18, 20], [16, 18]];
+const clearHead = (h) => h && { ...h, len: undefined, dia: undefined, arc: undefined, face: undefined, seats: undefined };
+/**
+ * Run `run()` with the dance area centered mid-hall (tables on 3 sides, not pushed to the far wall); take the biggest floor that seats everyone,
+ * else whichever seats the most. Mutates room's dance area (callers pass a clone).
+ */
+function withDance(room, run, { sizes = DANCE_SIZES, shifts = [0, -2, 2, -4, 4, -6, 6], pos } = {}) {
+  const dance = danceOf(room);
+  if (!dance) return run();
+  let best = null;
+  outer: for (const [dw, dh] of sizes) for (const dy of shifts) {
+    dance.w = dw; dance.h = dh;
+    const p = pos ? pos(dw, dh) : { x: Math.round((room.w - dw) / 2), y: Math.round(room.h * 0.5 - dh / 2) };
+    dance.x = p.x; dance.y = Math.max(8, p.y + dy);
+    const r = run();
+    if (!best || r.tables.length > best.r.tables.length) best = { r, d: { x: dance.x, y: dance.y, w: dance.w, h: dance.h } };
+    if (r.fits) break outer;
+  }
+  Object.assign(dance, best.d);
+  return best.r;
+}
+
 /**
  * Tables for `guestCount` people (the couple sits at the sweetheart table), in a U around the dance floor.
  * Planner rules: ~14 ft between round centers, chairs ≥3 ft from walls, door paths and the entrance aisle clear,
@@ -129,8 +169,24 @@ function makeTable(style, x, y) {
  */
 export function suggestTables(room, guestCount, style = 'round8', head) {
   // every style starts from the sweetheart table at the arched doors (a previous 'on the stage' suggestion must not stick); the result carries the head table it used
-  const home = head && { ...head, len: undefined, shape: 'rect', x: room.w / 2, y: 7, rot: 0, sides: { top: 2, bottom: 0, left: 0, right: 0 } };
-  return { ...suggestInner(room, guestCount, style, style === 'stage' || style === 'headlong' ? head : home), ...(head && style !== 'stage' && style !== 'headlong' ? { head: home } : {}) };
+  const home = head && { ...clearHead(head), shape: 'rect', x: room.w / 2, y: 7, rot: 0, sides: { top: 2, bottom: 0, left: 0, right: 0 } };
+  moveCakeOut(room, style);
+  const own = style === 'stage' || style === 'headlong';
+  const s = TABLE_STYLES[style];
+  const plain = !s.open && !s.custom;
+  const r = plain
+    ? (style === 'family'
+      // rows run the long way, so the dance floor moves toward the lounge end
+      ? withDance(room, () => suggestInner(room, guestCount, style, home), { sizes: [...DANCE_SIZES, [14, 16]], shifts: [0, -4, 4, -8], pos: (dw, dh) => ({ x: Math.round((room.w - dw) / 2), y: room.h - (room.fixed?.balcony?.depth || 0) - 10 - dh - 1 }) })
+      : withDance(room, () => suggestInner(room, guestCount, style, home)))
+    : suggestInner(room, guestCount, style, own ? head : home);
+  return { ...r, ...(head && !own ? { head: home } : {}) };
+}
+/** A cake table left in the stage bay by an earlier 'Head on stage' layout goes back beside the sweetheart table at the arched doors. */
+function moveCakeOut(room, style) {
+  if (style === 'stage') return;
+  const cake = (room.areas || []).find((a) => a.preset === 'cake');
+  if (cake && cake.x < 0) { cake.x = room.w / 2 + 10; cake.y = 5; }
 }
 function suggestInner(room, guestCount, style, head) {
   const s = TABLE_STYLES[style];
@@ -140,7 +196,7 @@ function suggestInner(room, guestCount, style, head) {
   const fp = footprint(makeTable(style, 0, 0));
   const blocked = blockers(room, head ? [head] : [], { areaPad: 2 }); // chairs already in the footprint; +2 ft walkway
   const fits = (p) => !blocked.some((z) => overlap(box(p.x, p.y, fp.hw, fp.hh), z));
-  const balcony = room.fixed?.balcony ? room.fixed.balcony.depth + 10 : 0;
+  const balcony = loungeDepth(room);
   const rows = s.shape === 'rect' && s.rot === 90;
   // Rounds: the U first; plain grid packing only wins when it seats more (big counts)
   const placers = rows ? [(o) => placeGrid({ ...o, wall: 6, gap: 5 })] : [placeRounds, (o) => placeGrid({ ...o, wall: 3, gap: 5 })];
@@ -173,7 +229,7 @@ function suggestInner(room, guestCount, style, head) {
  */
 function suggestOpen(room, guestCount, head) {
   const { w, h } = room, cx = w / 2;
-  const lounge = room.fixed?.balcony ? room.fixed.balcony.depth + 10 : 0, maxY = h - Math.max(lounge, 3);
+  const lounge = loungeDepth(room), maxY = h - Math.max(lounge, 3);
   const dance = (room.areas || []).find((a) => a.preset === 'dance');
   const seatsLeft = Math.max(1, guestCount - 2);
   if (dance) { dance.w = seatsLeft > 90 ? 22 : 18; dance.h = seatsLeft > 90 ? 24 : 20; dance.x = cx - dance.w / 2; dance.y = Math.round(Math.min(head ? head.y + 11 : 18, 20)); }
@@ -236,25 +292,35 @@ function packRounds(room, placed, roundN, size, sort, maxY, gap = 3.5) {
   for (const c of cands) { if (out.length >= roundN) break; if (out.every((q) => Math.abs(c.x - q.x) >= sx - 0.01 || Math.abs(c.y - q.y) >= sy - 0.01)) out.push(c); }
   return out.map((p) => ({ ...rt, x: p.x, y: p.y }));
 }
-const nearEnd = (room) => room.h - Math.max(room.fixed?.balcony ? room.fixed.balcony.depth + 10 : 0, 3);
+const nearEnd = (room) => room.h - Math.max(loungeDepth(room), 3);
 const danceOf = (room) => (room.areas || []).find((a) => a.preset === 'dance');
 const CUSTOM = {
-  /** Sweetheart table on the round stage (near-left corner), couple facing the room; dance floor in front of the stage, rounds around it. */
+  /**
+   * Sweetheart table (round, ~5 ft, two chairs facing the room) and a ~4 ft cake table up in the stage bay (photos #064, #135, #040);
+   * the dance floor sits in front of the steps, rounds around it. The bay is outside the hall (x < 0); only the steps reach in, so the chairs never clip them.
+   */
   stage(room, guestCount, head) {
     const st = room.fixed?.stage, dance = danceOf(room);
-    const nh = { ...(head || { id: 'head', name: 'Mr. & Mrs. Griffin', sides: { top: 2, bottom: 0, left: 0, right: 0 }, o: 0 }), shape: 'rect', rot: 90, len: 7, x: st ? st.cx + (st.d || st.r) * 0.4 : 6, y: st ? st.cy : room.h * 0.8 };
+    const bx = st ? st.cx - (st.d || 15) * 0.47 : 6, by = st ? st.cy : room.h * 0.55; // platform center line, ~7 ft behind the arch
+    const nh = { ...clearHead(head || { id: 'head', name: 'Mr. & Mrs. Griffin', o: 0 }), shape: 'round', seats: 2, dia: 5, arc: 50, face: 0, rot: 0, sides: undefined, x: bx, y: by - 2.5 };
+    // the cake table goes beside it (an existing cake area is moved, its size kept); the user's other areas stay put
+    let cake = (room.areas || []).find((a) => a.preset === 'cake');
+    if (!cake) { cake = { id: 'cake', preset: 'cake', label: 'Cake', x: 0, y: 0, w: 4, h: 4 }; (room.areas ||= []).push(cake); }
+    cake.rot = 0; cake.x = bx - cake.w / 2; cake.y = by + 4.5 - cake.h / 2;
     const n = Math.max(1, Math.ceil(Math.max(0, guestCount - 2) / 8));
-    // Try roomier plans first; the 50 x 75 ft room is tight with a stage bay, so fall back to a smaller floor, tighter aisles, then the lounge end
-    const tries = [{ dw: 18, dh: 20, gap: 3.5, end: nearEnd(room) }, { dw: 16, dh: 18, gap: 2.5, end: nearEnd(room) }, { dw: 14, dh: 16, gap: 2.5, end: nearEnd(room) }, { dw: 14, dh: 16, gap: 2, end: room.h - 3 }];
+    // Try roomier plans first; the 50 x 75 ft room is tight with the stage zone, so fall back to a smaller floor, tighter aisles, then the lounge end
+    const tries = [{ s: [20, 20], gap: 3.5, end: nearEnd(room) }, { s: [18, 20], gap: 3.5, end: nearEnd(room) }, { s: [16, 18], gap: 2.5, end: nearEnd(room) }, { s: [14, 16], gap: 2.5, end: nearEnd(room) }, { s: [14, 16], gap: 2, end: room.h - 3 }];
     let best = null;
+    const dx = st ? (st.keep ?? 8) + 4 : 17;
     for (const o of tries) {
-      if (dance) { dance.w = o.dw; dance.h = o.dh; dance.x = (st ? st.cx + (st.d || st.r) + 2 : 17); dance.y = Math.max(8, (st ? st.cy : room.h * 0.8) - dance.h * 0.5 - 2); }
+      if (dance) { [dance.w, dance.h] = o.s; dance.x = dx; dance.y = Math.max(8, by - dance.h * 0.5 - 2); }
       const cx = dance ? dance.x + dance.w / 2 : room.w / 2, cy = dance ? dance.y + dance.h / 2 : room.h / 2;
       const d = (p) => Math.min(p.x, room.w - p.x, p.y);
       const rounds = packRounds(room, [nh], n, 8, (a, b) => Math.round(d(a) / 3) - Math.round(d(b) / 3) || Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy), o.end, o.gap);
       if (!best || rounds.length > best.rounds.length) best = { rounds, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h } };
       if (rounds.length >= n) break;
     }
+    if (dance && best.dance) Object.assign(dance, best.dance);
     return finish(best.rounds, n, { head: nh, dance: best.dance });
   },
   /** Two long garland tables down the sides + a cross table at the near end (a U around the floor); sweetheart at the far wall. Seats from the Simply Breathe Events photo. */
@@ -263,7 +329,9 @@ const CUSTOM = {
     const left = Math.max(2, guestCount - 2);
     const per = Math.max(2, Math.min(10, Math.ceil(left / 5))); // chairs per long side
     const mk = (n, rot) => ({ shape: 'rect', sides: { top: n, bottom: n, left: 0, right: 0 }, rot });
-    const hy = head ? head.y + 7 : 14, placed = [], want = [{ n: per, rot: 90, side: -1 }, { n: per, rot: 90, side: 1 }, { n: Math.max(2, Math.ceil((left - per * 4) / 2)), rot: 0, side: 0 }];
+    const hy = head ? head.y + 7 : 14;
+    if (dance) { dance.w = 16; dance.h = 18; dance.x = cx - 8; dance.y = hy + 5; } // park the floor out of the way while the tables are placed; it moves to its final spot below
+    const placed = [], want = [{ n: per, rot: 90, side: -1 }, { n: per, rot: 90, side: 1 }, { n: Math.max(2, Math.ceil((left - per * 4) / 2)), rot: 0, side: 0 }];
     if (left <= per * 4) want.pop();
     for (const v of want) {
       const t0 = mk(v.n, v.rot), fp = footprint(t0);
@@ -285,10 +353,10 @@ const CUSTOM = {
   },
   /** Long head table facing the room at the arched doors, rounds in a U around the dance floor. */
   headlong(room, guestCount, head) {
-    const seats = 8, dance = danceOf(room);
-    const nh = { ...(head || { id: 'head', name: 'Mr. & Mrs. Griffin', o: 0 }), shape: 'rect', sides: { top: seats, bottom: 0, left: 0, right: 0 }, x: room.w / 2, y: 8, rot: 0 };
-    if (dance) { dance.x = (room.w - dance.w) / 2; dance.y = 18; }
-    const r = suggestInner(room, guestCount - (seats - 2), 'round8', nh);
+    const seats = 8;
+    const nh = { ...clearHead(head || { id: 'head', name: 'Mr. & Mrs. Griffin', o: 0 }), shape: 'rect', sides: { top: seats, bottom: 0, left: 0, right: 0 }, x: room.w / 2, y: 8, rot: 0, dia: undefined };
+    const r = withDance(room, () => suggestInner(room, guestCount - (seats - 2), 'round8', nh));
+    const dance = danceOf(room);
     return { ...r, head: nh, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h } };
   },
 };

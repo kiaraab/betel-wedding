@@ -41,7 +41,7 @@ export function mountPaste(host, { defaultSide = 'Both' } = {}) {
   const redo = () => mountPaste(host, { defaultSide });
   host.innerHTML = `
     <section class="paste${fresh ? ' enter' : ''}" aria-label="Paste a list">
-      <textarea class="input paste-text" rows="4" placeholder="Paste names, one per line or with commas.  “Jane & John Doe (Carter)”, “Mia, bridesmaid”, “Sam + 1”">${esc(panel.text)}</textarea>
+      <textarea class="input paste-text" rows="4" aria-label="Names to add" placeholder="Paste names, one per line or with commas.  “Jane & John Doe (Carter)”, “Mia, bridesmaid”, “Sam + 1”">${esc(panel.text)}</textarea>
       <div class="paste-ai">
         ${aiAvailable() ? '<button type="button" class="btn line sm" data-ai-text>Read with AI</button><button type="button" class="btn line sm" data-ai-img>From a picture</button><input type="file" accept="image/*" hidden data-ai-file/>' : ''}
         <span class="paste-status" aria-live="polite"></span><span class="spacer"></span>${aiLinkHTML()}

@@ -1,5 +1,6 @@
 // First-visit welcome + a small "?" per page that runs a short guided tour.
 // "Seen" is remembered per device (localStorage); the tour can always be replayed from the "?".
+import { trapFocus } from './util.js';
 const SEEN_WELCOME = 'bc-welcome-seen';
 const seenKey = (r) => `bc-tour-${r}`;
 const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -68,8 +69,10 @@ function welcome() {
       <div class="welcome-b"><button class="btn line sm" data-w="tour">Quick tour</button><button class="btn moss sm" data-w="go">Let’s go</button></div>
     </section>`;
   document.body.append(scrim);
+  const release = trapFocus(scrim.querySelector('.welcome'));
   const close = (then) => {
     write(SEEN_WELCOME);
+    release();
     scrim.classList.add('out');
     setTimeout(() => { scrim.remove(); then?.(); }, 260);
   };

@@ -4,6 +4,9 @@ let toastTimer;
 /** Small message at the bottom. Pass { undo } to show an Undo button (kept up a little longer). */
 export function toast(msg, { undo } = {}) {
   const el = document.getElementById('toast');
+  const bad = /could not|too large|too big|failed|did not work|error|full/i.test(String(msg));
+  el.setAttribute('role', bad ? 'alert' : 'status'); // errors announce right away, the rest politely
+  el.setAttribute('aria-atomic', 'true');
   el.innerHTML = '';
   el.append(msg);
   if (undo) {
@@ -15,7 +18,7 @@ export function toast(msg, { undo } = {}) {
   el.classList.toggle('has-action', !!undo);
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), undo ? 6000 : 2400);
+  toastTimer = setTimeout(() => el.classList.remove('show'), undo ? 6000 : bad ? 7000 : 3600);
 }
 
 export function daysUntil(iso) {
@@ -41,7 +44,7 @@ export function confirmDialog({ title = 'Are you sure?', body = '', confirmLabel
       removeEventListener('keydown', onKey, true);
       scrim.classList.remove('in');
       setTimeout(() => scrim.remove(), 160);
-      prev?.focus?.({ preventScroll: true });
+      restoreFocus(prev);
       resolve(v);
     };
     const onKey = (e) => {
@@ -54,4 +57,26 @@ export function confirmDialog({ title = 'Are you sure?', body = '', confirmLabel
     scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) done(false); });
     yes.focus();
   });
+}
+
+/** Put focus back where it was (or on the footer people button when that element is gone). */
+export function restoreFocus(prev) {
+  const t = prev && prev.isConnected && prev !== document.body ? prev : document.getElementById('liveBtn');
+  t?.focus?.({ preventScroll: true });
+}
+
+/** Modal focus handling: Tab stays inside `box`, focus returns to the opener on release. */
+export function trapFocus(box) {
+  const prev = document.activeElement;
+  const onKey = (e) => {
+    if (e.key !== 'Tab') return;
+    const f = [...box.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && !x.hidden && x.getClientRects().length);
+    if (!f.length) { e.preventDefault(); return; }
+    const first = f[0], last = f[f.length - 1];
+    if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  document.addEventListener('keydown', onKey, true);
+  return (restore = true) => { document.removeEventListener('keydown', onKey, true); if (restore) restoreFocus(prev); };
 }

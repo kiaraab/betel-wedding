@@ -28,7 +28,7 @@ export function ensureParty(room, pool) {
 }
 const partyName = (pool, key) => pool.find((x) => x.id === key)?.name || (/^g\d+$/.test(key) ? `Groomsman ${key.slice(1)}` : '');
 export const partyDots = (room, pool) => {
-  const p = ensureParty(room, pool), cx = room.w / 2;
+  const p = ensureParty(room, pool), cx = room.cx ?? room.w / 2;
   const step = (k) => Math.min(DOT_STEP, k > 1 ? (cx - DOT_X0 - 2) / (k - 1) : DOT_STEP); // squeeze evenly if a long line would hit the wall
   const at = (side, i, k) => ({ x: cx + side * (DOT_X0 + i * step(k)), y: DOT_Y0 });
   return [
@@ -50,12 +50,12 @@ export function partyBottom(room, pool) {
 const sid = (p, i) => `${p}${i + 1}`;
 /** Rows of chairs with a center aisle for `n` guests (the wedding party stands, so they're not counted). */
 export function suggestCeremony(room, n, pool) {
-  const aisle = 5, pitch = 3, cx = room.w / 2;
-  const y0 = Math.max(15, Math.ceil(partyBottom(room, pool)));
+  const aisle = 6, pitch = 3, cx = room.cx ?? room.w / 2; // ≈6 ft gravel aisle (photos #099, #022, #081)
+  const y0 = Math.max(room.minRow ?? 15, Math.ceil(partyBottom(room, pool)));
   const yMax = room.h - 8;
   const perSide = Math.ceil(n / 2);
   let perRow = 5;
-  const maxRow = Math.floor((room.w / 2 - aisle / 2 - 4) / 2);
+  const maxRow = Math.floor((Math.min(cx, room.w - cx) - aisle / 2 - 4) / 2);
   while (perRow < maxRow && y0 + (Math.ceil(perSide / perRow) - 1) * pitch > yMax) perRow++;
   const rows = Math.ceil(perSide / perRow);
   const tables = [];
@@ -103,8 +103,9 @@ const overlap = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.
  * the bar queue in front of the carved bar in the sunroom (top right), and the entrance path.
  */
 export function suggestHangout(room, n) {
-  const count = Math.max(2, Math.min(12, Math.ceil(n / 10)));
-  const t0 = { shape: 'round', seats: 4, high: true, rot: 0 };
+  const bist = !!room.bistro; // courtyard: 3-seat bistro tables; tasting room: 4-stool high-tops
+  const count = Math.max(2, Math.min(12, Math.ceil(n / (bist ? 7.5 : 10))));
+  const t0 = bist ? { shape: 'round', seats: 3, rot: 0 } : { shape: 'round', seats: 4, high: true, rot: 0 };
   const fp = footprint(t0);
   const sun = (room.fixed?.decor || []).find((d) => d.kind === 'sunroom');
   const queue = sun ? { x1: sun.x - 2.5, x2: room.w, y1: 0, y2: sun.y + sun.h + 4.5 } : null; // the sunroom itself + the bar line in front of it
@@ -118,7 +119,7 @@ export function suggestHangout(room, n) {
       && !base.some((z) => overlap(b, z)) && !(queue && overlap(b, queue)) && picked.every((p) => Math.hypot(p.x - x, p.y - y) >= 9);
   };
   const lounge = room.areas.find((a) => a.preset === 'lounge');
-  const mid = { x: (lounge ? lounge.x + lounge.w : 12) + (room.w - 14) / 2, y: room.h * 0.45 };
+  const mid = { x: bist ? room.w / 2 : (lounge ? lounge.x + lounge.w : 12) + (room.w - 14) / 2, y: room.h * 0.45 };
   const cands = [];
   for (let y = 2; y < room.h; y += 1) for (let x = 2; x < room.w; x += 1) cands.push({ x, y, d: Math.hypot(x - mid.x, (y - mid.y) * 1.2) });
   // greedy under a few orderings; keep whichever seats the most (centered first when they tie)
@@ -130,7 +131,7 @@ export function suggestHangout(room, n) {
     if (got.length > picked.length) picked = got;
   }
   picked.sort((a, b) => a.y - b.y || a.x - b.x);
-  return { fits: picked.length >= count, needed: count, tables: picked.map((p, i) => ({ id: sid('ht', i) + Math.random().toString(36).slice(2, 5), name: String(i + 1), shape: 'round', seats: 4, high: true, x: p.x, y: p.y, rot: 0, o: i })) };
+  return { fits: picked.length >= count, needed: count, tables: picked.map((p, i) => ({ id: sid('ht', i) + Math.random().toString(36).slice(2, 5), name: String(i + 1), shape: 'round', seats: t0.seats, ...(t0.high && { high: true }), x: p.x, y: p.y, rot: 0, o: i })) };
 }
 
 /* ---------------- side-panel tools ---------------- */
@@ -142,7 +143,7 @@ function partyHTML(room, pool, selKey) {
     <p class="muted small" style="margin:8px 0 4px">Drag names to reorder or across · 1 stands nearest the altar</p>
     <div class="party-cols"><div><b class="muted small">Left · ${p.order.b.length}</b><ol class="plist" data-side="b">${chips('b')}</ol></div><div><b class="muted small">Right · ${p.order.g.length}</b><ol class="plist" data-side="g">${chips('g')}</ol></div></div>`;
 }
-export function spaceToolsHTML(space, ctx) {
+export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' | 'cocktail'
   if (space === 'ceremony') {
     const room = ctx.SP().room;
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
@@ -156,7 +157,7 @@ export function spaceToolsHTML(space, ctx) {
   if (space === 'cocktail') {
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
       <div class="field-row"><label class="field">Guests<input class="input" id="hCount" type="number" min="2" max="200" value="${ctx.state.guestTarget}"/></label></div>
-      <div class="acts"><div class="act"><button class="btn moss sm" id="hGo">Suggest hangout</button><span class="tip" tabindex="0" role="note" data-tip="High-tops in the open middle, clear of the lounge, wine wall and bar line.">ⓘ</span></div></div></section>`;
+      <div class="acts"><div class="act"><button class="btn moss sm" id="hGo">Suggest hangout</button><span class="tip" tabindex="0" role="note" data-tip="Tables spread through the open middle, clear of the fountain, building and entrance.">ⓘ</span></div></div></section>`;
   }
   return '';
 }
@@ -218,7 +219,7 @@ export function wireSpaceTools(root, space, ctx) {
       const n = Math.max(2, +root.querySelector('#hCount').value || 2);
       const s = suggestHangout(SP().room, n);
       ctx.animate();
-      ctx.undoable(s.fits ? `${s.tables.length} high-tops placed` : `Only ${s.tables.length} of ${s.needed} high-tops fit`, () => { SP().tables = s.tables; }, ctx.toast);
+      ctx.undoable(s.fits ? `${s.tables.length} tables placed` : `Only ${s.tables.length} of ${s.needed} tables fit`, () => { SP().tables = s.tables; }, ctx.toast);
     };
   }
 }

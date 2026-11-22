@@ -2,7 +2,7 @@
 // Loaded on demand (three.js comes from a CDN via the import map in index.html).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { seatCount, roundRadius, rectDims, chairPositions } from './layout.js';
+import { seatCount, tableR, rectDims, chairPositions } from './layout.js';
 
 const WALL_H = 20;     // ESTIMATE ~20 ft to the coffers (photo: arched doors ~10 ft = half the wall below the crown); not published. Balcony slab ~11 ft
 const _v = new THREE.Vector3();
@@ -97,6 +97,9 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   allLabels = [];
   const { w, h, fixed } = state.room;
   const X = (x) => x - w / 2, Z = (y) => y - h / 2;
+  // The stage bay is on the LEFT long wall, outside the hall; its platform is 3 steps (0.5 ft rise each) up. Items inside the bay (sweetheart table, cake) stand on it.
+  const stg = fixed.stage && fixed.stage.wall !== 'top' ? fixed.stage : null, STEP_RISE = 0.5, PLATFORM = stg ? STEP_RISE * (stg.steps || 3) : 0;
+  const onStage = (x, y) => !!stg && x < 0 && Math.abs(y - stg.cy) < stg.r + 1;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(2, devicePixelRatio));
@@ -144,7 +147,11 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     scene.add(m);
   };
   wall(w, 0, -h / 2, 0);                          // far wall (arched doors)
-  wall(h, -w / 2, 0, Math.PI / 2);                // left
+  if (stg) { // left wall, with the arched opening to the stage bay cut out (the arch spandrel is added with the bay below)
+    const a = stg.cy - stg.r, b = h - (stg.cy + stg.r);
+    wall(a, -w / 2, Z(a / 2), Math.PI / 2);
+    wall(b, -w / 2, Z(h - b / 2), Math.PI / 2);
+  } else wall(h, -w / 2, 0, Math.PI / 2);          // left
   wall(h, w / 2, 0, Math.PI / 2);                 // right
   wall(w, 0, h / 2, 0, 3, lowWall);               // near wall cut away so you can see in
 
@@ -177,7 +184,10 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   // gold circle frieze band just under the cornice (far + both long walls)
   const friezeTex = friezeTexture();
   const FRIEZE_H = 1.3, fy = WALL_H - 1.6 - FRIEZE_H / 2;
-  [[w, 0, -h / 2 + 0.32, 0], [h, -w / 2 + 0.32, 0, Math.PI / 2], [h, w / 2 - 0.32, 0, -Math.PI / 2]].forEach(([len, x, z, ry]) => {
+  const friezeSegs = [[w, 0, -h / 2 + 0.32, 0], [h, w / 2 - 0.32, 0, -Math.PI / 2]];
+  if (stg) { const a = stg.cy - stg.r, b = h - (stg.cy + stg.r); friezeSegs.push([a, -w / 2 + 0.32, Z(a / 2), Math.PI / 2], [b, -w / 2 + 0.32, Z(h - b / 2), Math.PI / 2]); }
+  else friezeSegs.push([h, -w / 2 + 0.32, 0, Math.PI / 2]);
+  friezeSegs.forEach(([len, x, z, ry]) => {
     const t = friezeTex.clone(); t.repeat.set(len / (FRIEZE_H * 4), 1); t.needsUpdate = true;
     const band = new THREE.Mesh(new THREE.PlaneGeometry(len, FRIEZE_H), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissiveMap: t, emissive: '#ffffff', emissiveIntensity: 0.35 }));
     band.position.set(x, fy, z); band.rotation.y = ry; ceilingG.add(band);
@@ -226,39 +236,89 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     scene.add(grp);
   });
 
-  /* ---- balcony across the near end (overhead) ---- */
+  /* ---- balcony across the near end (overhead) ----
+     Knot photo #143: the railed front is a curved bow ~25 ft wide in the middle with straight railed sections either side (side sections' depth is uncertain). ---- */
   if (fixed.balcony) {
-    const d = fixed.balcony.depth;
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(w, 0.8, d), new THREE.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.8 }));
-    slab.position.set(0, 11, Z(h - d / 2)); slab.castShadow = true;
+    const d = fixed.balcony.depth, bowW = Math.min(w - 4, fixed.balcony.bow || 25), bulge = 3;
+    const sh = new THREE.Shape(); // shape y = -world z (ExtrudeGeometry is then laid flat)
+    sh.moveTo(-w / 2, -h / 2); sh.lineTo(w / 2, -h / 2); sh.lineTo(w / 2, d - h / 2); sh.lineTo(bowW / 2, d - h / 2);
+    sh.absellipse(0, d - h / 2, bowW / 2, bulge, 0, Math.PI, false); sh.lineTo(-w / 2, d - h / 2); sh.lineTo(-w / 2, -h / 2);
+    const slabGeo = new THREE.ExtrudeGeometry(sh, { depth: 0.8, bevelEnabled: false }); slabGeo.rotateX(-Math.PI / 2);
+    const slab = new THREE.Mesh(slabGeo, new THREE.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.8 }));
+    slab.position.y = 10.6; slab.castShadow = true;
     scene.add(slab);
     const postMat = new THREE.MeshStandardMaterial({ color: '#f3ecdd', roughness: 0.7 });
     [-w / 2 + 6, -w / 6, w / 6, w / 2 - 6].forEach((x) => {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 10.6, 16), postMat);
       post.position.set(x, 5.3, Z(h - d) + 0.6); post.castShadow = true; scene.add(post);
     });
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(w, 0.25, 0.25), new THREE.MeshStandardMaterial({ color: '#2b241d' }));
-    rail.position.set(0, 14.2, Z(h - d)); scene.add(rail);
-    const balMat = new THREE.MeshStandardMaterial({ color: '#2b241d' });
-    for (let x = -w / 2 + 1; x < w / 2; x += 1.6) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.8, 0.12), balMat);
-      b.position.set(x, 12.8, Z(h - d)); scene.add(b);
-    }
+    // railing path: straight, around the bow, straight
+    const zf = Z(h - d), path = [];
+    for (let x = -w / 2 + 0.5; x < -bowW / 2; x += 1) path.push([x, zf]);
+    for (let k = 0; k <= 24; k++) { const a = Math.PI - (k / 24) * Math.PI; path.push([(bowW / 2) * Math.cos(a), zf - bulge * Math.sin(a)]); }
+    for (let x = bowW / 2 + 1; x <= w / 2 - 0.5; x += 1) path.push([x, zf]);
+    const railMat = new THREE.MeshStandardMaterial({ color: '#2b241d' });
+    const rail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path.map(([x, z]) => new THREE.Vector3(x, 14.2, z)), false, 'catmullrom', 0), 160, 0.14, 6), railMat);
+    scene.add(rail);
+    const bals = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 2.8, 0.12), railMat, path.length), M4 = new THREE.Matrix4();
+    let n = 0;
+    for (let i = 0; i < path.length; i += 1) { if (i % 3 === 2) continue; M4.makeTranslation(path[i][0], 12.8, path[i][1]); bals.setMatrixAt(n++, M4); }
+    bals.count = n; scene.add(bals);
     const ent = label('Entrance', { size: 1.4 }); ent.position.set(0, 3.5, Z(h) - 1); scene.add(ent);
   }
 
-  /* ---- round tiered stage ---- */
-  if (fixed.stage) {
-    const { cx, cy, r, steps } = fixed.stage;
-    const stoneMat = new THREE.MeshStandardMaterial({ color: '#eadfca', roughness: 0.7 });
-    for (let i = 0; i < steps; i++) {
-      const rr = r - i * (r / (steps + 1));
-      const tier = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, 0.7, 48, 1, false, 0, Math.PI), stoneMat);
-      tier.scale.x = (fixed.stage.d || r) / r;
-      tier.position.set(X(cx), 0.35 + i * 0.7, Z(cy));
-      tier.castShadow = tier.receiveShadow = true;
-      scene.add(tier);
+  /* ---- balcony-end doors (photo #143): two white paneled ~5 ft double doors (x about 16 and 31) + a single door near each corner. Positions are approximate (+-3 ft).
+         Slightly see-through so the room behind them stays visible from the cut-away side. ---- */
+  {
+    const leafMat = new THREE.MeshStandardMaterial({ color: '#fbf8f0', roughness: 0.5, transparent: true, opacity: 0.6 });
+    fixed.openings.filter((o) => o.wall === 'bottom').forEach((o) => {
+      const dh = 8, leaves = o.w > 4 ? 2 : 1, lw = o.w / leaves, grp = new THREE.Group();
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.6, dh + 0.4, 0.25), frameMat); frame.position.y = (dh + 0.4) / 2 - 0.1; grp.add(frame);
+      for (let i = 0; i < leaves; i++) {
+        const leaf = new THREE.Mesh(new THREE.BoxGeometry(lw - 0.15, dh, 0.3), leafMat); leaf.position.set((i - (leaves - 1) / 2) * lw, dh / 2, 0.02); grp.add(leaf);
+        const knob = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1), frameMat); knob.position.set((i - (leaves - 1) / 2) * lw + (leaves === 2 ? (i ? -0.5 : 0.5) : 0.9), 3.5, 0.22); grp.add(knob);
+      }
+      grp.position.set(X(o.at), 0, Z(h) - 0.3); scene.add(grp);
+    });
+  }
+
+  /* ---- stage: a domed octagonal bay with columns in the left long wall (outside the hall); only 3 curved tile-faced steps reach ~4.5 ft in ---- */
+  if (stg) {
+    const d = stg.d || 15, r = stg.r, k = d / 15, reach = stg.stepD ?? 4.5, steps = stg.steps || 3;
+    const bx = X(0), bz = Z(stg.cy), BAY_H = 16;
+    const half = [[-r, 0], [-r, 5 * k], [-6.5, 11 * k], [-3, d]];
+    const poly = [...half, ...half.slice().reverse().map(([u, v]) => [-u, v])];  // [u along the wall, v out of the hall]
+    // platform
+    const sh = new THREE.Shape(poly.map(([u, v]) => new THREE.Vector2(-v, u)));
+    const platGeo = new THREE.ExtrudeGeometry(sh, { depth: PLATFORM, bevelEnabled: false }); platGeo.rotateX(-Math.PI / 2);
+    const plat = new THREE.Mesh(platGeo, new THREE.MeshStandardMaterial({ color: '#b98a5a', roughness: 0.45 }));
+    plat.position.set(bx, 0, bz); plat.receiveShadow = true; scene.add(plat);
+    // bay walls (every edge but the opening) + a dome
+    for (let i = 0; i < poly.length - 1; i++) {
+      const [u1, v1] = poly[i], [u2, v2] = poly[i + 1], dx = -(v2 - v1), dz = u2 - u1, len = Math.hypot(dx, dz);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(len, BAY_H, 0.5), wallMatFor(len, BAY_H));
+      m.position.set(bx - (v1 + v2) / 2, BAY_H / 2, bz + (u1 + u2) / 2); m.rotation.y = -Math.atan2(dz, dx); scene.add(m);
     }
+    const domeMat = creamMat.clone(); domeMat.side = THREE.DoubleSide;
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 10, 0, Math.PI * 2, 0, Math.PI / 2), domeMat);
+    dome.scale.set(d * 0.52, 6, r * 1.02); dome.position.set(bx - d * 0.48, BAY_H, bz); ceilingG.add(dome);
+    // arch spandrel over the opening + two tall white columns
+    const sp = new THREE.Shape(); sp.moveTo(-r, 8); sp.lineTo(-r, WALL_H); sp.lineTo(r, WALL_H); sp.lineTo(r, 8); sp.absarc(0, 8, r, 0, Math.PI, false);
+    const span = new THREE.Mesh(new THREE.ExtrudeGeometry(sp, { depth: 0.6, bevelEnabled: false }), wallMatFor(1, 1));
+    span.rotation.y = Math.PI / 2; span.position.set(bx - 0.3, 0, bz); scene.add(span);
+    const colMat = new THREE.MeshStandardMaterial({ color: '#faf6ec', roughness: 0.5 });
+    [-r, r].forEach((u) => {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 17, 18), colMat); col.position.set(bx + 0.2, 8.5 + PLATFORM * 0.5, bz + u); col.castShadow = true; scene.add(col);
+    });
+    // 3 curved steps (half-ellipses), outermost lowest; tile faced
+    const tileMat = new THREE.MeshStandardMaterial({ color: '#c9d6e3', roughness: 0.55 });
+    const stepGeo = new THREE.CylinderGeometry(1, 1, 1, 36, 1, false, 0, Math.PI);
+    for (let i = 0; i < steps; i++) {
+      const e = reach * (1 - i / steps), hw = r - i * 0.7, ht = STEP_RISE * (i + 1);
+      const tier = new THREE.Mesh(stepGeo, tileMat);
+      tier.scale.set(e, ht, hw); tier.position.set(bx, ht / 2, bz); tier.castShadow = tier.receiveShadow = true; scene.add(tier);
+    }
+    const lbl = label('Stage', { size: 1.2 }); lbl.position.set(bx - d + 3, PLATFORM + 4, bz); scene.add(lbl);
   }
 
   /* ---- chandeliers ---- */
@@ -331,7 +391,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     const rot = ((t.rot || 0) * Math.PI) / 180;
     let top;
     if (t.shape === 'round') {
-      const r = roundRadius(t.seats);
+      const r = tableR(t);
       top = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.3, 2.5, 40), cloth);
     } else {
       const { L, D } = rectDims(t);
@@ -354,7 +414,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
       g.add(ch);
     });
     if (t.shape !== 'round') top.rotation.y = -rot;
-    g.position.set(X(t.x), 0, Z(t.y));
+    g.position.set(X(t.x), onStage(t.x, t.y) ? PLATFORM : 0, Z(t.y));
     const tag = label(t.id === 'head' ? t.name : `${t.name} · ${n}/${seatCount(t)}`, { size: 1.2 });
     tag.position.set(0, 6, 0); g.add(tag);
     tableInfo.set(t.id, { group: g, tag, n, total: seatCount(t), table: t });
@@ -391,8 +451,10 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
       m.position.set(cx, 0.15, cz);
     }
     if (a.preset !== 'dance') m.rotation.y = -((a.rot || 0) * Math.PI) / 180;
+    const up = onStage(a.x + a.w / 2, a.y + a.h / 2) ? PLATFORM : 0; // the cake table in the bay stands on the platform
+    m.position.y += up;
     scene.add(m);
-    const tag = label(a.label, { size: 1.2, color: '#6b1f2a' }); tag.position.set(cx, 5, cz); scene.add(tag);
+    const tag = label(a.label, { size: 1.2, color: '#6b1f2a' }); tag.position.set(cx, 5 + up, cz); scene.add(tag);
   });
 
   /* ---- size ---- */

@@ -136,16 +136,17 @@ export const BOARD_SECTIONS = [
 ];
 
 /* ---------- Reception floor plan (units: feet) ----------
-   Morais ballroom, drawn the way guests see it walking in: entrance under the balcony at the bottom,
-   5 arched French doors on the far wall at the top, round tiered stage in the near-left corner.
+   Morais ballroom (the Palacio hall), drawn the way guests see it walking in: the balcony-end doors at the bottom,
+   5 arched French doors on the far wall at the top, the domed columned stage bay in the LEFT LONG WALL (outside the hall; only its ~3 steps reach in).
    PUBLISHED: ~4,000 sq ft, Palladian windows, a columned stage with painted tile, six chandeliers, hardwood.
-   OBSERVED (album): 5 arched doors far wall; long-wall door/window order; round tiered stage near-left; balcony at the near end.
-   ESTIMATE: 50 × 80 ft (4,000 sq ft at the photo's ~1.6:1), door pitch/widths, window positions, balcony depth 12 ft.
+   MEASURED (Matterport, ±5 ft): hall ≈ 50 × 75 ft; bay ≈ 20 wide × 15 deep, centered ≈ 34 ft from the balcony end.
+   OBSERVED (Knot photos, VENUE-PHOTOS.md): 5 arched doors far wall; steps reach only ≈4-5 ft into the hall; two white double doors + two corner doors under the balcony; two rows of three chandeliers.
+   ESTIMATE: door pitch/widths, window positions, balcony depth 12 ft.
    Fixed features are locked; areas are Betel's to place. See VENUE.md. */
-const opening = (wall, at, kind, w = 4, style) => ({ wall, at, kind, w, ...(style && { style }) });
+const opening = (wall, at, kind, w = 4, style, approx) => ({ wall, at, kind, w, ...(style && { style }), ...(approx && { approx: true }) });
 export function seedRoom() {
   // MEASURED from the Matterport floor plan on The Knot (m=K76R3QeJThF), calibrated to the published 4,000 sq ft: main hall ≈ 50 × 75 ft.
-  // The stage is the domed bay with columns, centered on the long left wall ≈ 34 ft from the balcony end. See VENUE.md.
+  // The stage is the domed bay with columns, centered on the long left wall ≈ 34 ft from the balcony end (y = 75 − 34 = 41). See VENUE.md.
   const w = 50, h = 75;
   // OBSERVED: 5 arched French doors, evenly pitched, centered on the far wall. ESTIMATE: ~9 ft pitch, ~5 ft wide (from the balcony photo vs 5 ft round tables)
   const far = [-2, -1, 0, 1, 2].map((i) => opening('top', w / 2 + i * 9, 'french', 5));
@@ -156,23 +157,33 @@ export function seedRoom() {
     opening('right', 8, 'window', 4, 'plain'), opening('right', 20, 'french', 4.5),
     opening('right', 34, 'window', 7, 'palladian'), opening('right', 50, 'window', 7, 'palladian'),
   ];
+  // Balcony-end wall (Knot photo #143): two white paneled ~5 ft double doors ≈15 ft apart (x ≈ 16 and 31) with a blank wall between,
+  // plus a single ~3 ft door near each corner. x positions are APPROXIMATE (±3 ft, wide-angle lens) until Morais sends the floor plan.
+  const near = [opening('bottom', 16, 'entrance', 5, 'double', true), opening('bottom', 31, 'entrance', 5, 'double', true), opening('bottom', 4, 'french', 3, 'single', true), opening('bottom', 46, 'french', 3, 'single', true)];
   return {
     name: 'Ballroom', w, h,
     fixed: {
-      openings: [...far, ...sides, opening('bottom', w / 2, 'entrance', 8)],
-      stage: { cx: 0, cy: 41, r: 10, d: 15, steps: 3 },       // columned bay on the left long wall, ~34 ft from the balcony end
-      balcony: { depth: 12 },                          // overhead mezzanine across the near wall
+      openings: [...far, ...sides, ...near],
+      // Columned, domed bay on the left long wall; cy = 41 (≈34 ft from the balcony end). r = half the arch width (20 ft wide), d = bay depth outside the hall (15 ft),
+      // steps = 3 curved tile-faced steps that reach stepD ≈ 4.5 ft INTO the hall; keep = tables stay ≥ 8 ft from the wall.
+      stage: { cx: 0, cy: 41, r: 10, d: 15, steps: 3, stepD: 4.5, keep: 8 },
+      balcony: { depth: 12, bow: 25 },                 // overhead mezzanine across the near wall; the railing bows out ~25 ft in the middle (photo #143; side sections uncertain)
     },
-    areas: [{ id: 'dance', preset: 'dance', label: 'Dance floor', x: 17, y: 13, w: 16, h: 18 }],
+    areas: [
+      { id: 'dance', preset: 'dance', label: 'Dance floor', x: 15, y: 28, w: 20, h: 20 },   // 20 × 20 mid-hall, room for a ~25 ft first-dance ring
+      { id: 'cake', preset: 'cake', label: 'Cake', x: 36.5, y: 3, w: 4, h: 4 },                // ~4 ft table beside the sweetheart table (in the bay for 'Head on stage')
+      { id: 'dj', preset: 'dj', label: 'DJ', x: 0.5, y: 17, w: 4, h: 8 },                    // ~8 × 4 ft on the stage-side long wall, not in the bay
+      { id: 'bar', preset: 'bar', label: 'Bar', x: 34.5, y: 71, w: 9, h: 3.5 },             // ~9 × 3.5 ft in the balcony-end wall corner beside the right corner door
+    ],
   };
 }
 
 // Tap-to-add areas (feet). Betel can resize these; the room, doors and stage can't be changed.
 export const AREA_PRESETS = {
-  dance: { label: 'Dance floor', w: 16, h: 18 },
+  dance: { label: 'Dance floor', w: 20, h: 20 },
   bar: { label: 'Bar', w: 10, h: 4 },
   dj: { label: 'DJ', w: 8, h: 4 },
-  cake: { label: 'Cake', w: 5, h: 5 },
+  cake: { label: 'Cake', w: 4, h: 4 },
   gifts: { label: 'Gifts & cards', w: 6, h: 3 },
   escort: { label: 'Escort cards & guest book', w: 8, h: 3 },
   coffee: { label: 'Coffee ceremony', w: 8, h: 8 },
@@ -186,66 +197,101 @@ export const AREA_PRESETS = {
 
 /* ---------- Spaces: ceremony → cocktail hour → reception ----------
    Reception = the ballroom above (state.room / state.tables, unchanged so the 3D view, guests and auto-seat keep working).
-   Ceremony + cocktail live in state.spaces. Only VENUE.md facts are drawn; their sizes and outlines are NOT known —
-   every w/h/x/y below is an APPROXIMATE working layout until Morais shares a floor plan. */
+   Ceremony + cocktail live in state.spaces. Seeded from the Knot photos (VENUE-PHOTOS.md): the ceremony is on the LAWN at the pergola (rain plan: indoors at the
+   stage bay), cocktail hour in the courtyard / terrace. Their overall sizes are NOT known — every w/h/x/y below is an APPROXIMATE working layout until Morais shares a floor plan.
+   Saved plans keep whatever space they already have; only fresh plans (or a missing space) get these seeds.
+   \`kind\` says which tools a space uses (ceremony rows + wedding party, or cocktail tables). */
 export const SPACES = [
-  { id: 'ceremony', label: 'Ceremony', areas: ['altar', 'aisle', 'escort', 'custom'], add: 'row' },
-  { id: 'cocktail', label: 'Cocktail', areas: ['lounge', 'highbar', 'escort', 'custom'], add: 'high' },
-  { id: 'reception', label: 'Reception', areas: ['dance', 'bar', 'dj', 'cake', 'gifts', 'escort', 'coffee', 'lounge', 'booth', 'custom'], add: 'tables' },
+  { id: 'ceremony', kind: 'ceremony', label: 'Ceremony', areas: ['altar', 'aisle', 'escort', 'custom'], add: 'row' },
+  { id: 'indoor', kind: 'ceremony', label: 'Indoor', areas: ['aisle', 'escort', 'custom'], add: 'row' },
+  { id: 'cocktail', kind: 'cocktail', label: 'Cocktail', areas: ['lounge', 'highbar', 'escort', 'custom'], add: 'high' },
+  { id: 'reception', kind: 'reception', label: 'Reception', areas: ['dance', 'bar', 'dj', 'cake', 'gifts', 'escort', 'coffee', 'lounge', 'booth', 'custom'], add: 'tables' },
 ];
 
 const sid = (p, i) => `${p}${i + 1}`;
-/** Ceremony rows for ~60: 6 rows a side × 5 chairs, 6 ft center aisle, 3 ft row pitch, altar at the far end. */
-function seedCeremony() {
-  const w = 40, h = 60, cx = w / 2, aisle = 6, perRow = 5, rows = 6, pitch = 3, y0 = 19; // rows start below the standing wedding party
+/** Ceremony rows for ~60: 6 rows a side × 5 chairs, 3 ft row pitch; `axis` = x of the aisle, `y0` = first row. */
+function ceremonyRows(axis, aisle, y0, perRow = 5, rows = 6, pitch = 3) {
   const half = (perRow * 2) / 2 + 0.5;                 // row half-width (2 ft per chair) + a little air
-  const xs = [cx - aisle / 2 - half, cx + aisle / 2 + half];
+  const xs = [axis - aisle / 2 - half, axis + aisle / 2 + half];
   const tables = [];
   for (let r = 0; r < rows; r++) xs.forEach((x, k) => tables.push({ id: sid(k ? 'cr' : 'cl', r), name: `${r + 1}${k ? 'R' : 'L'}`, shape: 'row', seats: perRow, x, y: y0 + r * pitch, rot: 0, o: r * 2 + k }));
-  // Courtyard facts: grass-grid stone pavers, classical statues on plinths, clipped hedges, Italian cypress
-  const cypress = [8, 20, 32, 44, 52].flatMap((y) => [{ kind: 'cypress', x: 1, y: y - 1.2, w: 2.4, h: 2.4, block: true }, { kind: 'cypress', x: w - 3.4, y: y - 1.2, w: 2.4, h: 2.4, block: true }]);
+  return tables;
+}
+const teamParty = () => ({ grooms: 0, order: { b: SEED_PEOPLE.map((p) => p.id), g: [] } }); // bridesmaids = the team
+/**
+ * Pergola on the lawn (Knot photos #022, #099, #107): white pergola ≈ 36 × 15 ft on columns with a stone balustrade and the pond behind it, a ~6 ft pea-gravel aisle,
+ * ~150 white resin chairs on grass in two blocks, row pitch ≈ 3 ft. The wedding party stands in ONE line each side of the couple. Distance from the building (≈100+ ft) is unknown.
+ */
+function seedCeremony() {
+  const w = 44, h = 64, cx = w / 2, aisle = 6, y0 = 20; // rows start below the pergola and the standing wedding party
   return {
     room: {
-      name: 'Garden courtyard', w, h, approx: true, floor: 'pavers',
-      party: { grooms: 0, order: { b: SEED_PEOPLE.map((p) => p.id), g: [] } }, // bridesmaids = the team
+      name: 'Pergola lawn', w, h, approx: true, floor: 'lawn', minRow: y0,
+      party: teamParty(),
       fixed: {
-        openings: [{ wall: 'bottom', at: cx, kind: 'entrance', w: 6 }],
+        openings: [],
         decor: [
-          { kind: 'hedge', x: 0, y: 0, w: 14, h: 2, block: true }, { kind: 'hedge', x: w - 14, y: 0, w: 14, h: 2, block: true },
-          { kind: 'statue', x: 4, y: 4, w: 2.4, h: 2.4, block: true }, { kind: 'statue', x: w - 6.4, y: 4, w: 2.4, h: 2.4, block: true },
-          ...cypress,
+          { kind: 'balustrade', x: 0, y: 0, w, h: 1.4, block: true, label: 'Pond · balustrade' },
+          { kind: 'pergola', x: cx - 18, y: 2.5, w: 36, h: 15, block: true, label: 'Pergola' },
         ],
       },
       areas: [
-        { id: 'altar', preset: 'altar', label: 'Altar', x: cx - 5, y: 4, w: 10, h: 5 },
-        { id: 'aisle', preset: 'aisle', label: 'Aisle', x: cx - aisle / 2, y: 11, w: aisle, h: 40 },
+        { id: 'altar', preset: 'altar', label: 'Altar', x: cx - 3, y: 4, w: 6, h: 5 },
+        { id: 'aisle', preset: 'aisle', label: 'Gravel aisle', x: cx - aisle / 2, y: 17.5, w: aisle, h: h - 17.5 - 2 },
       ],
     },
-    tables,
+    tables: ceremonyRows(cx, aisle, y0),
   };
 }
-/** Cocktail hour: high-tops + the leather lounge by the fireplace; carved bar in the octagonal sunroom. */
-function seedCocktail() {
-  const w = 44, h = 34;
-  const high = [[18.5, 8], [28, 8], [21, 19], [32, 19], [26, 29]].map(([x, y], i) => ({ id: sid('ht', i), name: String(i + 1), shape: 'round', seats: 4, high: true, x, y, rot: 0, o: i }));
+/**
+ * Rain plan: the ballroom turned so the stage bay is at the top (Knot photos #100, #061, #104): aisle runs across the room toward the bay,
+ * rows parallel to the stage wall, the wedding party stands on the floor at the foot of the steps, the couple on the platform. APPROXIMATE (±3 ft).
+ */
+function seedIndoor() {
+  const w = 75, h = 50, cx = 34, aisle = 6, y0 = 13; // bay center ≈ 34 ft from the balcony end (left); first row ≈ 6 ft past the party
+  const door = (wall, at, kind, dw, style) => ({ wall, at, kind, w: dw, style, approx: true });
   return {
     room: {
-      name: 'Tasting room', w, h, approx: true, floor: 'tile',
+      name: 'Indoor ceremony', w, h, approx: true, cx, minRow: y0,
+      party: teamParty(),
       fixed: {
-        openings: [{ wall: 'bottom', at: 14, kind: 'entrance', w: 6 }],
-        decor: [
-          { kind: 'fireplace', x: 0, y: 11, w: 2.5, h: 8, block: true, label: 'Fireplace' },
-          { kind: 'wine', x: 6, y: 0, w: 22, h: 1.4, block: true },
-          { kind: 'sunroom', x: 32, y: 0, w: 12, h: 14, label: 'Bar' },
-          { kind: 'bar', x: 35, y: 3.5, w: 6, h: 2.2, block: true },
+        openings: [
+          ...[7, 16, 25, 34, 43].map((at) => door('right', at, 'french', 5)),                 // the 5 arched doors (far wall of the hall)
+          door('left', 16, 'entrance', 5, 'double'), door('left', 31, 'entrance', 5, 'double'), door('left', 4, 'french', 3, 'single'), door('left', 46, 'french', 3, 'single'),
         ],
+        stage: { wall: 'top', cx, cy: 0, r: 10, d: 15, steps: 3, stepD: 4.5, keep: 8 },
       },
-      areas: [{ id: 'lounge', preset: 'lounge', label: 'Lounge', x: 5, y: 9, w: 9, h: 10 }],
+      areas: [{ id: 'aisle', preset: 'aisle', label: 'Aisle', x: cx - aisle / 2, y: 9, w: aisle, h: h - 11 }],
     },
-    tables: high,
+    tables: ceremonyRows(cx, aisle, y0),
   };
 }
-export const seedSpaces = () => ({ ceremony: seedCeremony(), cocktail: seedCocktail() });
+/**
+ * Cocktail hour in the front courtyard (Knot photos #056, #101, #001): U-shaped building, light concrete paving, a round stone fountain left of center (≈13 ft),
+ * a big tree, black wrought-iron bistro tables (2-4 seats) along the building edges and under the tree. Overall size is an estimate.
+ */
+function seedCocktail() {
+  const w = 60, h = 50;
+  const bistro = [[13, 9], [27, 9], [41, 9], [10.5, 17], [10.5, 27], [49, 17], [41, 30], [49, 31]].map(([x, y], i) => ({ id: sid('ht', i), name: String(i + 1), shape: 'round', seats: 3, x, y, rot: 0, o: i }));
+  return {
+    room: {
+      name: 'Courtyard', w, h, approx: true, floor: 'concrete', bistro: true,
+      fixed: {
+        openings: [],
+        decor: [
+          { kind: 'building', x: 0, y: 0, w, h: 5, block: true, label: 'Building' },
+          { kind: 'building', x: 0, y: 5, w: 6, h: 30, block: true },
+          { kind: 'building', x: w - 6, y: 5, w: 6, h: 30, block: true },
+          { kind: 'fountain', x: 17.5, y: 17, w: 13, h: 13, block: true, pad: 3, label: 'Fountain' },   // keep-out ring around the basin
+          { kind: 'tree', x: 40, y: 24, w: 11, h: 11, label: 'Tree' },                                  // canopy only: tables may sit under it
+        ],
+      },
+      areas: [],
+    },
+    tables: bistro,
+  };
+}
+export const seedSpaces = () => ({ ceremony: seedCeremony(), indoor: seedIndoor(), cocktail: seedCocktail() });
 
 /* ---------- Morais' own album (shown beside the 3D view; order is Betel's, saved as state.morais) ---------- */
 export const MORAIS_PHOTOS = [
