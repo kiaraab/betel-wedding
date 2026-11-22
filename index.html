@@ -62,7 +62,7 @@
     const gate = document.getElementById('gate');
     const enter = () => { document.body.classList.remove('locked'); import('./js/app.js'); };
     let ok = false;
-    try { ok = localStorage.getItem(KEY) === HASH && !/[?&]gate/.test(location.search); } catch { /* storage blocked: ask every time */ }
+    try { ok = localStorage.getItem(KEY) === HASH && !/[?&]gate(?:[=&#]|$)/.test(location.search); } catch { /* storage blocked: ask every time */ }
     if (ok) { gate.remove(); enter(); }
     else {
       gate.hidden = false;

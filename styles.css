@@ -3025,3 +3025,72 @@ body.seat-on .vow .plan-card { background: #3a4130; border: 0; -webkit-backdrop-
 .guide-q.new, body[data-route] .guide-q.new { background: #2f4a2c; color: #fbf7ef; border-color: rgba(255, 255, 255, .35); }
 .guide-q svg { display: block; }
 .guide-q:focus-visible { outline: 2px solid #26311f; outline-offset: 3px; }
+
+/* --- history grouping --- */
+.hist.hg { width: min(380px, 100%); background: rgba(251, 248, 243, .97); gap: 8px; border-radius: 6px 0 0 6px; }
+.hg header h2 { font: 500 22px/1.2 var(--display); color: var(--ink); }
+.hg-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--ink); }
+.hg-sw { position: relative; width: 34px; height: 20px; padding: 0; border: 1px solid var(--ink-soft); border-radius: 4px; background: var(--card); cursor: pointer; flex: none; }
+.hg-sw i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 2px; background: var(--ink-soft); }
+.hg-sw[aria-checked="true"] { background: #2f4a2c; border-color: #2f4a2c; }
+.hg-sw[aria-checked="true"] i { left: 16px; background: #fff; }
+.hg-scroll { flex: 1; min-height: 0; overflow-y: auto; display: block; }
+.hg-scroll .hist-empty { margin: 8px 0; }
+.hg-cur, .hg-v { display: grid; gap: 1px; width: 100%; text-align: left; border: 0; border-radius: 3px; background: none; color: var(--ink); cursor: pointer; font: inherit; }
+.hg-cur { position: sticky; top: 0; z-index: 1; padding: 9px 10px; margin-bottom: 2px; background: var(--card); border: 1px solid var(--line-strong); }
+.hg-cur b { font: 600 13px var(--sans); }
+.hg-cur span { font-size: 12px; color: var(--ink-soft); }
+.hg-day { margin: 16px 0 4px; padding: 0 10px 6px; border-bottom: 1px solid var(--line); font: 600 11px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+.hg-days, .hg-det { list-style: none; margin: 0; padding: 0; }
+.hg-sess { border-bottom: 1px solid var(--line); }
+.hg-sess:last-child { border-bottom: 0; }
+.hg-row { display: flex; align-items: flex-start; gap: 2px; }
+.hg-chev { flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin-top: 4px; padding: 0; border: 0; border-radius: 3px; background: none; color: var(--ink-soft); cursor: pointer; }
+.hg-chev[aria-expanded="true"] svg { transform: rotate(90deg); }
+.hg-sum { flex: 1; min-width: 0; display: grid; gap: 1px; padding: 8px 6px 8px 2px; }
+.hg-det { padding: 0 0 6px 30px; }
+.hg-v { padding: 7px 10px; }
+.hg-sess > .hg-v { padding-left: 38px; }
+.hg-t { font: 500 13px var(--sans); color: var(--ink); font-variant-numeric: tabular-nums; }
+.hg-sum b, .hg-v b { font: 700 13px var(--sans); color: var(--ink); overflow-wrap: anywhere; }
+.hg-s { font-size: 12px; color: var(--ink-soft); }
+.hg-cur:hover, .hg-v:hover { background: var(--paper); }
+.hg-cur.on, .hg-v.on { background: var(--paper-2); box-shadow: inset 2px 0 0 #2f4a2c; }
+.hg-cur:focus-visible, .hg-v:focus-visible, .hg-chev:focus-visible, .hg-sw:focus-visible, .hg-restore:focus-visible, .hg-sec:focus-visible, .hg-name input:focus-visible { outline: 2px solid #2f4a2c; outline-offset: 1px; }
+.hg-peek { gap: 8px; max-height: 46%; overflow-y: auto; }
+.hg-when { margin: 0; font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.hg-diff { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 13px; color: var(--ink); }
+.hg-diff li { padding-left: 10px; border-left: 1px solid var(--line-strong); }
+.hg-name { display: grid; gap: 4px; }
+.hg-name label { font-size: 12px; color: var(--ink-soft); }
+.hg-name div { display: flex; gap: 6px; }
+.hg-name input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--card); font: 13px var(--sans); color: var(--ink); }
+.hg-sec { padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 3px; background: none; color: var(--ink); font: 500 13px var(--sans); cursor: pointer; }
+.hg-sec:hover { background: var(--paper); }
+.hg-restore { width: 100%; padding: 10px 14px; border: 0; border-radius: 4px; background: #2f4a2c; color: #fff; font: 600 14px var(--sans); cursor: pointer; }
+.hg-restore:hover { background: #263d24; }
+@media (forced-colors: active) { .hg-cur.on, .hg-v.on { outline: 1px solid Highlight; } }
+
+/* --- review fixes --- */
+/* phone: "Experience the evening" gets its own row above the 3D / Floor plan toggle */
+@media (max-width: 760px) {
+  .vow .hero-exp { bottom: 72px; right: 16px; left: auto; }
+}
+/* clearance conflicts: a real button that opens a short list */
+.plan-meta { position: relative; }
+.pm-clear { min-height: 32px; padding: 0 4px; border: 0; background: none; font: inherit; letter-spacing: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.pm-clear:hover { color: #2b2622; }
+.pm-clear.bad:hover { color: #6b1f2a; }
+.pm-clear:focus-visible, .pm-item:focus-visible { outline: 2px solid #6b1f2a; outline-offset: 2px; }
+.pm-clear-list { position: absolute; right: 12px; top: 100%; z-index: 12; min-width: 260px; max-width: calc(100% - 24px); margin-top: 4px; padding: 6px; background: #fdfaf4; color: #2b2622; border: 1px solid var(--line-strong); border-radius: 6px; box-shadow: 0 10px 28px -14px rgba(31, 38, 26, .5); }
+.pm-clear-list[hidden] { display: none; }
+.pm-clear-list p { margin: 0; padding: 8px 10px; font: 400 13px var(--sans); }
+.pm-item { display: block; width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-radius: 3px; background: none; color: #2b2622; font: 500 13px var(--sans); letter-spacing: 0; text-align: left; cursor: pointer; }
+.pm-item:hover { background: #f1e9db; }
+.plan .tbl.clash-pick .clash-ring { stroke-width: .7; stroke-dasharray: none; }
+/* couple rows: a fixed label instead of Side / RSVP selects */
+.couple-tag { display: inline-block; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 3px; font: 500 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+/* in-page prompt dialog (email confirmation) */
+.cd-field { display: grid; gap: 6px; margin-top: 12px; font: 500 12px var(--sans); color: var(--ink-soft); }
+.cd-field .input { width: 100%; box-sizing: border-box; }
+.cd-acts button[type="submit"] { font: 500 13px var(--sans); }

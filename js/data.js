@@ -223,7 +223,7 @@ const teamParty = () => ({ grooms: 0, order: { b: SEED_PEOPLE.map((p) => p.id), 
  * Pergola on the lawn (Knot photos #022, #099, #107): white pergola ≈ 36 × 15 ft on columns with a stone balustrade and the pond behind it, a ~6 ft pea-gravel aisle,
  * ~150 white resin chairs on grass in two blocks, row pitch ≈ 3 ft. The wedding party stands in ONE line each side of the couple. Distance from the building (≈100+ ft) is unknown.
  */
-function seedCeremony() {
+export function seedCeremony() {
   const w = 44, h = 64, cx = w / 2, aisle = 6, y0 = 20; // rows start below the pergola and the standing wedding party
   return {
     room: {
@@ -271,7 +271,7 @@ function seedIndoor() {
  * Cocktail hour in the front courtyard (Knot photos #056, #101, #001): U-shaped building, light concrete paving, a round stone fountain left of center (≈13 ft),
  * a big tree, black wrought-iron bistro tables (2-4 seats) along the building edges and under the tree. Overall size is an estimate.
  */
-function seedCocktail() {
+export function seedCocktail() {
   const w = 60, h = 50;
   const bistro = [[13, 9], [27, 9], [41, 9], [10.5, 17], [10.5, 27], [49, 17], [41, 30], [49, 31]].map(([x, y], i) => ({ id: sid('ht', i), name: String(i + 1), shape: 'round', seats: 3, x, y, rot: 0, o: i }));
   return {

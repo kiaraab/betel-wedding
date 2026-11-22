@@ -8,7 +8,7 @@
  *  - After that every save is pushed (debounced); remote changes are merged part by part (store.mergeRemote).
  */
 import { onSave, mergeRemote, snapshot } from './store.js';
-import { esc, toast } from './util.js';
+import { esc, toast, promptDialog } from './util.js';
 import { setSharedKey, registerShare } from './ai.js';
 
 const CONFIG = {
@@ -32,6 +32,10 @@ let role = 'out';       // out | pending (signed in, not approved) | editor | ow
 let status = 'Offline';
 let failed = false;     // the last connect attempt failed (the Live panel offers Retry)
 let unsub = null, pushTimer = null, lastPushed = '', applying = false;
+let listening = false;  // the snapshot listener is attached and healthy; pushes pause while it is not
+let held = false;       // edits made while not Live: after reconnecting they are pushed instead of being replaced by the remote copy
+let retryTimer = null, retryN = 0, denied = false, pushRetry = null;
+const BACKOFF = [2000, 5000, 15000, 60000];
 const watchers = new Set();
 const store = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* storage blocked */ } };
 const fetchKey = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -74,7 +78,9 @@ function take(d) {
 
 async function startLive() {
   const first = await fb.F.getDoc(planRef());
-  if (first.exists()) {
+  if (first.exists() && held) {
+    await push(true);
+  } else if (first.exists()) {
     if (fetchKey(SYNCED_KEY) !== '1') store('betel-carter-atelier-before-sync', JSON.stringify(snapshot()));
     take(first.data());
   } else {
@@ -84,30 +90,62 @@ async function startLive() {
   loadSharedKey();
   unsub?.();
   unsub = fb.F.onSnapshot(planRef(), (snap) => {
+    listening = true; retryN = 0;
     if (!snap.exists() || snap.metadata.hasPendingWrites) return;
     const d = snap.data();
     if (d.by === CLIENT) return; // my own write coming back
     take(d);
-  }, (e) => { console.warn('[sync] listener error', e?.code || e?.message || e); status = 'Reconnecting…'; emit(); });
+  }, (e) => {
+    // a listener that errors is finished: drop it, stop pushing, and re-subscribe with a growing delay
+    console.warn('[sync] listener error', e?.code || e?.message || e);
+    listening = false;
+    unsub?.(); unsub = null;
+    clearTimeout(pushTimer);
+    if (e?.code === 'permission-denied') { denied = true; status = 'No access'; failed = true; emit(); return; }
+    status = 'Reconnecting…'; emit();
+    scheduleReconnect();
+  });
+  listening = true; denied = false;
   status = 'Live';
   emit();
 }
 
+function scheduleReconnect() {
+  clearTimeout(retryTimer);
+  const wait = BACKOFF[Math.min(retryN, BACKOFF.length - 1)];
+  retryN++;
+  retryTimer = setTimeout(async () => {
+    if (!user || !isEditor() || denied) return;
+    try { await withTimeout(startLive(), 20000); retryN = 0; }
+    catch (e) {
+      console.warn('[sync] reconnect failed', e?.code || e?.message || e);
+      if (e?.code === 'permission-denied') { denied = true; status = 'No access'; failed = true; emit(); return; }
+      status = 'Reconnecting…'; emit(); scheduleReconnect();
+    }
+  }, wait);
+}
+
 async function push(force = false) {
   if (!fb || !user || !isEditor()) return;
+  if (!force && (!listening || denied)) return; // not Live: hold the edit (the next successful reconnect pushes the whole plan)
   const data = JSON.stringify(snapshot());
   if (!force && data === lastPushed) return;
   if (data.length > MAX_BYTES) { status = 'Too big to sync'; emit(); toast('The plan is too large to sync (probably photos). Remove a few photos.'); return; }
   try {
     await fb.F.setDoc(planRef(), { data, by: CLIENT, who: user.email, at: fb.F.serverTimestamp() });
-    lastPushed = data;
+    lastPushed = data; held = false;
     status = 'Live';
-  } catch (e) { console.warn('[sync] save failed', e?.code || e?.message || e); status = 'Not saved, retrying'; setTimeout(() => push(), 4000); }
+  } catch (e) {
+    console.warn('[sync] save failed', e?.code || e?.message || e);
+    if (e?.code === 'permission-denied') { denied = true; status = 'No access'; failed = true; }
+    else { status = 'Not saved, retrying'; clearTimeout(pushRetry); pushRetry = setTimeout(() => push(), 4000); }
+  }
   emit();
 }
 
 onSave(() => {
-  if (applying || !fb || !isEditor()) return;
+  if (applying || !fb || !isEditor() || denied) return;
+  if (!listening) held = true;
   clearTimeout(pushTimer);
   pushTimer = setTimeout(() => push(), 700);
 });
@@ -117,6 +155,7 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeo
 async function onUser(u) {
   user = u;
   unsub?.(); unsub = null;
+  listening = false; denied = false; retryN = 0; clearTimeout(retryTimer); clearTimeout(pushRetry);
   failed = false;
   if (!u) { role = 'out'; status = 'Offline'; emit(); return; }
   status = 'Connecting…'; emit();
@@ -142,7 +181,7 @@ export async function initSync() {
   catch (e) { console.warn('[sync] could not load Firebase:', e?.code || e?.message || e); failed = true; status = 'Could not connect (offline?)'; emit(); return; }
   if (A.isSignInWithEmailLink(auth, location.href)) {
     let email = fetchKey(EMAIL_KEY) || '';
-    if (!email) email = window.prompt('Confirm your email to finish signing in') || '';
+    if (!email) email = await promptDialog({ title: 'Confirm your email', label: 'Email you signed in with', type: 'email', confirmLabel: 'Finish signing in' });
     try { await A.signInWithEmailLink(auth, email.trim().toLowerCase(), location.href); store(ON_KEY, '1'); toast('Signed in'); }
     catch (e) { console.warn('[sync] sign-in link failed:', e?.code || e?.message || e); toast('That sign-in link did not work. Send a new one.'); }
     history.replaceState(null, '', location.pathname + (location.hash || '#overview'));

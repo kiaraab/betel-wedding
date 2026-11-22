@@ -1,4 +1,4 @@
-import { state, commit as baseCommit, uid, undoable, exportJSON, importJSON } from './store.js';
+import { state, commit as baseCommit, uid, undoable, exportJSON, importJSON, isSeated } from './store.js';
 import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
 import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers, clearanceIssues } from './layout.js';
 import { esc, toast } from './util.js';
@@ -21,9 +21,7 @@ let inkFrom = null;       // where the tab underline glides from after a space s
 /** The space being edited: the reception lives at the top of the plan (room/tables), the others in state.spaces. */
 function SP() {
   if (space === 'reception') return state;
-  state.spaces ||= {};
-  state.spaces[space] ||= seedSpaces()[space];
-  return state.spaces[space];
+  return state.spaces?.[space] || seedSpaces()[space]; // store.healSeats() fills missing spaces at load; this is only a safety net
 }
 const spaceInfo = () => ({ ...SPACES.find((x) => x.id === space), label: SPACE_LABEL[space] || SPACES.find((x) => x.id === space).label });
 const TAB_ORDER = ['ceremony', 'indoor', 'reception', 'cocktail', 'tasting']; // pergola lawn · rain plan in the bay · ballroom · hangout spot last
@@ -35,7 +33,7 @@ function spaceLede() {
   const ts = SP().tables, seats = ts.reduce((n, t) => n + seatCount(t), 0);
   if (kindOf() === 'ceremony') return `${seats} seats · ${new Set(ts.map((t) => t.y)).size} rows`; // rows = lines of chairs (left + right halves count once)
   if (kindOf() === 'cocktail') return SP().room.bistro ? `${ts.length} bistro tables · ${seats} seats` : `${ts.length} high-tops · ${seats} stools`;
-  return `${state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
+  return `${state.guests.filter((g) => isSeated(g) && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
 }
 let units = (() => { try { return localStorage.getItem('seat-units') === 'm' ? 'm' : 'ft'; } catch { return 'ft'; } })(); // plan dimension units (display only; data stays in feet)
 let showPhotos = false;  // plan toolbar 'Photos': seated guests with a picture show it in their seat
@@ -49,7 +47,7 @@ let modeAnim = false;    // the plan <-> 3D switch just happened: the stage ease
 let enterAnim = false;   // play the "tables glide in" animation on next draw
 const lastFilled = new Map(); // tableId -> seated count last drawn (for the seat "pop")
 
-const guestsAt = (tid) => state.guests.filter((g) => (space === 'reception' ? g.tableId : g.cRow) === tid); // ceremony seats live in g.cRow
+const guestsAt = (tid) => state.guests.filter((g) => (space === 'reception' ? g.tableId : g.cRow?.[space]) === tid); // ceremony seats live in g.cRow
 const going = () => state.guests.filter((g) => g.rsvp !== 'Declined');
 const listFor = (kind) => (kind === 'area' ? SP().room.areas : SP().tables);
 const findItem = (s) => s && listFor(s.kind).find((x) => x.id === s.id);
@@ -70,7 +68,7 @@ const seatKey = (g) => (colorBy === 'side' ? (SIDE_COLOR[g.side] ? g.side : 'Bot
 const seatColor = (g) => (g && colorBy !== 'off' ? (colorBy === 'side' ? SIDE_COLOR : REL_COLOR)[seatKey(g)] : null);
 function legendHTML() {
   if (colorBy === 'off' || space !== 'reception') return '';
-  const used = new Set(state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').map(seatKey));
+  const used = new Set(state.guests.filter((g) => isSeated(g) && g.rsvp !== 'Declined').map(seatKey));
   const pal = colorBy === 'side' ? SIDE_COLOR : REL_COLOR;
   return Object.keys(pal).filter((k) => used.has(k)).map((k) => `<span><i style="background:${pal[k]}"></i>${esc(k || 'No relation')}</span>`).join('');
 }
@@ -663,7 +661,7 @@ export function renderSeating(root) {
           ${vow ? '' : toolsHTML}
           <div class="stage-wrap" id="stageWrap">
             ${vow ? toolsHTML : ''}
-            ${mode === 'plan' ? '<div class="plan-meta" id="planMeta"><span class="pm-dim"><span id="pmDim"></span><button type="button" class="pm-units" id="pmUnits" aria-label="Switch units"></button></span><span class="pm-clear" id="pmClear" role="status"></span></div>' : ''}
+            ${mode === 'plan' ? '<div class="plan-meta" id="planMeta"><span class="pm-dim"><span id="pmDim"></span><button type="button" class="pm-units" id="pmUnits" aria-label="Switch units"></button></span><button type="button" class="pm-clear" id="pmClear" aria-haspopup="true" aria-expanded="false" aria-controls="pmClearList"></button><div class="pm-clear-list" id="pmClearList" role="group" aria-label="Clearance conflicts" hidden></div></div>' : ''}
             <div id="planHost"></div>
             <div class="color-legend" id="legend"${rec && mode === 'plan' && legendHTML() ? '' : ' hidden'}>${rec ? legendHTML() : ''}</div>
             <div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
@@ -803,7 +801,21 @@ export function renderSeating(root) {
     const c = clearanceIssues(r, SP().tables, kindOf() === 'cocktail' ? 1.5 : 3.5); // standing high-tops need less aisle than seated rounds
     clr.textContent = c.items.length ? `Clearance: ${c.items.length} conflict${c.items.length > 1 ? 's' : ''}` : 'Clearance: no conflicts';
     clr.classList.toggle('bad', c.items.length > 0);
-    clr.title = c.items.map((i) => i.msg).join('\n');
+    clr.removeAttribute('title');
+    const list = root.querySelector('#pmClearList');
+    if (list) {
+      list.innerHTML = c.items.length ? c.items.map((it, k) => `<button type="button" class="pm-item" data-ci="${k}">${esc(it.short)}</button>`).join('') : '<p>Every table has room to walk around it.</p>';
+      list.querySelectorAll('.pm-item').forEach((b) => b.onclick = () => {
+        const it = c.items[+b.dataset.ci]; if (!it) return;
+        partySel = null; sel = { kind: 'table', id: it.ids[0] }; drawPlan();
+        it.ids.forEach((id) => host.querySelector(`.tbl[data-id="${CSS.escape(id)}"]`)?.classList.add('clash-pick'));
+        const l2 = root.querySelector('#pmClearList'); if (l2) l2.hidden = false;
+        root.querySelector('#pmClear')?.setAttribute('aria-expanded', 'true');
+        root.querySelector(`#pmClearList [data-ci="${b.dataset.ci}"]`)?.focus();
+      });
+      clr.onclick = () => { const o = list.hidden; list.hidden = !o; clr.setAttribute('aria-expanded', String(o)); };
+      list.onkeydown = (e) => { if (e.key === 'Escape') { e.stopPropagation(); list.hidden = true; clr.setAttribute('aria-expanded', 'false'); clr.focus(); } };
+    }
     host.querySelectorAll('.tbl').forEach((g) => {
       if (!c.ids.has(g.dataset.id)) return;
       const t = SP().tables.find((x) => x.id === g.dataset.id), fp = t && footprint(t);
@@ -934,7 +946,8 @@ export function renderSeating(root) {
     commit({ silent: true });
     sel = null; if (!pop.hidden) closePop(true);
     flip = from; drawPlan(); flip = null; lede();
-    root.querySelectorAll('#sCount,#cCount,#hCount').forEach((i) => { i.value = state.guestTarget; });
+    root.querySelectorAll('#sCount,#hCount').forEach((i) => { i.value = state.guestTarget; });
+    root.querySelectorAll('#cCount').forEach((i) => { i.value = SP().room.chairs ?? state.guestTarget; });
     preview(); seatPanelRefresh();
   }
   function localUndo(message, mutate) {
@@ -1002,7 +1015,7 @@ export function renderSeating(root) {
       const mark = () => list?.querySelectorAll('li').forEach((el, i) => { el.classList.toggle('on', i === at); if (i === at) el.scrollIntoView({ block: 'nearest' }); });
       const show = () => {
         const q = input.value.trim().toLowerCase();
-        items = going().filter((g) => !g.tableId && (!q || g.name.toLowerCase().includes(q)))
+        items = going().filter((g) => !isSeated(g) && (!q || g.name.toLowerCase().includes(q)))
           .sort((a, b) => (b.name.toLowerCase().startsWith(q) - a.name.toLowerCase().startsWith(q)) || a.name.localeCompare(b.name)).slice(0, 30);
         at = -1;
         if (!items.length) return hide();
@@ -1027,7 +1040,7 @@ export function renderSeating(root) {
         const n = input.value.trim();
         if (!n) return;
         if (guestsAt(t.id).length >= seatCount(t)) return toast('Table is full');
-        let g = going().find((x) => !x.tableId && x.name.toLowerCase() === n.toLowerCase());
+        let g = going().find((x) => !isSeated(x) && x.name.toLowerCase() === n.toLowerCase());
         if (!g) { g = { id: uid(), name: n, side: 'Both', rsvp: 'Not invited yet', diet: '', tableId: null }; state.guests.push(g); toast(`${n} added to guests`); }
         g.tableId = t.id; input.onblur = null; refresh();
         const next = pop.querySelector('.slot-add');
@@ -1169,12 +1182,12 @@ export function renderSeating(root) {
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
       three = host.__three = threeInst = await m.mount(host, state, moodNow(), {
-        unseated: () => going().filter((g) => !g.tableId),
+        unseated: () => going().filter((g) => !isSeated(g)),
         // Seat someone from the 3D view (an existing unseated guest, or a new name)
         onSeat: (tableId, name) => {
           const t = SP().tables.find((x) => x.id === tableId);
           if (!t || guestsAt(tableId).length >= seatCount(t)) { toast('Table is full'); return false; }
-          let g = going().find((x) => !x.tableId && x.name.toLowerCase() === name.toLowerCase());
+          let g = going().find((x) => !isSeated(x) && x.name.toLowerCase() === name.toLowerCase());
           if (!g) { g = { id: uid(), name, side: 'Both', rsvp: 'Not invited yet', diet: '', tableId: null }; state.guests.push(g); }
           g.tableId = tableId;
           commit({ silent: true }); lede();
@@ -1270,7 +1283,7 @@ export function renderSeating(root) {
   };
   seatPanelRefresh = () => {
     const q = spQ.value.trim().toLowerCase();
-    const un = going().filter((g) => !g.tableId && g.party !== 'couple');
+    const un = going().filter((g) => !isSeated(g) && g.party !== 'couple');
     sp.querySelector('.sp-count').textContent = `Unseated (${un.length})`;
     const open = SP().tables.filter((t) => guestsAt(t.id).length < seatCount(t));
     spList.innerHTML = un.filter((g) => !q || g.name.toLowerCase().includes(q)).map((g) => `<li data-gid="${esc(g.id)}"><span>${esc(g.name)}</span><select aria-label="Seat ${esc(g.name)} at"><option value="">Seat at…</option>${open.map((t) => `<option value="${esc(t.id)}">${t.id === 'head' ? esc(t.name) : 'Table ' + esc(t.name)}</option>`).join('')}</select></li>`).join('') || `<li class="empty">${un.length ? 'No match' : 'Everyone has a seat'}</li>`;
@@ -1295,7 +1308,7 @@ export function renderSeating(root) {
   seatPanelRefresh();
   }
 
-  if (!rec) wireSpaceTools(root, kindOf(), { state, SP, commit, toast, pool: partyPool, draw: () => drawPlan(), lede: () => lede(),
+  if (!rec) wireSpaceTools(root, kindOf(), { space, state, SP, commit, toast, pool: partyPool, draw: () => drawPlan(), lede: () => lede(),
     undoable: (msg, fn) => localUndo(msg, fn), animate: () => { closePop(); view = null; zoomBack = null; },
     selectParty: (key) => { partySel = partySel === key ? null : key; drawPlan(); markChips(); }, partySel: () => partySel });
 
@@ -1332,7 +1345,7 @@ const fromLen = (v) => (units === 'm' ? v / 0.3048 : v);
 /** 'N tables · S seats · U unseated' for the reception. */
 function statsText() {
   const ts = state.tables, seats = ts.reduce((n, t) => n + seatCount(t), 0);
-  const un = going().filter((g) => !g.tableId && g.party !== 'couple').length;
+  const un = going().filter((g) => !isSeated(g) && g.party !== 'couple').length;
   return `${ts.length} tables · ${seats} seats · ${un} unseated`;
 }
 const VS_TABS = [['layout', 'Layout', '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16M12 4v16"/>'], ['guests', 'Seat guests', '<circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3.5 3-5 5.5-5s5 1.5 5.5 5M16 6.5a2.6 2.6 0 0 1 0 5M17.5 14.5c2 .5 3 2 3.3 4.5"/>'], ['look', 'Look', '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10.5" r="1.6"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5"/>']];
@@ -1356,7 +1369,7 @@ function vowSideHTML(info) {
         <div class="vs-sec" id="inspector"><h3 class="caps">In your plan</h3><div id="inspBody"></div></div>` : `
         <div class="vs-sec"><h3 class="caps">Set the scene</h3><p class="vs-note">Drag to look around, scroll to zoom. Tap a chair to seat someone.</p>
           <button type="button" class="btn moss sm" data-mode="plan">Edit the floor plan</button></div>`}</section>
-      <section class="vs-pane" data-pane="guests">${plan ? seatPanelHTML() : `<div class="vs-sec"><h3 class="caps">Seat guests</h3><p class="vs-note" id="vsUn">${going().filter((g) => !g.tableId && g.party !== 'couple').length} guests still need a seat.</p><button type="button" class="btn moss sm" data-mode="plan">Seat in the floor plan</button></div>`}</section>
+      <section class="vs-pane" data-pane="guests">${plan ? seatPanelHTML() : `<div class="vs-sec"><h3 class="caps">Seat guests</h3><p class="vs-note" id="vsUn">${(() => { const n = going().filter((g) => !isSeated(g) && g.party !== 'couple').length; return n ? `${n} guest${n > 1 ? 's' : ''} still need${n > 1 ? '' : 's'} a seat.` : 'Everyone has a seat.'; })()}</p><button type="button" class="btn moss sm" data-mode="plan">Seat in the floor plan</button></div>`}</section>
       <section class="vs-pane vs-ref" data-pane="ref">${refHTML(true)}</section>
     </div>`;
 }

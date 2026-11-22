@@ -73,10 +73,12 @@ export function suggestCeremony(room, n, pool) {
 }
 
 const REL_RANK = { Parent: 0, 'Close relative': 1, Relative: 3, 'Close friend': 4, Friend: 5, '': 6, 'Plus-one': 6, Colleague: 7 };
-/** Seat ceremony guests by side (Betel left, Carter right), family nearest the front, 'together' groups side by side. Stored as g.cRow. */
-export function seatCeremony(guests, rows, links = []) {
+/** Seat ceremony guests by side (Betel left, Carter right), family nearest the front, 'together' groups side by side.
+ *  Stored per space as g.cRow[spaceId] (so seating the rain plan never wipes the outdoor seating). */
+export const setCSeat = (g, spaceId, rowId) => { if (rowId) g.cRow = { ...(typeof g.cRow === 'object' && g.cRow ? g.cRow : {}), [spaceId]: rowId }; else if (g.cRow && typeof g.cRow === 'object') { delete g.cRow[spaceId]; } };
+export function seatCeremony(guests, rows, links = [], spaceId = 'ceremony') {
   const eligible = guests.filter((g) => g.rsvp !== 'Declined' && g.party !== 'couple' && g.party !== 'team' && !['Bridesmaid', 'Groomsman'].includes(relationOf(g)));
-  eligible.forEach((g) => { g.cRow = null; });
+  eligible.forEach((g) => setCSeat(g, spaceId, null));
   const sides = { Betel: rows.filter((t) => t.id.startsWith('cl')).sort((a, b) => a.y - b.y), Carter: rows.filter((t) => t.id.startsWith('cr')).sort((a, b) => a.y - b.y) };
   const seats = (k) => sides[k].flatMap((t) => Array.from({ length: t.seats }, () => t.id));
   const free = { Betel: seats('Betel'), Carter: seats('Carter') };
@@ -90,7 +92,7 @@ export function seatCeremony(guests, rows, links = []) {
     for (const g of m) {
       const pref = side || (['Betel', 'Carter'].includes(g.side) ? g.side : free.Betel.length >= free.Carter.length ? 'Betel' : 'Carter');
       const k = free[pref].length ? pref : pref === 'Betel' ? 'Carter' : 'Betel';
-      if (free[k].length) { g.cRow = free[k].shift(); seated++; } else left++;
+      if (free[k].length) { setCSeat(g, spaceId, free[k].shift()); seated++; } else left++;
     }
   }
   return { seated, left };
@@ -147,7 +149,7 @@ export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' |
   if (space === 'ceremony') {
     const room = ctx.SP().room;
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
-      <div class="field-row"><label class="field">Guests<input class="input" id="cCount" type="number" min="2" max="300" value="${ctx.state.guestTarget}"/></label></div>
+      <div class="field-row"><label class="field">Guests<input class="input" id="cCount" type="number" min="2" max="300" value="${room.chairs ?? ctx.state.guestTarget}"/></label></div>
       <div id="partyBox">${partyHTML(room, ctx.pool(), ctx.partySel?.())}</div>
       <div class="acts">
         <div class="act"><button class="btn moss sm" id="cGo">Suggest ceremony</button><span class="tip" tabindex="0" role="note" data-tip="Rows of chairs with a center aisle for this many guests; grows the room if they don't fit. The wedding party stands either side of the altar.">ⓘ</span></div>
@@ -199,17 +201,17 @@ export function wireSpaceTools(root, space, ctx) {
       const grew = probe.h - room().h;
       ctx.animate();
       ctx.undoable(s.fits ? `${n} chairs · ${s.rows} rows${grew ? ' · room grown' : ''}` : `Only some rows fit`, () => {
-        state.guestTarget = n;
+        room().chairs = n; // chairs for THIS space only; the headcount (state.guestTarget) is not touched
         room().h = probe.h;
         SP().tables = s.tables;
         const a = room().areas.find((x) => x.preset === 'aisle');
         if (a && s.aisle) Object.assign(a, s.aisle);
-        state.guests.forEach((g) => { g.cRow = null; });
-        seatCeremony(state.guests, SP().tables, state.links || []);
+        state.guests.forEach((g) => setCSeat(g, ctx.space, null));
+        seatCeremony(state.guests, SP().tables, state.links || [], ctx.space);
       }, ctx.toast);
     };
     root.querySelector('#cSeat').onclick = () => {
-      const r = seatCeremony(state.guests, SP().tables, state.links || []);
+      const r = seatCeremony(state.guests, SP().tables, state.links || [], ctx.space);
       redraw();
       ctx.toast(r.seated || r.left ? `${r.seated} seated${r.left ? ` · ${r.left} need a chair` : ''}` : 'Everyone has a chair');
     };

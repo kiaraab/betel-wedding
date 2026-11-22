@@ -1,4 +1,4 @@
-import { SEED_PEOPLE, SEED_ROLES, seedTables, seedRoom, seedInspoStrip, MILESTONES, seedSpaces, MORAIS_PHOTOS } from './data.js';
+import { SEED_PEOPLE, SEED_ROLES, seedTables, seedRoom, seedInspoStrip, MILESTONES, seedSpaces, seedCeremony, seedCocktail, MORAIS_PHOTOS } from './data.js';
 
 const KEY = 'betel-carter-atelier';     // current plan lives here (versioned inside)
 const OLD_KEYS = ['betel-carter-atelier-v2'];
@@ -66,6 +66,55 @@ function load() {
 
 export const state = load();
 
+/*
+ * Self-healing (never moves or deletes her tables or guests):
+ *  - a guest whose tableId / cRow points at a table that no longer exists is set back to "unseated";
+ *  - cRow (ceremony chair) is now per space: { ceremony: 'cl1', indoor: 'cr2' }; an older plain string is the outdoor one;
+ *  - every space key exists, and a ceremony / cocktail space that still equals the OLD seed (Garden courtyard 40x60,
+ *    Tasting room 44x34 used as the hangout) is swapped for the current seed. Edited spaces are left alone.
+ * Returns true when something changed.
+ */
+export function healSeats() {
+  let changed = false;
+  const sp = state.spaces && typeof state.spaces === 'object' ? state.spaces : null;
+  if (sp) {
+    const seeds = seedSpaces();
+    Object.keys(seeds).forEach((k) => { if (!sp[k]) { sp[k] = seeds[k]; changed = true; } });
+    const c = sp.ceremony?.room, h = sp.cocktail?.room;
+    if (c && c.name === 'Garden courtyard' && c.w === 40 && c.h === 60) {
+      const next = seedCeremony();
+      if (c.party) next.room.party = c.party; // keep her wedding-party order
+      sp.ceremony = next; changed = true;
+    }
+    if (h && h.name === 'Tasting room' && h.w === 44 && h.h === 34 && !h.bistro) { sp.cocktail = seedCocktail(); changed = true; }
+  }
+  if (Array.isArray(state.guests) && Array.isArray(state.tables)) {
+    const real = new Set(state.tables.map((t) => t.id));
+    state.guests.forEach((g) => {
+      if (g.tableId && !real.has(g.tableId)) { g.tableId = null; changed = true; }
+      if (typeof g.cRow === 'string') { g.cRow = { ceremony: g.cRow }; changed = true; }
+      if (g.cRow && typeof g.cRow === 'object') {
+        Object.keys(g.cRow).forEach((k) => {
+          if (!g.cRow[k] || !(sp?.[k]?.tables || []).some((t) => t.id === g.cRow[k])) { delete g.cRow[k]; changed = true; }
+        });
+      } else if (g.cRow === null) { delete g.cRow; changed = true; }
+    });
+  }
+  return changed;
+}
+/** Seated = assigned to a table that really exists. */
+export const isSeated = (g) => !!g.tableId && Array.isArray(state.tables) && state.tables.some((t) => t.id === g.tableId);
+let healedAtLoad = false;
+{
+  const saved = readSaved();
+  const spacesBefore = JSON.stringify(state.spaces || null);
+  healedAtLoad = healSeats();
+  if (saved && saved.k === KEY && JSON.stringify(state.spaces || null) !== spacesBefore) {
+    // spaces were replaced by the current seeds: keep the untouched original first
+    try { const k = `${KEY}-backup-v${saved.data?.version}`; localStorage.setItem(localStorage.getItem(k) ? `${k}-spaces` : k, saved.raw); } catch { /* storage full */ }
+  }
+}
+
 // Milestones: earlier versions saved invented dates. Drop exactly those (untouched), keep anything else,
 // and make sure the sourced dates are there. Runs once — afterwards every milestone has an id.
 const INVENTED = ['2026-12-15|Save-the-dates out', '2027-01-15|Dress ordered', '2027-01-31|Photographer, music & MUA booked',
@@ -96,6 +145,7 @@ export function ensureAutoGuests() {
   add('bride', 'Betel Griffin', { tableId: head, party: 'couple', rsvp: 'Yes' });
   add('groom', 'Carter Griffin', { side: 'Carter', tableId: head, party: 'couple', rsvp: 'Yes' });
   state.people.forEach((p) => add(p.id, p.name, { party: 'team' }));
+  state.guests.forEach((g) => { if (g.party === 'couple' && g.rsvp !== 'Yes') g.rsvp = 'Yes'; }); // the couple is always coming
 }
 ensureAutoGuests();
 
@@ -130,6 +180,7 @@ function adopt(next) {
   Object.keys(state).forEach((k) => { if (!(k in next) && !scratch(k)) keep[k] = state[k]; });
   Object.keys(state).forEach((k) => delete state[k]);
   Object.assign(state, next, keep);
+  healSeats();
   ensureAutoGuests();
   snapBase();
   base.stamp = next.updatedAt || null;
@@ -155,7 +206,7 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(persisted())); }
   catch { document.dispatchEvent(new CustomEvent('storage-full')); }
   snapBase();
-  if (took) { ensureAutoGuests(); listeners.forEach((fn) => fn()); }
+  if (took) { healSeats(); ensureAutoGuests(); listeners.forEach((fn) => fn()); }
   saveHooks.forEach((fn) => { try { fn(state); } catch { /* a hook must never break saving */ } });
 }
 /** Run after every save (revision history snapshots, js/history.js). */
@@ -169,6 +220,7 @@ export function commit(opts = {}) {
   if (!opts.silent) listeners.forEach((fn) => fn());
 }
 snapBase();
+if (healedAtLoad) { state.updatedAt = new Date().toISOString(); dirty = true; saveTimer = setTimeout(save, 150); } // persist the repaired plan (and push it once when live)
 // Don't lose the last edit if the tab closes inside the save delay
 // Closing the tab: write only if this tab has unsaved edits (a stale tab must never overwrite newer data)
 addEventListener('pagehide', () => { if (dirty) save(); });
@@ -194,7 +246,7 @@ export function undoable(message, mutate, toastFn) {
   const snap = JSON.stringify(state);
   mutate();
   commit();
-  toastFn(message, { undo: () => { const s = JSON.parse(snap); Object.keys(state).forEach((k) => delete state[k]); Object.assign(state, s); commit(); } });
+  toastFn(message, { undo: () => { const s = JSON.parse(snap); Object.keys(state).forEach((k) => delete state[k]); Object.assign(state, s); healSeats(); commit(); } });
 }
 
 export function reset() {
@@ -221,6 +273,8 @@ export async function importJSON(file) {
   if (data.version < VERSION) data = migrate(data);
   Object.keys(state).forEach((k) => delete state[k]);
   Object.assign(state, fresh(), data);
+  healSeats();
+  ensureAutoGuests();
   replaceAll = true; // the imported file is the whole plan
   commit();
 }
@@ -233,6 +287,7 @@ export function mergeRemote(next) {
     if (META.has(k) || scratch(k)) return;
     if (JSON.stringify(state[k]) === base.parts[k] && JSON.stringify(next[k]) !== base.parts[k]) state[k] = next[k];
   });
+  healSeats();
   ensureAutoGuests();
   listeners.forEach((fn) => fn());
   return true;

@@ -1,4 +1,4 @@
-import { state, commit, subscribe, reset, uid, ensureAutoGuests, undoable } from './store.js';
+import { state, commit, subscribe, reset, uid, ensureAutoGuests, undoable, isSeated } from './store.js';
 import { WEDDING, STATUSES, MILESTONES, MOODS, INSPO } from './data.js';
 import { seatCount, RELATIONS, relationOf } from './layout.js';
 import { renderSeating } from './seating.js';
@@ -10,7 +10,7 @@ import { detailsHTML, wireDetails } from './guest-details.js';
 import { renderAgenda } from './agenda.js';
 import { initGuide, refreshGuide } from './guide.js';
 import { initHistory } from './history.js';
-import { initSync, mountLive } from './sync.js';
+import { initSync, mountLive, info as syncInfo } from './sync.js';
 import { mountPaste, openPaste, pasteIsOpen } from './guest-paste.js';
 
 const view = document.getElementById('view');
@@ -155,8 +155,8 @@ function overview() {
   const days = Math.max(0, daysUntil(WEDDING.date));
   const done = state.roles.filter((r) => r.status === 'Done').length;
   const going = state.guests.filter((g) => g.rsvp !== 'Declined');
-  const seated = going.filter((g) => g.tableId).length;
-  const yes = state.guests.filter((g) => g.rsvp === 'Yes').length;
+  const seated = going.filter(isSeated).length;
+  const yes = state.guests.filter((g) => g.party === 'couple' || g.rsvp === 'Yes').length;
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
   const stat = (href, n, of, label, ofHTML = of) => { const tag = href ? `a class="stat" href="${href}"` : 'div class="stat"'; return `<${tag}><b>${n}<small>/${ofHTML}</small></b><span>${label}</span><div class="meter"><i style="--w:${pct(n, of)}%"></i></div></${href ? 'a' : 'div'}>`; };
 
@@ -459,12 +459,12 @@ function guestsCSV() {
 const going = (g) => g.rsvp !== 'Declined';
 const GUEST_FILTERS = [
   [['all', 'Everyone', () => true],
-   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !g.meal || !g.street || !g.tableId)],
-   ['unseated', 'Still to seat', (g) => going(g) && !g.tableId && g.party !== 'couple'],
+   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !g.meal || !g.street || !isSeated(g))],
+   ['unseated', 'Still to seat', (g) => going(g) && !isSeated(g) && g.party !== 'couple'],
    ['reception', 'Reception guests', going],
    ['notinvited', 'Not invited yet', (g) => g.rsvp === 'Not invited yet'],
    ['awaiting', 'Awaiting RSVP', (g) => g.rsvp === 'Invited' || g.rsvp === 'Maybe'],
-   ['yes', 'Said yes', (g) => g.rsvp === 'Yes'],
+   ['yes', 'Said yes', (g) => g.party === 'couple' || g.rsvp === 'Yes'],
    ['declined', 'Declined', (g) => g.rsvp === 'Declined'],
    ['noaddr', 'Need address', needsAddress]],
   [['couple', 'The couple', (g) => g.party === 'couple'],
@@ -535,7 +535,7 @@ function guests() {
     <div class="page-head">
       <div>
         <h1>Guests</h1>
-        <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()} · ${c((g) => g.rsvp === 'Yes')} yes</p>
+        <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()} · ${c((g) => g.party === 'couple' || g.rsvp === 'Yes')} yes</p>
       </div>
       <div class="head-actions">${guestViewToggle()}<button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     </div>
@@ -558,8 +558,8 @@ function guests() {
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
             <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/></div></td>
-            <td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-            <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+            ${g.party === 'couple' ? '<td class="c-side c-couple" colspan="2"><span class="couple-tag">Couple</span></td>' : `<td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+            <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>`}
             <td class="c-meal"><select class="select" data-k="meal" data-v="${esc(g.meal || '')}" aria-label="Meal"><option value="">—</option>${[...MEALS, ...(g.meal && !MEALS.includes(g.meal) ? [g.meal] : [])].map((m) => `<option ${m === g.meal ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td>
             <td class="row-actions">
               <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Details" aria-label="Details for ${esc(g.name)}"><svg viewBox="0 0 4 16" width="4" height="16" aria-hidden="true"><circle cx="2" cy="2" r="1.6"/><circle cx="2" cy="8" r="1.6"/><circle cx="2" cy="14" r="1.6"/></svg></button>
@@ -568,7 +568,7 @@ function guests() {
           </tr>
           ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="5">${detailsHTML(g, { extra: true })}</td></tr>` : ''}`).join('')}</tbody></table></div>
 `
-      : `<p class="muted" style="margin:0;padding:20px">No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.</p>`}
+      : `<p class="muted" style="margin:0;padding:20px">${guestFilter === 'unseated' && !q ? 'Everyone has a seat.' : `No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.`}</p>`}
     </section>`;
 
   const add = (name, side = 'Both') => state.guests.push({ id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null });
@@ -718,7 +718,10 @@ function tickCountdown() { // the header pill is gone (REQ-21); the count lives 
 mountLive(document.getElementById('liveBtn'));
 initSync();
 document.getElementById('resetBtn').onclick = async () => {
-  if (await confirmDialog({ title: 'Start over?', body: 'This clears everything you’ve planned.', confirmLabel: 'Start over', cancelLabel: 'Cancel' })) undoable('Started fresh', reset, toast);
+  const live = syncInfo().live; // editing together: clearing the plan clears it for every editor
+  if (!(await confirmDialog({ title: 'Start over?', body: live ? 'This clears the plan for Betel, Carter and Kiara.' : 'This clears everything you’ve planned.', confirmLabel: live ? 'Continue' : 'Start over', cancelLabel: 'Cancel' }))) return;
+  if (live && !(await confirmDialog({ title: 'Clear the shared plan?', body: 'Everyone editing together will see an empty plan.', confirmLabel: 'Clear for everyone', cancelLabel: 'Keep the plan' }))) return;
+  undoable('Started fresh', reset, toast);
 };
 document.addEventListener('storage-full', () => toast('Storage full — remove a few photos'));
 

@@ -59,6 +59,44 @@ export function confirmDialog({ title = 'Are you sure?', body = '', confirmLabel
   });
 }
 
+/** In-page text prompt (same glass dialog as confirmDialog). Resolves the typed value, or '' on Cancel / Esc / click outside. */
+export function promptDialog({ title = '', label = '', type = 'text', confirmLabel = 'Continue', cancelLabel = 'Cancel', value = '' } = {}) {
+  return new Promise((resolve) => {
+    const prev = document.activeElement;
+    const scrim = document.createElement('div');
+    scrim.className = 'cd-scrim';
+    scrim.innerHTML = `<form class="cd" role="dialog" aria-modal="true" aria-labelledby="pdT">
+      <h2 id="pdT">${esc(title)}</h2>
+      <label class="cd-field"><span>${esc(label)}</span><input class="input" type="${esc(type)}" value="${esc(value)}" required autocomplete="${type === 'email' ? 'email' : 'off'}"/></label>
+      <div class="cd-acts"><button type="button" class="cd-no">${esc(cancelLabel)}</button><button type="submit" class="cd-yes">${esc(confirmLabel)}</button></div>
+    </form>`;
+    document.body.append(scrim);
+    requestAnimationFrame(() => scrim.classList.add('in'));
+    const form = scrim.querySelector('form'), input = scrim.querySelector('input'), no = scrim.querySelector('.cd-no'), yes = scrim.querySelector('.cd-yes');
+    const done = (v) => {
+      removeEventListener('keydown', onKey, true);
+      scrim.classList.remove('in');
+      setTimeout(() => scrim.remove(), 160);
+      restoreFocus(prev);
+      resolve(v);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); done(''); }
+      else if (e.key === 'Tab') {
+        const f = [input, no, yes];
+        const i = f.indexOf(document.activeElement);
+        e.preventDefault();
+        f[(i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
+      }
+    };
+    addEventListener('keydown', onKey, true);
+    form.onsubmit = (e) => { e.preventDefault(); if (input.value.trim()) done(input.value.trim()); };
+    no.onclick = () => done('');
+    scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) done(''); });
+    input.focus();
+  });
+}
+
 /** Put focus back where it was (or on the footer people button when that element is gone). */
 export function restoreFocus(prev) {
   const t = prev && prev.isConnected && prev !== document.body ? prev : document.getElementById('liveBtn');

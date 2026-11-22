@@ -532,19 +532,21 @@ export function clearanceIssues(room, tables, minGap = 3.5) {
   const items = [], ids = new Set();
   const dining = tables.filter((t) => t.shape !== 'row');
   const bx = (t) => { const f = footprint(t); return { x1: t.x - f.hw, x2: t.x + f.hw, y1: t.y - f.hh, y2: t.y + f.hh }; };
-  const flag = (list, msg) => { list.forEach((t) => ids.add(t.id)); items.push({ ids: list.map((t) => t.id), msg }); };
+  const flag = (list, msg, short) => { list.forEach((t) => ids.add(t.id)); items.push({ ids: list.map((t) => t.id), msg, short: short || msg }); };
+  const lbl = (t) => (/^\d+$/.test(t.name) ? `Table ${t.name}` : t.name);
   for (let i = 0; i < dining.length; i++) for (let j = i + 1; j < dining.length; j++) {
     const a = dining[i], b = dining[j], pa = bx(a), pb = bx(b);
     const gap = Math.max(pa.x1 - pb.x2, pb.x1 - pa.x2, pa.y1 - pb.y2, pb.y1 - pa.y2);
-    if (gap < (a.id === 'head' || b.id === 'head' ? 2 : minGap)) flag([a, b], `${a.name} and ${b.name}: ${Math.max(0, gap).toFixed(1)} ft between chairs`);
+    const need = a.id === 'head' || b.id === 'head' ? 2 : minGap;
+    if (gap < need) flag([a, b], `${a.name} and ${b.name}: ${Math.max(0, gap).toFixed(1)} ft between chairs`, `${/^\d+$/.test(a.name) && /^\d+$/.test(b.name) ? `Tables ${a.name} & ${b.name}` : `${lbl(a)} & ${lbl(b)}`} · ${Math.round(Math.max(0, gap) * 10) / 10} ft apart (need ${need})`);
   }
   const zones = blockers({ ...room, areas: [], fixed: { ...room.fixed, decor: [] } }, []);
   const bal = room.fixed?.balcony;
   dining.forEach((t) => {
     const b = bx(t);
-    if (b.x1 < 0 || b.y1 < 0 || b.x2 > room.w || b.y2 > room.h) flag([t], `${t.name}: outside the room`);
-    else if (t.id !== 'head' && zones.some((z) => overlap(b, z))) flag([t], `${t.name}: blocks the stage steps or a door`);
-    else if (t.id !== 'head' && bal && b.y2 > room.h - bal.depth + 0.01) flag([t], `${t.name}: under the balcony rail`);
+    if (b.x1 < 0 || b.y1 < 0 || b.x2 > room.w || b.y2 > room.h) flag([t], `${t.name}: outside the room`, `${lbl(t)} · outside the room`);
+    else if (t.id !== 'head' && zones.some((z) => overlap(b, z))) flag([t], `${t.name}: blocks the stage steps or a door`, `${lbl(t)} · blocks the stage steps or a door`);
+    else if (t.id !== 'head' && bal && b.y2 > room.h - bal.depth + 0.01) flag([t], `${t.name}: under the balcony rail`, `${lbl(t)} · under the balcony rail`);
   });
   return { ids, items };
 }
