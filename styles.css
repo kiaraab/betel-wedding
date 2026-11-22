@@ -2598,7 +2598,7 @@ input::placeholder, textarea::placeholder, .input::placeholder, table.guests tr.
 @media (pointer: coarse) { .x, .tc-btn, .foot-ic, .live-txt, .gcount { min-width: 44px; min-height: 44px; } .foot-ic { height: 30px; } }
 /* zoom / narrow screens: nothing forces sideways scroll on the page itself */
 main { overflow-wrap: break-word; }
-body { overflow-x: clip; }
+body { overflow-x: visible; }
 /* motion: the lively bits stay, but only when motion is welcome */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
@@ -2786,3 +2786,15 @@ body[data-route="team"] main .tcard.c-rose.c-rose.c-rose.c-rose { --fg-soft: #2a
   .team-head .st-tabs .l { font-size: 11px; letter-spacing: .04em; overflow-wrap: normal; }
   .team-head .st-tabs b { font-size: 24px; }
 }
+
+.gate::before { background: rgba(24, 28, 20, .42); }
+.gate-card { width: min(380px, calc(100vw - 32px)); padding: 40px 32px 34px; }
+.gate-card h1 { text-shadow: 0 1px 14px rgba(0, 0, 0, .35); }
+.gate-card p { color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, .35); }
+.gate-row { display: flex; gap: 8px; width: 100%; margin-top: 6px; }
+.gate-card .gate-row input { flex: 1; min-width: 0; width: auto; height: 46px; padding: 0 14px; font-size: 16px; text-align: left; color: #fff; }
+.gate-card .gate-row button { flex: none; margin: 0; width: 46px; height: 46px; border-radius: 4px; background: #f6eee3; color: #3b1a22; font-size: 20px; }
+.gate-card .gate-row input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; box-shadow: none; }
+.gate-card .gate-row button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.gate-card .gate-err { min-height: 18px; margin: 10px 0 0; font: 500 13px var(--sans); letter-spacing: .02em; text-transform: none; color: #ffd9d9; }
+@media (prefers-reduced-motion: reduce) { .gate, .gate-card { animation: none; transition: none; } .gate.shake .gate-card input { animation: none; } }

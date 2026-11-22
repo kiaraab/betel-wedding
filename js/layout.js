@@ -199,14 +199,16 @@ function suggestInner(room, guestCount, style, head) {
   const balcony = loungeDepth(room);
   const rows = s.shape === 'rect' && s.rot === 90;
   // Rounds: the U first; plain grid packing only wins when it seats more (big counts)
-  const placers = rows ? [(o) => placeGrid({ ...o, wall: 6, gap: 5 })] : [placeRounds, (o) => placeGrid({ ...o, wall: 3, gap: 5 })];
-  // Keep the near end as an arrival lounge when there's room; only seat under the balcony when the count needs it.
+  const placersFor = (aisle) => (rows ? [(o) => placeGrid({ ...o, wall: 6, gap: 5 })] : [(o) => placeRounds({ ...o, aisle }), (o) => placeGrid({ ...o, wall: 3, gap: aisle })]);
+  // Keep the near end as an arrival lounge (balcony + 6 ft); if the count needs it, squeeze to the balcony rail, then tighten the aisles from 5 to 4 ft between chair rings
+  // (still wider than the 1-2 ft seen in real weddings, photo #143). Tables are NEVER placed under the balcony rail.
   // The greedy U depends on odd/even counts, so also try one fewer — whichever places more wins (never fewer for more guests).
+  const configs = balcony ? [[balcony, 5], [balcony - 6, 5], [balcony - 6, 4]] : [[0, 5], [0, 4]];
   let best = [];
-  for (const lounge of [balcony, 0]) {
+  for (const [lounge, aisle] of configs) {
     for (const target of [needed, needed - 1]) {
       if (target < 1) continue;
-      for (const place of placers) {
+      for (const place of placersFor(aisle)) {
         const got = place({ room, head, fp, fits, lounge, target });
         if (got.length > best.length) best = got;
       }
@@ -362,8 +364,8 @@ const CUSTOM = {
 };
 
 /** Rounds: a U around the dance floor, filled outward from the sweetheart table, mirrored for symmetry. */
-function placeRounds({ room, head, fp, fits, lounge, target }) {
-  const aisle = 5, wallGap = 3;
+function placeRounds({ room, head, fp, fits, lounge, target, aisle = 5 }) {
+  const wallGap = 3;
   const sx = fp.hw * 2 + aisle, sy = fp.hh * 2 + aisle;
   const dance = (room.areas || []).find((a) => a.preset === 'dance');
   const anchor = head || (dance ? { x: dance.x + dance.w / 2, y: dance.y } : { x: room.w / 2, y: room.h / 3 });

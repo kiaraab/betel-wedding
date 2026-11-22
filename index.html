@@ -48,8 +48,11 @@
       <h1>Betel &amp; Carter</h1>
       <p class="gate-script">are getting married</p>
       <label class="sr" for="gatePw">Password</label>
-      <input id="gatePw" type="password" placeholder="Password" autofocus />
-      <button type="submit" aria-label="Enter">&rarr;</button>
+      <div class="gate-row">
+        <input id="gatePw" type="password" placeholder="Password" autocomplete="off" autofocus aria-describedby="gateErr" />
+        <button type="submit" aria-label="Enter the site">&rarr;</button>
+      </div>
+      <p class="gate-err" id="gateErr" role="alert" aria-live="assertive"></p>
     </form>
   </div>
   <script type="module">
@@ -73,6 +76,7 @@
           setTimeout(() => gate.remove(), 700);
         } else {
           input.value = '';
+          document.getElementById('gateErr').textContent = 'That is not it. Try again.';
           gate.classList.remove('shake'); void gate.offsetWidth; gate.classList.add('shake');
         }
       };

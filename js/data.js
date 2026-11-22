@@ -205,6 +205,7 @@ export const SPACES = [
   { id: 'ceremony', kind: 'ceremony', label: 'Ceremony', areas: ['altar', 'aisle', 'escort', 'custom'], add: 'row' },
   { id: 'indoor', kind: 'ceremony', label: 'Indoor', areas: ['aisle', 'escort', 'custom'], add: 'row' },
   { id: 'cocktail', kind: 'cocktail', label: 'Cocktail', areas: ['lounge', 'highbar', 'escort', 'custom'], add: 'high' },
+  { id: 'tasting', kind: 'cocktail', label: 'Tasting room', areas: ['lounge', 'highbar', 'escort', 'custom'], add: 'high' },
   { id: 'reception', kind: 'reception', label: 'Reception', areas: ['dance', 'bar', 'dj', 'cake', 'gifts', 'escort', 'coffee', 'lounge', 'booth', 'custom'], add: 'tables' },
 ];
 
@@ -291,7 +292,28 @@ function seedCocktail() {
     tables: bistro,
   };
 }
-export const seedSpaces = () => ({ ceremony: seedCeremony(), indoor: seedIndoor(), cocktail: seedCocktail() });
+/** Tasting room as a second hangout option (rain / evening): high-tops + leather lounge by the fireplace; carved bar in the octagonal sunroom (Morais album, VENUE.md). Sizes are estimates. */
+function seedTasting() {
+  const w = 44, h = 34;
+  const high = [[18.5, 8], [28, 8], [21, 19], [32, 19], [26, 29]].map(([x, y], i) => ({ id: sid('ht', i), name: String(i + 1), shape: 'round', seats: 4, high: true, x, y, rot: 0, o: i }));
+  return {
+    room: {
+      name: 'Tasting room', w, h, approx: true, floor: 'tile',
+      fixed: {
+        openings: [{ wall: 'bottom', at: 14, kind: 'entrance', w: 6 }],
+        decor: [
+          { kind: 'fireplace', x: 0, y: 11, w: 2.5, h: 8, block: true, label: 'Fireplace' },
+          { kind: 'wine', x: 6, y: 0, w: 22, h: 1.4, block: true },
+          { kind: 'sunroom', x: 32, y: 0, w: 12, h: 14, label: 'Bar' },
+          { kind: 'bar', x: 35, y: 3.5, w: 6, h: 2.2, block: true },
+        ],
+      },
+      areas: [{ id: 'lounge', preset: 'lounge', label: 'Lounge', x: 5, y: 9, w: 9, h: 10 }],
+    },
+    tables: high,
+  };
+}
+export const seedSpaces = () => ({ ceremony: seedCeremony(), indoor: seedIndoor(), cocktail: seedCocktail(), tasting: seedTasting() });
 
 /* ---------- Morais' own album (shown beside the 3D view; order is Betel's, saved as state.morais) ---------- */
 export const MORAIS_PHOTOS = [

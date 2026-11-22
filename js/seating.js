@@ -20,8 +20,8 @@ function SP() {
   return state.spaces[space];
 }
 const spaceInfo = () => ({ ...SPACES.find((x) => x.id === space), label: SPACE_LABEL[space] || SPACES.find((x) => x.id === space).label });
-const TAB_ORDER = ['ceremony', 'indoor', 'reception', 'cocktail']; // pergola lawn · rain plan in the bay · ballroom · hangout spot last
-const SPACE_LABEL = { cocktail: 'Hangout spot', indoor: 'Indoor' };  // data key stays 'cocktail'
+const TAB_ORDER = ['ceremony', 'indoor', 'reception', 'cocktail', 'tasting']; // pergola lawn · rain plan in the bay · ballroom · hangout spot last
+const SPACE_LABEL = { cocktail: 'Hangout spot', indoor: 'Indoor', tasting: 'Tasting room' };  // data key stays 'cocktail'
 const kindOf = () => SPACES.find((x) => x.id === space)?.kind || space; // 'ceremony' | 'cocktail' | 'reception'
 const tabList = () => TAB_ORDER.map((id) => SPACES.find((x) => x.id === id)).filter(Boolean).map((x) => ({ ...x, label: SPACE_LABEL[x.id] || x.label }));
 /** One quiet line under the tabs */
