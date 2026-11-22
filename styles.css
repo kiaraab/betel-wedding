@@ -3072,8 +3072,8 @@ table.guests th { position: relative; }
 table.guests th:hover .col-rs::after, .col-rs.on::after { opacity: 1; }
 .col-rs.on::after { background: var(--wine); width: 2px; }
 @media (max-width: 760px) { .col-rs { display: none; } }
-.ag-now { display: inline-flex; align-items: center; gap: 6px; }
-.ag-now svg { width: 15px; height: 15px; }
+.ag-tb.ag-jump { display: inline-flex; align-items: center; gap: 6px; }
+.ag-jump svg { width: 15px; height: 15px; }
 @media (min-width: 761px) {
   .ag-wrap.with-panel { grid-template-columns: minmax(0, 1fr); }
   .ag-panel { position: fixed; z-index: 40; top: calc(var(--top-h, 64px) + 84px); right: max(18px, calc((100vw - 1280px) / 2 + 18px)); width: 316px; max-height: calc(100vh - var(--top-h, 64px) - var(--foot-h, 40px) - 110px); overflow-y: auto; animation: pop .16s var(--ease); }
