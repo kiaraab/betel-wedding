@@ -31,11 +31,12 @@ function spaceLede() {
   return `${state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
 }
 let showPhotos = false;  // plan toolbar 'Photos': seated guests with a picture show it in their seat
-let refTab = 'inspo';    // Reference panel tab
+let refTab = 'ideas';    // side panel tab: 'ideas' | 'venue'
 let flip = null;         // Map tableId -> {x,y} of the plan before a layout change: tables glide from there
 let partySel = null;     // ceremony: the wedding-party dot that was tapped (just highlights it)
 // Come back to the floor plan each time Seating is opened; 3D only loads when its tab is clicked
 addEventListener('hashchange', () => { if (location.hash !== '#seating') { mode = 'plan'; sel = null; partySel = null; } });
+let modeAnim = false;    // the plan <-> 3D switch just happened: the stage eases in
 let enterAnim = false;   // play the "tables glide in" animation on next draw
 const lastFilled = new Map(); // tableId -> seated count last drawn (for the seat "pop")
 
@@ -50,35 +51,29 @@ const areaTransform = (a) => `translate(${a.x} ${a.y}) rotate(${a.rot || 0} ${a.
 const rotHandle = (x, y, x0, y0) => `<line class="rot-stalk" x1="${x0}" y1="${y0}" x2="${x}" y2="${y}"/><circle class="rot-knob" cx="${x}" cy="${y}" r=".9" data-rotate="1"><title>Drag to rotate</title></circle>`;
 const ROT_STEP = 15;
 
-/* ---------------- each space's own real photo behind the plan (clear, flat light overlay; drawn as a data URL so Share PNG gets it too) ---------------- */
-const SPACE_PHOTO = { reception: 'assets/venue/ballroom.jpg', cocktail: 'assets/venue/tasting-room.jpg', ceremony: 'assets/venue/courtyard-ceremony.png' };
-const bgPhotos = {}, bgAspects = {};
-function spacePhoto(sp) {
-  const src = SPACE_PHOTO[sp];
-  if (!src) return Promise.resolve(null);
-  bgPhotos[sp] ??= new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const k = Math.min(1, 1400 / Math.max(img.width, img.height));
-      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height);
-      const url = c.toDataURL('image/jpeg', 0.88);
-      bgAspects[url] = c.width / c.height;
-      resolve(url);
-    };
-    img.onerror = () => resolve(null);
-    img.src = src;
-  });
-  return bgPhotos[sp];
+/* ---------------- seat colours: by side or by relation ---------------- */
+const SIDE_COLOR = { Betel: '#6e1f2e', Carter: '#4f6a45', Both: '#e3a5ae' };
+const REL_COLOR = { Parent: '#8a2a3c', 'Close relative': '#c2566b', Relative: '#e3a5ae', Bridesmaid: '#4f6a45', Groomsman: '#2f4a5e', 'Close friend': '#b88a3e', Friend: '#9bb08a', Colleague: '#7a6a8a', 'Plus-one': '#a89a8c', '': '#c9bfae' };
+let colorBy = 'side';    // 'side' | 'relation' | 'off'
+const seatKey = (g) => (colorBy === 'side' ? (SIDE_COLOR[g.side] ? g.side : 'Both') : colorBy === 'relation' ? (relationOf(g) in REL_COLOR ? relationOf(g) : '') : null);
+const seatColor = (g) => (g && colorBy !== 'off' ? (colorBy === 'side' ? SIDE_COLOR : REL_COLOR)[seatKey(g)] : null);
+function legendHTML() {
+  if (colorBy === 'off' || space !== 'reception') return '';
+  const used = new Set(state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').map(seatKey));
+  const pal = colorBy === 'side' ? SIDE_COLOR : REL_COLOR;
+  return Object.keys(pal).filter((k) => used.has(k)).map((k) => `<span><i style="background:${pal[k]}"></i>${esc(k || 'No relation')}</span>`).join('');
 }
 
-/** The photo, cover-fitted around the room outline: centered on the room, never distorted, large enough that it fills the margins at normal zoom. */
-function bgImage(bg, w, h) {
-  const bgAspect = bgAspects[bg] || 0.75;
-  let iw = Math.max(w * 3.4, h * 1.5 * bgAspect), ih = iw / bgAspect; // wide enough to fill the stage area on landscape screens
-  if (ih < h * 1.5) { ih = h * 1.5; iw = ih * bgAspect; }
-  return `<image class="bg" href="${bg}" x="${w / 2 - iw / 2}" y="${h / 2 - ih / 2}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid meet"/>`;
-}
+/** Layout ideas: real reference photos, each mapped to the closest suggestion style (see VENUE.md). */
+const IDEAS = [
+  { key: 'round8', src: 'assets/refs/owner-ref-r5-13.png' },
+  { key: 'round10', src: 'assets/venue/site/morais-vineyards-wedding-photo-191-scaled.jpg' },
+  { key: 'family', src: 'assets/refs/owner-ref-r5-11.webp' },
+  { key: 'banquet', src: 'assets/refs/owner-ref-r5-10.webp' },
+  { key: 'headlong', src: 'assets/refs/owner-ref-r5-12.webp' },
+  { key: 'stage', src: 'assets/refs/owner-ref-5.png' },
+  { key: 'open', src: 'assets/refs/owner-ref-6.webp' },
+];
 
 /* ---------------- drawing ---------------- */
 function tableSVG(t, mood, i) {
@@ -93,10 +88,11 @@ function tableSVG(t, mood, i) {
   lastFilled.set(t.id, n);
   const rot = t.rot || 0;
   const delay = (k) => (enterAnim ? i * 45 + 380 + k * 55 : 0);
-  const seated = showPhotos && space === 'reception' ? guestsAt(t.id) : [];
+  const seated = guestsAt(t.id);
   const chairs = chairPositions(t).map(([x, y], k) => {
-    const ph = seated[k]?.photo;
-    return `<circle class="chair${k < n ? ' filled' : ''}${k < n && k >= before ? ' pop' : ''}" cx="${x}" cy="${y}" r=".75"${k < n && k >= before && enterAnim ? ` style="animation-delay:${delay(k)}ms"` : ''}/>`
+    const ph = showPhotos && space === 'reception' ? seated[k]?.photo : null, col = k < n ? seatColor(seated[k]) : null;
+    const st = [col && `fill:${col}`, k < n && k >= before && enterAnim && `animation-delay:${delay(k)}ms`].filter(Boolean).join(';');
+    return `<circle class="chair${k < n ? ' filled' : ''}${k < n && k >= before ? ' pop' : ''}" cx="${x}" cy="${y}" r=".75"${st ? ` style="${st}"` : ''}/>`
       + (ph ? `<g transform="translate(${x} ${y}) rotate(${-rot})" class="seat-photo"><clipPath id="cp-${t.id}-${k}"><circle r=".75"/></clipPath><image href="${esc(ph)}" x="-.75" y="-.75" width="1.5" height="1.5" preserveAspectRatio="xMidYMid slice" clip-path="url(#cp-${t.id}-${k})"/></g>` : '');
   }).join('');
   const [bloom, leaf] = [mood.swatches[3], mood.swatches[1]];
@@ -118,11 +114,12 @@ function tableSVG(t, mood, i) {
   const fs = Math.max(0.9, Math.min(1.7, room / Math.max(1, t.name.length * 0.58)));
   const isHead = t.id === 'head';
   const row = t.shape === 'row';
-  const ly = t.shape === 'round' ? fs * 0.35 : row ? 0 : (rot % 180 ? 0 : rectDims(t).D / 2 + (t.sides.bottom ? 3.6 : 1.6));
+  const turnedHead = isHead && t.shape === 'rect' && !!(rot % 180);
+  const ly = t.shape === 'round' ? fs * 0.35 : row ? 0 : turnedHead ? rectDims(t).L / 2 + 2 : (rot % 180 ? 0 : rectDims(t).D / 2 + (t.sides.bottom ? 3.6 : 1.6));
   const D0 = row ? 1.8 : t.shape === 'round' ? 0 : rectDims(t).D;
   const knob = sel?.id === t.id && t.shape !== 'round' ? `<g transform="rotate(${rot})">${rotHandle(0, -(D0 / 2 + 4.2), 0, -D0 / 2)}</g>` : '';
   const inner = `<g transform="rotate(${rot})">${chairs}${top}</g>
-    ${row ? '' : `<text class="${isHead ? 'head-label' : 'num'}" y="${ly}" style="font-size:${isHead ? 1.5 : fs}px">${esc(t.name)}</text>`}${knob}`;
+    ${row ? '' : turnedHead ? `<text class="head-label" y="${ly}" style="font-size:1.3px">${esc(t.name).replace(/^(.*?\S)\s+(\S+)$/, '<tspan x="0">$1</tspan><tspan x="0" dy="1.5">$2</tspan>')}</text>` : `<text class="${isHead ? 'head-label' : 'num'}" y="${ly}" style="font-size:${isHead ? 1.5 : fs}px">${esc(t.name)}</text>`}${knob}`;
   // Fly in from the entrance doors when a layout is suggested (inner group animates; outer keeps its position)
   const was = flip?.get(t.id);
   if (was && (was.x !== t.x || was.y !== t.y)) { g.dataset.fromx = was.x; g.dataset.fromy = was.y; }
@@ -228,7 +225,7 @@ function fixedSVG() {
   return s;
 }
 
-function planSVG(bg) {
+function planSVG() {
   const { w, h } = SP().room;
   const mood = moodNow();
   const svg = document.createElementNS(SVGNS, 'svg');
@@ -256,8 +253,6 @@ function planSVG(bg) {
       </pattern>
       <clipPath id="roomClip"><rect x="0" y="0" width="${w}" height="${h}"/></clipPath>
     </defs>
-    ${bg ? bgImage(bg, w, h) : ''}
-    <rect class="tint" x="${-w}" y="${-h * 0.5}" width="${w * 3}" height="${h * 2}"/>
     <rect class="floor" x="0" y="0" width="${w}" height="${h}"${floorFill ? ` style="fill:${floorFill}"` : ''}/>
     ${grid}`;
   const fixedG = document.createElementNS(SVGNS, 'g');
@@ -409,7 +404,7 @@ function tablePop(t) {
     <ol class="seat-list seat-slots">${Array.from({ length: Math.max(total, here.length) }, (_, i) => {
       const g = here[i];
       return g
-        ? `<li class="taken" style="--i:${i}"><i aria-label="Seat ${i + 1}">${i + 1}</i><span>${esc(g.name)}</span>${g.party === 'couple' ? '' : `<button class="side-tag" data-side="${g.id}" title="Change side">${esc(g.side)}</button>`}${g.party === 'couple' ? '' : `<button class="x" data-unseat="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}</li>`
+        ? `<li class="taken" style="--i:${i}"><i aria-label="Seat ${i + 1}">${i + 1}</i><span>${esc(g.name)}</span>${g.party === 'couple' ? '' : `<button class="x" data-unseat="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}</li>`
         : `<li class="empty" style="--i:${i}"><i aria-hidden="true">${i + 1}</i><button class="slot-add" data-slot="${i}" aria-label="Seat ${i + 1}: add a guest"><span>+</span></button></li>`;
     }).join('')}</ol>
     ${t.id === 'head' ? '' : '<button class="linklike danger" id="tDel">Remove table</button>'}`;
@@ -561,9 +556,17 @@ export function renderSeating(root) {
               <span class="tool-wrap"><button class="tool" id="areaBtn" aria-expanded="false">Area</button>
                 <div class="chipmenu" id="areaMenu" hidden>${Object.entries(AREA_PRESETS).filter(([k]) => info.areas.includes(k)).filter(([k]) => !['dance', 'altar', 'aisle'].includes(k) || !SP().room.areas.some((a) => a.preset === k)).map(([k, p]) => `<button data-preset="${k}">${k === 'custom' ? '+ Custom' : esc(p.label)}</button>`).join('')}</div>
               </span>
-              ${rec ? `<button class="tool${showPhotos ? ' on' : ''}" id="photosBtn" aria-pressed="${showPhotos}">Photos</button>` : ''}
+              ${rec && state.guests.some((g) => g.photo) ? `<button class="tool${showPhotos ? ' on' : ''}" id="photosBtn" aria-pressed="${showPhotos}">Guest photos</button>` : ''}
+              ${rec ? `<label class="colorby">Color by<select id="colorBy" aria-label="Color seats by">${[['side', 'Side'], ['relation', 'Relation'], ['off', 'Off']].map(([k, l]) => `<option value="${k}"${colorBy === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
               <span class="spacer"></span>
-              <span class="zoom"><button class="tool icon" id="zOut" aria-label="Zoom out">−</button><button class="tool icon" id="zIn" aria-label="Zoom in">+</button><button class="tool" id="zFit">Fit</button></span>`
+              <span class="zoom"><button class="tool icon" id="zOut" aria-label="Zoom out">−</button><button class="tool icon" id="zIn" aria-label="Zoom in">+</button><button class="tool" id="zFit">Fit</button></span>
+              ${rec ? `<span class="tool-wrap" id="sugWrap"><button class="tool" id="sugBtn" aria-expanded="false" aria-haspopup="dialog">Suggest or auto-add</button>
+                <div class="glass-pop" id="sugPop" role="dialog" aria-label="Suggest or auto-add" hidden>
+                  <label class="sg-count">Guests<input class="input" id="sCount" type="number" min="2" max="300" value="${state.guestTarget}"/></label>
+                  <div class="sg-styles" role="radiogroup" aria-label="Layout style">${Object.entries(TABLE_STYLES).map(([k, st]) => `<button type="button" role="radio" data-style="${k}" aria-checked="false">${st.label}</button>`).join('')}</div>
+                  <p class="sg-prev" id="sPreview"></p>
+                  <div class="sg-acts"><button class="btn moss sm" id="sGo">Suggest floor plan</button><button class="btn sm ghost" id="sSeat">Auto-seat guests</button></div>
+                </div></span>` : ''}`
             : `<button class="tool" id="evening">Experience the evening</button>
                <button class="tool" id="walk" aria-pressed="false">Walk</button>
                <button class="tool" id="light">Candlelight</button>
@@ -573,24 +576,14 @@ export function renderSeating(root) {
           </div>
           <div class="stage-wrap" id="stageWrap">
             <div id="planHost"></div>
+            <div class="color-legend" id="legend"${rec && mode === 'plan' && legendHTML() ? '' : ' hidden'}>${rec ? legendHTML() : ''}</div>
             <div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
           </div>
         </div>
       </div>
       <aside class="side-panel">
-        ${rec ? `<section class="card">
-          <h3>Plan tools</h3>
-          <div class="field-row">
-            <label class="field">Guests<input class="input" id="sCount" type="number" min="2" max="300" value="${state.guestTarget}"/></label>
-            <label class="field">Tables<select class="select" id="sStyle">${Object.entries(TABLE_STYLES).map(([k, s]) => `<option value="${k}" ${state.lastStyle === k ? 'selected' : ''}>${s.label}</option>`).join('')}</select></label>
-          </div>
-          <p class="muted small" id="sPreview"></p>
-          <div class="acts">
-            <div class="act"><button class="btn moss sm" id="sGo">Suggest floor plan</button><span class="tip" tabindex="0" role="note" data-tip="Lays out tables for this guest count and style. Moves tables, then seats guests.">ⓘ</span></div>
-            <div class="act"><button class="btn gold sm" id="sSeat">Auto-seat guests</button><span class="tip" tabindex="0" role="note" data-tip="Seats guests at the current tables, keeping linked and related people together.">ⓘ</span></div>
-          </div>
-        </section>` : spaceToolsHTML(space, { state, SP, pool: partyPool })}
-        ${refHTML()}
+        ${rec ? '' : spaceToolsHTML(space, { state, SP, pool: partyPool })}
+        ${refHTML(rec)}
       </aside>
       <div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>
     </div>`;
@@ -606,6 +599,8 @@ export function renderSeating(root) {
   backdrop.onclick = () => closePop();
   document.body.append(backdrop);
   let popPinned = null;
+  const sugBtn = root.querySelector('#sugBtn'), sugPop = root.querySelector('#sugPop');
+  const closeSug = () => { if (sugPop && !sugPop.hidden) { sugPop.hidden = true; sugBtn.setAttribute('aria-expanded', 'false'); } };
 
   cleanup?.abort();
   cleanup = new AbortController();
@@ -632,13 +627,20 @@ export function renderSeating(root) {
   });
 
   /* ---- view mode ---- */
-  root.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => { if (mode !== b.dataset.mode) { mode = b.dataset.mode; sel = null; renderSeating(root); } });
+  root.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => {
+    if (mode === b.dataset.mode || wrap.classList.contains('leaving')) return;
+    const go = () => { mode = b.dataset.mode; sel = null; modeAnim = true; renderSeating(root); };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return go();
+    closePop(true); wrap.classList.add('leaving'); setTimeout(go, 200);
+  });
+  if (modeAnim) { modeAnim = false; wrap.classList.add('mode-in'); wrap.addEventListener('animationend', () => wrap.classList.remove('mode-in'), { once: true }); }
 
   /* ---- 2D plan ---- */
-  let bg = null;
+  const legend = root.querySelector('#legend');
   const drawPlan = () => {
     if (mode !== 'plan') return;
-    host.replaceChildren(planSVG(bg));
+    host.replaceChildren(planSVG());
+    if (legend) { const l = legendHTML(); legend.innerHTML = l; legend.hidden = !l; }
     // tables that moved glide from where they were
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) host.querySelectorAll('.tbl[data-fromx]').forEach((g) => {
       const [nx, ny] = g.getAttribute('transform').match(/-?[\d.]+/g);
@@ -795,11 +797,6 @@ export function renderSeating(root) {
     });
     wireTurn(pop, t, refresh);
     pop.querySelectorAll('[data-unseat]').forEach((b) => b.onclick = () => { state.guests.find((g) => g.id === b.dataset.unseat).tableId = null; refresh(); });
-    pop.querySelectorAll('[data-side]').forEach((b) => b.onclick = () => {
-      const g = state.guests.find((x) => x.id === b.dataset.side);
-      g.side = SIDES[(SIDES.indexOf(g.side) + 1) % SIDES.length];
-      refresh();
-    });
     // Empty seat: tap the + to type a name right in that slot; Enter seats them and opens the next slot
     const openSlot = (b) => {
       const li = b.closest('li');
@@ -819,7 +816,7 @@ export function renderSeating(root) {
         at = -1;
         if (!items.length) return hide();
         if (!list) { list = document.createElement('ul'); list.className = 'suggest'; list.setAttribute('role', 'listbox'); document.body.append(list); }
-        list.innerHTML = items.map((g, i) => `<li role="option" data-i="${i}"><span>${esc(g.name)}</span><em>${esc([g.side, relationOf(g)].filter((x) => x && x !== 'none').join(' · '))}</em></li>`).join('');
+        list.innerHTML = items.map((g, i) => `<li role="option" data-i="${i}"><span>${esc(g.name)}</span></li>`).join('');
         const r = li.getBoundingClientRect();
         Object.assign(list.style, { left: r.left + 'px', top: r.bottom + 2 + 'px', width: r.width + 'px' });
         list.onpointerdown = (e) => { e.preventDefault(); const o = e.target.closest('li'); if (o) pick(items[+o.dataset.i]); };
@@ -904,11 +901,13 @@ export function renderSeating(root) {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !pop.hidden) closePop();
+    if (e.key === 'Escape') closeSug();
     // Delete / Backspace removes the selected table, row or area while its popover is open
     if ((e.key === 'Delete' || e.key === 'Backspace') && !pop.hidden && !e.target.closest?.('input, textarea, select, [contenteditable]')) { e.preventDefault(); pop.querySelector('#tDel, #aDel')?.click(); }
   }, { signal });
   document.addEventListener('pointerdown', (e) => {
     if (!pop.hidden && !wrap.contains(e.target) && !pop.contains(e.target)) closePop();
+    if (!e.target.closest('#sugWrap')) closeSug();
     const menu = root.querySelector('#areaMenu');
     if (menu && !menu.hidden && !e.target.closest('.tool-wrap')) { menu.hidden = true; root.querySelector('#areaBtn').setAttribute('aria-expanded', 'false'); }
   }, { signal });
@@ -945,6 +944,7 @@ export function renderSeating(root) {
     const photosBtn = root.querySelector('#photosBtn');
     if (photosBtn) photosBtn.onclick = () => { showPhotos = !showPhotos; photosBtn.classList.toggle('on', showPhotos); photosBtn.setAttribute('aria-pressed', String(showPhotos)); drawPlan(); };
 
+    root.querySelector('#colorBy')?.addEventListener('change', (e) => { colorBy = e.target.value; drawPlan(); });
     root.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
       const kind = b.dataset.add;
       const n = SP().tables.filter((t) => t.id !== 'head').length + 1;
@@ -973,7 +973,8 @@ export function renderSeating(root) {
       if (b.dataset.preset === 'custom') pop.querySelector('#aName')?.select();
     });
   } else {
-    // 3D view (loaded on demand)
+    // 3D view (loaded on demand); a quiet loader fades in until the scene is ready
+    host.innerHTML = '<div class="three-loading"><span></span>Loading 3D</div>';
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
       three = threeInst = await m.mount(host, state, moodNow(), {
@@ -1014,35 +1015,21 @@ export function renderSeating(root) {
     btn.disabled = false; btn.textContent = 'Share';
   };
 
-  /* ---- reference panel: inspiration photos (add / remove) + the venue photos ---- */
-  const inspoGrid = root.querySelector('#inspoGrid'), venueGrid = root.querySelector('.morais-grid');
-  const wireInspo = () => {
-    inspoGrid.innerHTML = inspoTiles();
-    const fileIn = root.querySelector('#pinFile');
-    root.querySelector('#addPin').onclick = () => fileIn.click();
-    inspoGrid.querySelectorAll('[data-unpin]').forEach((b) => b.onclick = () => {
-      leave(b.closest('.ref-tile'), () => localUndo('Photo removed', () => { state.inspo = state.inspo.filter((p) => p.id !== b.dataset.unpin); }));
-    });
-  };
-  root.querySelector('#pinFile').onchange = async (e) => {
-    const files = [...e.target.files];
-    e.target.value = '';
-    for (const f of files) {
-      try { state.inspo.push({ id: uid(), ...(await readImage(f)), caption: '' }); } catch (err) { toast(err.message); }
-    }
-    commit({ silent: true }); wireInspo();
-  };
+  /* ---- reference panel: layout ideas + venue photos ---- */
+  const ideasGrid = root.querySelector('#ideasGrid'), venueGrid = root.querySelector('.morais-grid');
   root.querySelectorAll('[data-ref]').forEach((b) => b.onclick = () => {
     refTab = b.dataset.ref;
     root.querySelectorAll('[data-ref]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
-    inspoGrid.hidden = refTab !== 'inspo'; venueGrid.hidden = refTab !== 'venue';
+    if (ideasGrid) ideasGrid.hidden = refTab !== 'ideas';
+    venueGrid.hidden = refTab === 'ideas' && !!ideasGrid;
   });
-  wireInspo();
 
   /* ---- suggest (reception only) ---- */
   let preview = () => {};
-  if (rec) {
-  const count = root.querySelector('#sCount'), style = root.querySelector('#sStyle'), prev = root.querySelector('#sPreview');
+  if (rec && mode === 'plan') {
+  const count = root.querySelector('#sCount'), prev = root.querySelector('#sPreview');
+  const style = { value: TABLE_STYLES[state.lastStyle] ? state.lastStyle : 'round8' };
+  const markStyle = () => root.querySelectorAll('[data-style]').forEach((b) => { const on = b.dataset.style === style.value; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
   const plan = () => {
     const n = Math.max(2, +count.value || 2);
     const head = SP().tables.find((t) => t.id === 'head') || headTable();
@@ -1053,11 +1040,15 @@ export function renderSeating(root) {
     if (style.value !== 'family' && !['open', 'stage', 'banquet', 'headlong'].includes(style.value) && dance) { dance.x = (room.w - dance.w) / 2; dance.y = 13; }
     return { n, head, room, s: suggestTables(room, n, style.value, head) };
   };
-  preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b style="color:var(--wine)">only ${s.tables.length} fit</b>`}`; };
-  count.oninput = preview; style.onchange = preview;
-  root.querySelector('#sGo').onclick = () => {
+  preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b>only ${s.tables.length} fit</b>`}`; };
+  count.oninput = preview;
+  markStyle();
+  sugBtn.onclick = () => { const open = sugPop.hidden; sugPop.hidden = !open; sugBtn.setAttribute('aria-expanded', String(open)); if (open) preview(); };
+  root.querySelectorAll('[data-style]').forEach((b) => b.onclick = () => { style.value = b.dataset.style; markStyle(); preview(); });
+  // One code path for the popover and the Layout ideas cards. In 3D the scene is rebuilt (it eases in) instead of redrawing the plan.
+  const suggest = () => {
     const { n, head, room, s } = plan();
-    closePop();
+    closePop(); closeSug();
     localUndo(s.fits ? `${s.tables.length} tables laid out` : `Only ${s.tables.length} of ${s.needed} tables fit`, () => {
       state.guestTarget = n; state.lastStyle = style.value;
       SP().room.areas = room.areas;
@@ -1066,12 +1057,14 @@ export function renderSeating(root) {
       autoSeat(state.guests, SP().tables, { links: state.links || [] });
     });
   };
+  root.querySelector('#sGo').onclick = suggest;
   root.querySelector('#sSeat').onclick = () => {
+    closeSug();
     const r = autoSeat(state.guests, SP().tables, { links: state.links || [] });
     commit({ silent: true }); drawPlan(); lede();
     toast(r.seated || r.left ? `${r.seated} seated${r.left ? ` · ${r.left} need a seat` : ''}` : 'Everyone has a seat');
   };
-
+  root.querySelectorAll('[data-idea]').forEach((b) => b.onclick = () => { style.value = b.dataset.idea; markStyle(); suggest(); });
   }
 
   if (!rec) wireSpaceTools(root, space, { state, SP, commit, toast, pool: partyPool, draw: () => drawPlan(), lede: () => lede(),
@@ -1093,8 +1086,7 @@ export function renderSeating(root) {
   };
 
   preview();
-  // Draw once this space's photo is ready (cached after the first visit)
-  if (mode === 'plan') spacePhoto(space).then((d) => { bg = d; drawPlan(); });
+  drawPlan();
 }
 let threeInst = null; // live 3D scene, disposed on re-render / leaving the page
 
@@ -1104,17 +1096,15 @@ function moraisOrder() {
   const saved = (Array.isArray(state.morais) ? state.morais : []).filter((id) => ids.includes(id));
   return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => MORAIS_PHOTOS.find((p) => p.id === id));
 }
-const inspoTiles = () => `${state.inspo.map((p) => `<figure class="ref-tile"><img src="${p.src}" alt="${esc(p.caption || '')}" loading="lazy"/><button class="ref-x" data-unpin="${p.id}" aria-label="Remove photo">×</button></figure>`).join('')}<button class="ref-add" id="addPin" aria-label="Add photo">+</button>`;
-/** One quiet panel for the photos: Inspiration (add / remove) and Venue (the Morais photos: drag to reorder, tap for the full photo). */
-function refHTML() {
-  return `<section class="card ref" aria-label="Reference">
-    <div class="ref-head"><h3>Reference</h3>
-      <div class="ref-tabs" role="tablist"><button role="tab" data-ref="inspo" aria-selected="${refTab === 'inspo'}" class="${refTab === 'inspo' ? 'on' : ''}">Inspiration</button><button role="tab" data-ref="venue" aria-selected="${refTab === 'venue'}" class="${refTab === 'venue' ? 'on' : ''}">Venue</button></div></div>
-    <div class="ref-grid" id="inspoGrid"${refTab === 'inspo' ? '' : ' hidden'}></div>
-    <div class="ref-grid morais-grid"${refTab === 'venue' ? '' : ' hidden'}>
+/** One quiet panel for the photos: Layout ideas (copy a layout in one tap) and Venue photos (the Morais photos: drag to reorder, tap for the full photo). */
+function refHTML(rec) {
+  const tab = rec && mode === 'plan' ? refTab : 'venue';
+  return `<section class="card ref" aria-label="Layout ideas and venue photos">
+    <div class="ref-head">${rec && mode === 'plan' ? `<div class="ref-tabs" role="tablist"><button role="tab" data-ref="ideas" aria-selected="${tab === 'ideas'}" class="${tab === 'ideas' ? 'on' : ''}">Layout ideas</button><button role="tab" data-ref="venue" aria-selected="${tab === 'venue'}" class="${tab === 'venue' ? 'on' : ''}">Venue photos</button></div>` : '<h3>Venue photos</h3>'}</div>
+    ${rec && mode === 'plan' ? `<div class="idea-grid" id="ideasGrid"${tab === 'ideas' ? '' : ' hidden'}>${IDEAS.map((d) => `<figure class="idea"><img src="${d.src}" alt="${esc(TABLE_STYLES[d.key].label)}" loading="lazy" draggable="false"/><figcaption><b>${esc(TABLE_STYLES[d.key].label)}</b><button type="button" class="idea-use" data-idea="${d.key}">Use this layout</button></figcaption></figure>`).join('')}</div>` : ''}
+    <div class="ref-grid morais-grid"${tab === 'venue' ? '' : ' hidden'}>
       ${moraisOrder().map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${p.name}"><img src="${p.src}" alt="" draggable="false" loading="lazy"/></button>`).join('')}
     </div>
-    <input type="file" id="pinFile" accept="image/*" multiple hidden/>
   </section>`;
 }
 function wireMorais(root, signal) {

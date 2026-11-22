@@ -6,6 +6,10 @@ import { WEDDING } from './data.js';
 import { esc, toast } from './util.js';
 
 const PLACES = ['Ceremony', 'Reception', 'Hangout spot', 'Other'];
+// Real Morais spaces (VENUE.md); `sp` = the Seating tab that shows it
+const VENUES = [['Chapel', 'ceremony'], ['Pergola', 'ceremony'], ['Indoor ceremony', 'ceremony'], ['Courtyard', 'cocktail'], ['Ballroom', 'reception'], ['Balcony', 'cocktail'], ['Bar room', 'cocktail'], ['Foyer', 'cocktail'], ['Bridal suite', ''], ['Groom suite', ''], ['Redondo Room', 'reception']];
+const venueSp = (v) => (VENUES.find((x) => x[0] === v) || [])[1] || 'reception';
+const DAY = 1440;
 const placeKey = (p) => (PLACES.includes(p) ? p : 'Other').toLowerCase().replace(/\s+/g, '-');
 const PX = 1.6; // pixels per minute (96 px an hour, so a 10-minute block still reads)
 const SNAP = 15;
@@ -16,8 +20,12 @@ let suggesting = false;  // side panel shows the "suggest" form
 let prefs = new Set();
 
 const toMin = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
-const toTime = (min) => { const m = Math.max(0, Math.min(24 * 60 - 1, Math.round(min))); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+const toTime = (min) => { const m = ((Math.round(min) % DAY) + DAY) % DAY; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 const fmt = (t) => { const m = toMin(t), h = Math.floor(m / 60), mm = m % 60; return `${(h % 12) || 12}${mm ? ':' + String(mm).padStart(2, '0') : ''}${h >= 12 ? 'pm' : 'am'}`; };
+// Minutes from midnight of the wedding day; a block may run past midnight (end <= start) or start after it (day2)
+const S = (a) => S(a) + (a.day2 ? DAY : 0);
+const E = (a) => { let e = E(a) + (a.day2 ? DAY : 0); if (e <= S(a)) e += DAY; return e; };
+const setTimes = (a, s, e) => { a.start = toTime(s); a.end = toTime(e); a.day2 = s >= DAY; };
 const snap = (m) => Math.round(m / SNAP) * SNAP;
 const ceremonyMin = () => { const r = WEDDING.date.match(/T(\d{2}):(\d{2})/); return r ? +r[1] * 60 + +r[2] : 16 * 60; };
 const personName = (id) => state.people.find((p) => p.id === id)?.name || '';
@@ -57,26 +65,27 @@ function suggestBlocks(from, to) {
   return seq.map(([title, place, len], i) => {
     const start = t, end = i === seq.length - 1 ? to : Math.max(start + 5, Math.round((t + len * k) / 5) * 5);
     t = end;
-    return { id: uid(), start: toTime(start), end: toTime(end), title, place, responsible: '', notes: '', suggested: true };
+    const blk = { id: uid(), title, place, venue: '', responsible: '', notes: '', suggested: true }; setTimes(blk, start, end); return blk;
   });
 }
 
 /* ---------- layout ---------- */
 function range() {
-  const ms = state.agenda.flatMap((a) => [toMin(a.start), toMin(a.end)]);
+  const ms = state.agenda.flatMap((a) => [S(a), E(a)]);
   const lo = Math.min(12 * 60, ...ms), hi = Math.max(23 * 60, ...ms);
-  return { from: Math.floor(lo / 60) * 60, to: Math.min(24 * 60, Math.ceil(hi / 60) * 60) };
+  const late = hi > DAY;   // past midnight: show at least until 2am of the next day
+  return { from: Math.floor(lo / 60) * 60, to: Math.min(30 * 60, Math.max(late ? 26 * 60 : 0, Math.ceil(hi / 60) * 60)) };
 }
 /** Side-by-side lanes for blocks that overlap in time. */
 function lanes(list) {
-  const sorted = list.slice().sort((a, b) => toMin(a.start) - toMin(b.start) || toMin(b.end) - toMin(a.end));
+  const sorted = list.slice().sort((a, b) => S(a) - S(b) || E(b) - E(a));
   const out = new Map();
   let cluster = [], clusterEnd = -1;
   const flush = () => { const n = Math.max(...cluster.map((c) => out.get(c.id).lane)) + 1; cluster.forEach((c) => { out.get(c.id).of = n; }); cluster = []; };
   sorted.forEach((a) => {
-    const s = toMin(a.start), e = toMin(a.end);
+    const s = S(a), e = E(a);
     if (cluster.length && s >= clusterEnd) flush();
-    const used = new Set(cluster.filter((c) => toMin(c.end) > s).map((c) => out.get(c.id).lane));
+    const used = new Set(cluster.filter((c) => E(c) > s).map((c) => out.get(c.id).lane));
     let lane = 0; while (used.has(lane)) lane++;
     out.set(a.id, { lane, of: 1 });
     cluster.push(a); clusterEnd = Math.max(clusterEnd, e);
@@ -86,7 +95,7 @@ function lanes(list) {
 }
 
 function blockHTML(a, r, ln) {
-  const top = (toMin(a.start) - r.from) * PX, h = Math.max(SNAP * PX, (toMin(a.end) - toMin(a.start)) * PX);
+  const top = (S(a) - r.from) * PX, h = Math.max(SNAP * PX, (E(a) - S(a)) * PX);
   const l = ln.get(a.id) || { lane: 0, of: 1 };
   const short = h < 34;
   return `
@@ -94,7 +103,7 @@ function blockHTML(a, r, ln) {
       aria-label="${esc(a.title || 'Event')} ${fmt(a.start)} to ${fmt(a.end)}"
       style="top:${top}px;height:${h}px;left:calc(${(l.lane / l.of) * 100}% + 2px);width:calc(${100 / l.of}% - 4px)">
       <div class="ab-t">${a.title ? esc(a.title) : '<em>New event</em>'}${short ? ` <span>${fmt(a.start)}</span>` : ''}</div>
-      ${short ? '' : `<div class="ab-m">${fmt(a.start)}–${fmt(a.end)}${a.place ? ` · ${esc(a.place)}` : ''}${a.responsible ? ` · ${esc(personName(a.responsible))}` : ''}</div>`}
+      ${short ? '' : `<div class="ab-m">${fmt(a.start)}–${fmt(a.end)}${a.venue ? ` · <a class="ab-v" href="#seating/${venueSp(a.venue)}" data-venue>${esc(a.venue)}</a>` : a.place ? ` · ${esc(a.place)}` : ''}${a.responsible ? ` · ${esc(personName(a.responsible))}` : ''}</div>`}
       ${a.suggested && !short ? '<div class="ab-s">Suggested</div>' : ''}
       <div class="ab-r" data-resize aria-hidden="true"></div>
     </div>`;
@@ -128,6 +137,8 @@ function panelHTML() {
         <label class="ap-f"><span>End</span><input type="time" data-k="end" value="${esc(a.end)}" step="900"/></label>
       </div>
       <label class="ap-f"><span>Place</span><select data-k="place">${PLACES.map((p) => `<option ${p === a.place ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+      <label class="ap-f"><span>Venue place</span><select data-k="venue"><option value="">—</option>${VENUES.map(([v]) => `<option ${v === a.venue ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      ${a.venue ? `<a class="ap-link" href="#seating/${venueSp(a.venue)}">View ${esc(a.venue)} in Seating</a>` : ''}
       <label class="ap-f"><span>Responsible</span><select data-k="responsible"><option value="">—</option>${state.people.map((p) => `<option value="${p.id}" ${p.id === a.responsible ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
       <label class="ap-f"><span>Notes</span><textarea data-k="notes" rows="3">${esc(a.notes)}</textarea></label>
       <div class="ap-foot">
@@ -172,8 +183,9 @@ export function renderAgenda(view) {
       <div class="ag-cal" id="agCal">
         <div class="ag-colhead"><span></span><span>June 17</span></div>
         <div class="ag-body" style="height:${(r.to - r.from) * PX}px">
-          <div class="ag-hours">${hours.map((m) => `<div class="ag-h" style="top:${(m - r.from) * PX}px"><span>${fmt(toTime(m))}</span></div>`).join('')}</div>
+          <div class="ag-hours">${hours.map((m) => `<div class="ag-h" style="top:${(m - r.from) * PX}px"><span>${fmt(toTime(m))}${m === DAY ? ' <em>next day</em>' : ''}</span></div>`).join('')}</div>
           <div class="ag-col" id="agCol">
+            ${r.to > DAY ? `<div class="ag-midnight" style="top:${(DAY - r.from) * PX}px"><span>Next day</span></div>` : ''}
             ${hours.map((m) => `<div class="ag-line" style="top:${(m - r.from) * PX}px"></div><div class="ag-line half" style="top:${(m - r.from + 30) * PX}px"></div>`).join('')}
             ${state.agenda.map((a) => blockHTML(a, r, ln)).join('')}
           </div>
@@ -187,14 +199,15 @@ export function renderAgenda(view) {
   // Opening the page: start an hour before the ceremony (or at the first event)
   if (keepScroll != null) cal.scrollTop = keepScroll;
   else {
-    const first = Math.min(ceremonyMin() - 60, ...state.agenda.map((a) => toMin(a.start)));
+    const first = Math.min(ceremonyMin() - 60, ...state.agenda.map((a) => S(a)));
     cal.scrollTop = Math.max(0, (first - r.from) * PX - 20);
   }
 
   view.querySelector('#agAdd').onclick = () => {
-    const last = state.agenda.slice().sort((a, b) => toMin(b.end) - toMin(a.end))[0];
-    const s = last ? toMin(last.end) : ceremonyMin();
-    const a = { id: uid(), start: toTime(s), end: toTime(s + 30), title: '', place: 'Reception', responsible: '', notes: '', suggested: false };
+    const last = state.agenda.slice().sort((a, b) => E(b) - E(a))[0];
+    const s = last ? E(last) : ceremonyMin();
+    const a = { id: uid(), title: '', place: 'Reception', venue: '', responsible: '', notes: '', suggested: false };
+    setTimes(a, s, s + 30);
     state.agenda.push(a);
     selId = a.id; suggesting = false;
     commit({ silent: true });
@@ -208,7 +221,8 @@ export function renderAgenda(view) {
     if (e.target.closest('.ab')) return;
     const y = e.clientY - col.getBoundingClientRect().top;
     const s = snap(r.from + y / PX - SNAP / 2);
-    const a = { id: uid(), start: toTime(s), end: toTime(s + 30), title: '', place: 'Reception', responsible: '', notes: '', suggested: false };
+    const a = { id: uid(), title: '', place: 'Reception', venue: '', responsible: '', notes: '', suggested: false };
+    setTimes(a, s, s + 30);
     state.agenda.push(a);
     selId = a.id; suggesting = false;
     commit({ silent: true });
@@ -220,9 +234,9 @@ export function renderAgenda(view) {
   let drag = null;
   col.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.ab');
-    if (!el || e.button > 0) return;
+    if (!el || e.button > 0 || e.target.closest('[data-venue]')) return;
     const a = state.agenda.find((x) => x.id === el.dataset.id);
-    drag = { el, a, y0: e.clientY, s0: toMin(a.start), e0: toMin(a.end), resize: !!e.target.closest('[data-resize]'), moved: false };
+    drag = { el, a, y0: e.clientY, s0: S(a), e0: E(a), resize: !!e.target.closest('[data-resize]'), moved: false };
     try { el.setPointerCapture(e.pointerId); } catch { /* fine */ }
     e.preventDefault();
   });
@@ -245,7 +259,7 @@ export function renderAgenda(view) {
     if (!drag) return;
     const d = drag; drag = null;
     if (!d.moved) { selId = d.a.id; suggesting = false; return rerender(); }
-    d.a.start = toTime(d.s); d.a.end = toTime(d.e);
+    setTimes(d.a, d.s, d.e);
     if (d.a.noteLine) { dropNote(d.a); addNote(d.a); }
     commit({ silent: true });
     rerender();
@@ -273,9 +287,7 @@ export function renderAgenda(view) {
       let to = toMin(form.elements.to.value);
       if (to <= from) to += 24 * 60;                 // an end like 2am means the next morning
       if (to - from < 60) { toast('The event needs to run at least an hour'); return; }
-      const late = to > 24 * 60 - 15;
-      const fresh = suggestBlocks(from, Math.min(to, 24 * 60 - 15));   // the day view ends at midnight for now
-      if (late) toast('Past midnight is trimmed to 11:45pm for now');
+      const fresh = suggestBlocks(from, to);   // may run past midnight: the day view extends
       suggesting = false;
       undoable(`${fresh.length} events suggested`, () => {
         state.agenda.filter((a) => a.suggested).forEach(dropNote);
@@ -297,9 +309,9 @@ export function renderAgenda(view) {
     const apply = () => {
       if (k === 'responsible') { dropNote(a); a.responsible = el.value; addNote(a); }
       else if (k === 'start' || k === 'end') {
-        const len = toMin(a.end) - toMin(a.start);
-        if (k === 'start') { a.start = el.value; a.end = toTime(toMin(el.value) + len); panel.querySelector('[data-k="end"]').value = a.end; }
-        else a.end = toMin(el.value) > toMin(a.start) ? el.value : toTime(toMin(a.start) + SNAP);
+        const len = E(a) - S(a);
+        if (k === 'start') { setTimes(a, toMin(el.value) + (a.day2 ? DAY : 0), toMin(el.value) + (a.day2 ? DAY : 0) + len); panel.querySelector('[data-k="end"]').value = a.end; }
+        else a.end = el.value;   // an end at or before the start means the next morning
         if (a.noteLine) { dropNote(a); addNote(a); }
       } else {
         a[k] = el.value;
@@ -307,7 +319,7 @@ export function renderAgenda(view) {
       }
       commit({ silent: true });
       // times/place can change the grid's range or lanes → redraw; text edits update just the block
-      if (k === 'start' || k === 'end' || k === 'place') rerender(); else refreshBlock();
+      if (k === 'start' || k === 'end' || k === 'place' || k === 'venue') rerender(); else refreshBlock();
     };
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'time' ? 'change' : 'input', apply);
   });

@@ -222,6 +222,13 @@ const linkSelect = (r, p) => {
   return others.length ? `<select class="tc-link" data-linkrole="${r.id}" aria-label="Add a person to ${esc(r.title)}"><option value="">+</option>${others.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : '';
 };
 
+/** Agenda blocks this person is responsible for (the Agenda page stays the source) */
+function agendaOf(pid) {
+  const list = (state.agenda || []).filter((a) => a.responsible === pid);
+  if (!list.length) return '';
+  const t = (x) => { const [h, m] = String(x || '0:0').split(':').map(Number); return `${(h % 12) || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${h >= 12 ? 'pm' : 'am'}`; };
+  return `<ul class="tc-ag" aria-label="On the agenda">${list.map((a) => `<li><a href="#agenda">${t(a.start)} ${esc(a.title || 'Event')}</a></li>`).join('')}</ul>`;
+}
 function personCard(p) {
   const rs = rolesOf(p.id);
   const asking = confirmDel === p.id;
@@ -248,6 +255,7 @@ function personCard(p) {
           return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}${w ? `<small>with ${esc(w)}</small>` : ''}</span>${linkSelect(r, p)}${statusDots(r)}</li>`;
         }).join('')}
       </ul>
+      ${agendaOf(p.id)}
       <form class="tc-add" data-addrole="${p.id}" autocomplete="off"><input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/></form>
     </article>`;
 }
@@ -628,7 +636,7 @@ setTimeout(moveInk, 400);
 // Mood palettes stay internal (branding) — no page; old #mood links fall back to the overview
 const ROUTES = { overview, team, seating: () => renderSeating(view), guests, agenda: () => renderAgenda(view) };
 function route(opts = {}) {
-  const name = location.hash.slice(1) || 'overview';
+  const [name, sub] = (location.hash.slice(1) || 'overview').split('/');   // '#seating/ceremony' opens that Seating space
   const fn = ROUTES[name] || overview;
   document.body.dataset.route = ROUTES[name] ? name : 'overview';
   document.querySelectorAll('.mainnav a').forEach((a) => a.classList.toggle('active', a.dataset.route === name));
@@ -636,6 +644,7 @@ function route(opts = {}) {
   // Keep scroll position when re-rendering the same page (e.g. after posting an update)
   const y = window.scrollY;
   fn();
+  if (opts.enter && name === 'seating' && sub) view.querySelector(`[data-space="${sub}"]`)?.click();
   refreshGuide();
   if (opts.enter) { view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter'); clearTimeout(enterTimer); enterTimer = setTimeout(() => view.classList.remove('enter'), 600); countUp(); }
   else { window.scrollTo(0, y); view.querySelectorAll('.countup').forEach((el) => { el.textContent = el.dataset.to; }); }

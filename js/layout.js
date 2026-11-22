@@ -224,8 +224,8 @@ function suggestOpen(room, guestCount, head) {
 const tid = () => 't' + Math.random().toString(36).slice(2, 9);
 const finish = (all, needed, extra = {}) => { all.sort((a, b) => a.y - b.y || a.x - b.x); return { fits: all.length >= needed, needed, ...extra, tables: all.map((t, i) => ({ ...t, id: tid(), name: String(i + 1), o: i + 1 })) }; };
 /** Greedy: rounds of `size` on free 0.5-ft spots, ordered by `sort`, ≥3.5 ft between chair rings. */
-function packRounds(room, placed, roundN, size, sort, maxY) {
-  const rt = { shape: 'round', seats: size, rot: 0 }, fp = footprint(rt), sx = fp.hw * 2 + 3.5, sy = fp.hh * 2 + 3.5;
+function packRounds(room, placed, roundN, size, sort, maxY, gap = 3.5) {
+  const rt = { shape: 'round', seats: size, rot: 0 }, fp = footprint(rt), sx = fp.hw * 2 + gap, sy = fp.hh * 2 + gap;
   const blocked = blockers(room, placed, { areaPad: 0.5 });
   const cands = [];
   for (let y = Math.ceil(fp.hh + 2.5); y + fp.hh <= maxY; y++) for (let x = fp.hw + 2; x + fp.hw <= room.w - 2; x += 0.5) {
@@ -243,11 +243,19 @@ const CUSTOM = {
   stage(room, guestCount, head) {
     const st = room.fixed?.stage, dance = danceOf(room);
     const nh = { ...(head || { id: 'head', name: 'Mr. & Mrs. Griffin', sides: { top: 2, bottom: 0, left: 0, right: 0 }, o: 0 }), shape: 'rect', rot: 90, x: st ? st.cx + st.r * 0.45 : 4.5, y: st ? st.cy : room.h * 0.8 };
-    if (dance) { dance.w = 18; dance.h = 20; dance.x = (st ? st.cx + st.r + 4 : 12); dance.y = Math.max(8, (st ? st.cy : room.h * 0.8) - dance.h * 0.5 - 4); }
-    const cx = dance ? dance.x + dance.w / 2 : room.w / 2, cy = dance ? dance.y + dance.h / 2 : room.h / 2;
     const n = Math.max(1, Math.ceil(Math.max(0, guestCount - 2) / 8));
-    const rounds = packRounds(room, [nh], n, 8, (a, b) => { const d = (p) => Math.min(p.x, room.w - p.x, p.y); return Math.round(d(a) / 3) - Math.round(d(b) / 3) || Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy); }, nearEnd(room));
-    return finish(rounds, n, { head: nh, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h } });
+    // Try roomier plans first; the 50 x 75 ft room is tight with a stage bay, so fall back to a smaller floor, tighter aisles, then the lounge end
+    const tries = [{ dw: 18, dh: 20, gap: 3.5, end: nearEnd(room) }, { dw: 16, dh: 18, gap: 2.5, end: nearEnd(room) }, { dw: 14, dh: 16, gap: 2.5, end: nearEnd(room) }, { dw: 14, dh: 16, gap: 2, end: room.h - 3 }];
+    let best = null;
+    for (const o of tries) {
+      if (dance) { dance.w = o.dw; dance.h = o.dh; dance.x = (st ? st.cx + st.r + 3 : 12); dance.y = Math.max(8, (st ? st.cy : room.h * 0.8) - dance.h * 0.5 - 2); }
+      const cx = dance ? dance.x + dance.w / 2 : room.w / 2, cy = dance ? dance.y + dance.h / 2 : room.h / 2;
+      const d = (p) => Math.min(p.x, room.w - p.x, p.y);
+      const rounds = packRounds(room, [nh], n, 8, (a, b) => Math.round(d(a) / 3) - Math.round(d(b) / 3) || Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy), o.end, o.gap);
+      if (!best || rounds.length > best.rounds.length) best = { rounds, dance: dance && { x: dance.x, y: dance.y, w: dance.w, h: dance.h } };
+      if (rounds.length >= n) break;
+    }
+    return finish(best.rounds, n, { head: nh, dance: best.dance });
   },
   /** Two long garland tables down the sides + a cross table at the near end (a U around the floor); sweetheart at the far wall. Seats from the Simply Breathe Events photo. */
   banquet(room, guestCount, head) {

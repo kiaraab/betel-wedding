@@ -430,7 +430,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     eveningTarget = 1;
     const H = (x) => new THREE.Vector3(...x);
     tour = {
-      t: 0, dur: 18,
+      t: 0, dur: 18, from: camera.position.clone(), fromT: controls.target.clone(),
       path: new THREE.CatmullRomCurve3([H([0, 6, h / 2 + 10]), H([0, 5.6, h / 2 - 4]), H([-6, 6, h / 2 - 20]), H([-14, 7, Z(32)]), H([0, 6.5, Z(24)]), H([12, 7, Z(14)]), H([0, 30, h * 0.5]), home.pos.clone()]),
       look: new THREE.CatmullRomCurve3([H([0, 4, 0]), H([0, 4, -10]), H([0, 3, Z(24)]), H([0, 3, Z(18)]), H([0, 3.5, Z(8)]), H([-4, 3, Z(18)]), H([0, 0, -4]), home.target.clone()]),
     };
@@ -483,6 +483,14 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   el.addEventListener('pointerup', (e) => { const d = down; down = null; if (d && !d.moved) tapAt(e); });
 
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  // ease the camera toward a table (from the room's open side), unless we are walking or on the tour
+  function focusTable(id) {
+    const info = tableInfo.get(id);
+    if (!info || walking || tour) return;
+    const p = info.group.position, dir = new THREE.Vector3(-p.x * 0.3, 0, h * 0.5 - p.z).setY(0).normalize();
+    const to = new THREE.Vector3(p.x, 0, p.z).addScaledVector(dir, 20).setY(15);
+    flight = { from: camera.position.clone(), to, fromT: controls.target.clone(), toT: new THREE.Vector3(p.x, 1.5, p.z), t: 0, dur: 0.9 };
+  }
   function tapAt(e) {
     const r = el.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -490,6 +498,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     const hit = ray.intersectObjects(chairMeshes, false)[0];
     if (!hit) return closePrompt();
     const ch = hit.object.userData.chair;
+    focusTable(ch.userData.tableId);
     if (ch.userData.taken) return;
     openPrompt(ch, e.clientX - r.left, e.clientY - r.top);
   }
@@ -549,8 +558,9 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     if (tour) {
       tour.t += dt / tour.dur;
       const k = ease(Math.min(1, tour.t));
-      camera.position.copy(tour.path.getPointAt(k));
-      controls.target.copy(tour.look.getPointAt(k));
+      const b = ease(Math.min(1, (tour.t * tour.dur) / 1.6)); // first 1.6 s: ease from the current view onto the path
+      camera.position.lerpVectors(tour.from, tour.path.getPointAt(k), b);
+      controls.target.lerpVectors(tour.fromT, tour.look.getPointAt(k), b);
       if (tour.t >= 1) { tour = null; controls.enabled = true; }
     }
     popIns.forEach((p) => {
