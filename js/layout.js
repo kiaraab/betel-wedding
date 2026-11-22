@@ -32,7 +32,7 @@ export const tableR = (t) => (t.dia ? t.dia / 2 : roundRadius(t.seats));
 
 export function rectDims(t) {
   const { top, bottom, left, right } = t.sides;
-  return { L: Math.max(Math.max(top, bottom) * 2.1 + 0.6, t.len || 0, 3), D: Math.max(Math.max(left, right) * 2.1 + 0.4, 2.6) };
+  return { L: Math.max(Math.max(top, bottom) * 2.1 + 0.6, t.len || 0, 3), D: Math.max(Math.max(left, right) * 2.1 + 0.4, t.dep || 0, 2.6) };
 }
 
 /** Footprint incl. chairs, after rotation: half-width / half-height */
@@ -182,7 +182,19 @@ export function suggestTables(room, guestCount, style = 'round8', head) {
       ? withDance(room, () => suggestInner(room, guestCount, style, home), { sizes: [...DANCE_SIZES, [14, 16]], shifts: [0, -4, 4, -8], pos: (dw, dh) => ({ x: Math.round((room.w - dw) / 2), y: room.h - (room.fixed?.balcony?.depth || 0) - 10 - dh - 1 }) })
       : withDance(room, () => suggestInner(room, guestCount, style, home)))
     : suggestInner(room, guestCount, style, own ? head : home);
+  if (style === 'round8' && !r.fits) growTables(room, r, guestCount, home || head);
   return { ...r, ...(head && !own ? { head: home } : {}) };
+}
+/** When the hall can't hold enough 8-tops, swap tables for 10-tops (72" rounds, VENUE-PHOTOS.md) one at a time while nothing conflicts (chairs >= 3.5 ft apart, keep-outs clear). */
+function growTables(room, r, guestCount, head) {
+  const need = Math.max(0, guestCount - 2), count = () => r.tables.reduce((n, t) => n + t.seats, 0);
+  const order = [...r.tables].sort((a, b) => (b.x < room.w / 2 ? 1 : 0) - (a.x < room.w / 2 ? 1 : 0) || b.y - a.y);
+  for (const t of order) {
+    if (count() >= need) break;
+    t.seats = 10;
+    if (clearanceIssues(room, [...(head ? [head] : []), ...r.tables]).items.length) t.seats = 8;
+  }
+  r.fits = count() >= need;
 }
 /** A cake table left in the stage bay by an earlier 'Head on stage' layout goes back beside the sweetheart table at the arched doors. */
 function moveCakeOut(room, style) {
@@ -510,4 +522,29 @@ export function autoSeat(guests, tables, { onlyUnseated = true, links = [] } = {
     }
   }
   return { seated, left };
+}
+
+/**
+ * Clearance check for the plan: chair-to-chair gap between dining tables < 3.5 ft, or a table inside the stage keep-out, under the balcony rail,
+ * or in a door's clear zone. Ceremony rows are skipped (they sit back to back by design). Returns { ids: Set of table ids, items: [{ids, msg}] }.
+ */
+export function clearanceIssues(room, tables, minGap = 3.5) {
+  const items = [], ids = new Set();
+  const dining = tables.filter((t) => t.shape !== 'row');
+  const bx = (t) => { const f = footprint(t); return { x1: t.x - f.hw, x2: t.x + f.hw, y1: t.y - f.hh, y2: t.y + f.hh }; };
+  const flag = (list, msg) => { list.forEach((t) => ids.add(t.id)); items.push({ ids: list.map((t) => t.id), msg }); };
+  for (let i = 0; i < dining.length; i++) for (let j = i + 1; j < dining.length; j++) {
+    const a = dining[i], b = dining[j], pa = bx(a), pb = bx(b);
+    const gap = Math.max(pa.x1 - pb.x2, pb.x1 - pa.x2, pa.y1 - pb.y2, pb.y1 - pa.y2);
+    if (gap < (a.id === 'head' || b.id === 'head' ? 2 : minGap)) flag([a, b], `${a.name} and ${b.name}: ${Math.max(0, gap).toFixed(1)} ft between chairs`);
+  }
+  const zones = blockers({ ...room, areas: [], fixed: { ...room.fixed, decor: [] } }, []);
+  const bal = room.fixed?.balcony;
+  dining.forEach((t) => {
+    const b = bx(t);
+    if (b.x1 < 0 || b.y1 < 0 || b.x2 > room.w || b.y2 > room.h) flag([t], `${t.name}: outside the room`);
+    else if (t.id !== 'head' && zones.some((z) => overlap(b, z))) flag([t], `${t.name}: blocks the stage steps or a door`);
+    else if (t.id !== 'head' && bal && b.y2 > room.h - bal.depth + 0.01) flag([t], `${t.name}: under the balcony rail`);
+  });
+  return { ids, items };
 }

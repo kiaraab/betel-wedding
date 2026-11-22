@@ -17,7 +17,7 @@ Only what we've **seen** (Morais' shared album: 3 photos + 4 videos) or what the
 - Long rectangle, hardwood throughout (the "dance floor" is open floor, not a separate surface)
 - Far end wall: 5 arched French doors to the outside
 - Both long walls: tall windows; right wall also has one arched French door
-- **Stage** = the domed, columned bay on the left long wall (3 curved steps reach ~4-5 ft into the hall); first read as a 'round stage in the near-left corner' from the balcony photo, corrected by the Matterport tour (see below)
+- **Stage** = the domed, columned bay on the left long wall (3 curved steps reach ~4-5 ft into the hall) (an early read of a 'round stage in the near-left corner' was wrong; Matterport and the Knot photos show the bay)
 - **Balcony / mezzanine** overlooking the room from the near end
 - Coffered ceiling, gold chandeliers, textured gold-taupe walls
 - Furniture shown: 60" round tables, gold chiavari chairs, a wine-barrel cocktail table
@@ -84,7 +84,7 @@ The appeal of the reference site (wedding.wawasensei.dev/plan) is **interactivit
 All use the 50 x 75 ft working room (ESTIMATE), keep door paths/stage/entrance aisle clear via `blockers()`, and the near end under the balcony stays an arrival lounge. Reference photos are in `assets/refs/` (converted to <=1200px JPEGs).
 - **Rounds · 8 / 10**: 60" / 72" rounds in a U around the dance floor, sweetheart table at the arched doors. Based on the Palacio package photos (`google-morais-1/2/3.jpg`, rounds of 8 with gold chiavari chairs).
 - **Open floor**: big open dance floor, rounds on the perimeter and far side, two 9 ft tables at the near end. Based on the owner's reference photo (`owner-ref-6.webp`: guests dancing mid-room, rounds along the far wall, long tables near the camera).
-- **Head on stage**: sweetheart table up on the round stage (near-left corner), couple facing the room, dance floor in front of the stage, rounds around. Based on couples who seated the head table on the stage (`owner-ref-6.webp` shows the stage steps at the left edge of the dance floor). Stage use itself is a question for Morais.
+- **Head on stage**: sweetheart table (5 ft round, 2 chairs) and a 4 ft cake table up in the domed stage bay on the left long wall, couple facing the room, dance floor in front of the stage, rounds around. Based on couples who seated the head table on the stage (`owner-ref-6.webp` shows the stage steps at the left edge of the dance floor). Stage use itself is a question for Morais.
 - **Long banquet**: two long garland-style tables down the sides plus a cross table at the near end, forming a U around the floor, sweetheart at the far wall. Based on the Simply Breathe Events photo (first thumbnail in `google-morais-1.jpg`: long banquet rows with greenery runners).
 - **Long head table**: an 8-seat head table facing the room at the arched doors, rounds in a U around the dance floor. Based on the Palacio / Simply Breathe photos with a long head table at the arched doors.
 Note: only the stage/dance-floor geometry is observed; table counts and spacing are planning choices. The 8-seat head table is not auto-seated (Auto-seat treats the head as the couple's).
@@ -117,3 +117,10 @@ Seeded in `data.js` `seedSpaces()`: **ceremony** (lawn at the pergola), **indoor
 
 ## The Knot listing photos (`assets/venue/knot/`, shown under Seating > Venue photos)
 Real photos; credit stays with the photographers. 020 greenhouse (green iron conservatory) · 022 ceremony lawn with the pergola and white chairs (plan backdrop for Ceremony) · 023 Palacio at dusk · 026 courtyard cocktail hour (portrait) · 028 ballroom with rounds · 029 ballroom set for a ceremony (rows, balcony at left, bay at the far end) · 055/056 fountain courtyard with cafe tables (056 is the Cocktail plan backdrop) · 057 wine wall (black and white).
+
+## Stage, bay and doors as coded (Knot photos + Matterport; ± = uncertainty)
+- **Bay/stage:** ≈ 20 ± 4 ft wide × 15 ± 4 ft deep, outside the hall on the left long wall, centred ≈ 34 ± 5 ft from the balcony end. Only the 3 tile-faced steps reach in (≈ 4.5 ± 1.5 ft). Table keep-out: 8 ft from that wall.
+- **Balcony-end wall:** two white double doors (≈ 5 ft each) at x ≈ 16 and 31 (± 3 ft, lens-stretched) plus a ≈ 3 ft single door near each corner. Balcony depth 12 ft is an estimate (± 4 ft); tables stay out from under its rail.
+- **Far wall:** 5 arched French doors, ≈ 9 ft pitch (± 2).
+- **Tasting room** is kept as its own tab ("Tasting room", rain/evening option) beside the courtyard "Hangout spot"; its layout is a planning estimate from the Morais album only. The Redondo Room (capacity 60, published) sits at its base and is not drawn.
+- **Knot photos #008 to #012 are not Morais** (an industrial brick warehouse and a styled shoot); they are ignored.

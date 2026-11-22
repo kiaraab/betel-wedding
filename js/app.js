@@ -372,7 +372,9 @@ function team() {
     view.querySelector(`[data-addrole="${CSS.escape(f.dataset.addrole)}"] input`)?.focus();
   });
   view.querySelectorAll('[data-editrole]').forEach((b) => b.onclick = () => { editingRole = b.dataset.editrole; menuFor = null; team(); view.querySelector('.tc-redit input')?.focus(); });
-  view.querySelectorAll('[data-canceledit]').forEach((b) => b.onclick = () => { editingRole = null; team(); });
+  const backToEdit = (rid) => view.querySelector(`[data-editrole="${CSS.escape(rid)}"]`)?.focus();
+  view.querySelectorAll('[data-canceledit]').forEach((b) => b.onclick = () => { const rid = editingRole; editingRole = null; team(); backToEdit(rid); });
+  view.querySelectorAll('[data-saverole]').forEach((f) => f.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); const rid = editingRole; editingRole = null; team(); backToEdit(rid); } }));
   view.querySelectorAll('[data-rwith]').forEach((b) => b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')));
   view.querySelectorAll('[data-saverole]').forEach((f) => f.onsubmit = (e) => {
     e.preventDefault();
@@ -384,6 +386,7 @@ function team() {
     r.title = title; r.people = who;
     editingRole = null;
     commit();
+    backToEdit(r.id);
   });
   view.querySelectorAll('[data-delrole]').forEach((b) => b.onclick = async () => {
     const r = state.roles.find((x) => x.id === b.dataset.delrole);

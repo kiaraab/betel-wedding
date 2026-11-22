@@ -1,15 +1,21 @@
-import { state, commit, uid, undoable, exportJSON, importJSON } from './store.js';
+import { state, commit as baseCommit, uid, undoable, exportJSON, importJSON } from './store.js';
 import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
-import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers } from './layout.js';
+import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers, clearanceIssues } from './layout.js';
 import { esc, toast } from './util.js';
 import { spaceToolsHTML, wireSpaceTools, partySVG } from './spaces.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const M = 3; // margin around the room (ft)
 let sel = null;          // { kind: 'table' | 'area', id }
+// Header Undo: a short stack of plan snapshots (taken after every edit made on this page)
+const hist = [];
+const stamp = () => JSON.stringify({ ...state, updatedAt: 0 });
+const syncUndo = () => { const b = document.getElementById('hdrUndo'); if (b) b.disabled = hist.length < 2; };
+const histPush = () => { const s = stamp(); if (hist[hist.length - 1] !== s) { hist.push(s); if (hist.length > 30) hist.shift(); } syncUndo(); };
+function commit(o) { baseCommit(o); histPush(); }
 let cleanup = null;      // AbortController for document listeners of the current render
 let view = null;         // current viewBox { x, y, w, h } — persists across re-renders
-let mode = 'plan';       // 'plan' | '3d'
+let mode = '3d';         // 'plan' | '3d' (reception opens on the 3D hero)
 let space = 'reception'; // 'ceremony' | 'indoor' | 'cocktail' | 'reception' — tabs above the plan
 let inkFrom = null;       // where the tab underline glides from after a space switch
 /** The space being edited: the reception lives at the top of the plan (room/tables), the others in state.spaces. */
@@ -31,12 +37,14 @@ function spaceLede() {
   if (kindOf() === 'cocktail') return SP().room.bistro ? `${ts.length} bistro tables · ${seats} seats` : `${ts.length} high-tops · ${seats} stools`;
   return `${state.guests.filter((g) => g.tableId && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
 }
+let units = (() => { try { return localStorage.getItem('seat-units') === 'm' ? 'm' : 'ft'; } catch { return 'ft'; } })(); // plan dimension units (display only; data stays in feet)
 let showPhotos = false;  // plan toolbar 'Photos': seated guests with a picture show it in their seat
+let vsTab = 'layout';     // reception sidebar tab: 'layout' | 'guests' | 'look'
 let refTab = 'ideas';    // side panel tab: 'ideas' | 'venue'
 let flip = null;         // Map tableId -> {x,y} of the plan before a layout change: tables glide from there
 let partySel = null;     // ceremony: the wedding-party dot that was tapped (just highlights it)
 // Come back to the floor plan each time Seating is opened; 3D only loads when its tab is clicked
-addEventListener('hashchange', () => { if (location.hash !== '#seating') { mode = 'plan'; sel = null; partySel = null; clearBackdrop(); } });
+addEventListener('hashchange', () => { if (location.hash !== '#seating') { mode = '3d'; sel = null; partySel = null; clearBackdrop(); } });
 let modeAnim = false;    // the plan <-> 3D switch just happened: the stage eases in
 let enterAnim = false;   // play the "tables glide in" animation on next draw
 const lastFilled = new Map(); // tableId -> seated count last drawn (for the seat "pop")
@@ -602,26 +610,10 @@ export function renderSeating(root) {
   setBackdrop(BACKDROP[space] || BACKDROP.reception);
   if (!rec) mode = 'plan'; // 3D is the ballroom only (for now)
   const info = spaceInfo();
-  root.innerHTML = `
-    <div class="page-head">
-      <div>
-        <h1 class="sr-only">${esc(info.label)}</h1>
-        <div class="spaces" role="tablist" aria-label="Spaces">
-          ${tabList().map((x) => `<button role="tab" data-space="${x.id}" aria-selected="${x.id === space}" class="${x.id === space ? 'on' : ''}">${x.label}</button>`).join('')}
-          <span class="spaces-ink" aria-hidden="true"></span>
-        </div>
-        <p class="lede" id="lede"></p>
-        ${kindOf() === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
-      </div>
-      ${rec ? `<div class="viewseg" role="tablist" aria-label="View">
-        <button role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Floor plan</button>
-        <button role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button>
-      </div>` : ''}
-      <a class="tour-link" href="https://my.matterport.com/show/?m=K76R3QeJThF&brand=0" target="_blank" rel="noopener">Venue 360° tour ↗</a>
-    </div>
-    <div class="seat-layout${mode === 'plan' ? ' is-plan' : ''}">
-      <div class="plan-col">
-        <div class="card plan-card">
+  const vow = rec;
+  const PLANFILE = `<div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>`;
+  if (vow && mode === 'plan' && vsTab !== 'guests') refTab = vsTab === 'look' ? 'venue' : 'ideas';
+  const toolsHTML = `
           <div class="plan-tools">
             ${mode === 'plan' ? `
               ${info.add === 'row' ? toolIcon('row', 'Add row', 'data-add="row"')
@@ -641,27 +633,53 @@ export function renderSeating(root) {
                   <p class="sg-prev" id="sPreview"></p>
                   <div class="sg-acts"><button class="btn moss sm" id="sGo">Suggest floor plan</button><button class="btn sm ghost" id="sSeat">Auto-seat guests</button></div>
                 </div></span>` : ''}`
-            : `${toolIcon('evening', 'Experience the evening', 'id="evening"')}
-               ${toolIcon('walk', 'Walk through', 'id="walk" aria-pressed="false"')}
+            : `${toolIcon('walk', 'Walk through', 'id="walk" aria-pressed="false"')}
                ${toolIcon('light', 'Candlelight', 'id="light"')}
-               <span class="spacer"></span>
-               <span class="tool-hint">Tap a chair to seat someone</span>`}
+               <button class="tool icon" id="zIn3" aria-label="Zoom in" title="Zoom in">+</button><button class="tool icon" id="zOut3" aria-label="Zoom out" title="Zoom out">−</button>
+               ${toolIcon('fit', 'Full screen', 'id="full3"')}`}
+            <button class="tool" id="hdrUndo" type="button" disabled>Undo</button>
             <button class="btn moss sm" id="share">Share</button>
           </div>
+`;
+  root.innerHTML = `
+    ${vow && mode === 'plan' ? planHeroHTML() : ''}
+    <div class="page-head">
+      <div>
+        <h1 class="sr-only">${esc(info.label)}</h1>
+        <div class="spaces" role="tablist" aria-label="Spaces">
+          ${tabList().map((x) => `<button role="tab" data-space="${x.id}" aria-selected="${x.id === space}" class="${x.id === space ? 'on' : ''}">${x.label}</button>`).join('')}
+          <span class="spaces-ink" aria-hidden="true"></span>
+        </div>
+        <p class="lede" id="lede"></p>
+        ${kindOf() === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
+      </div>
+
+      <a class="tour-link" href="https://my.matterport.com/show/?m=K76R3QeJThF&brand=0" target="_blank" rel="noopener">Venue 360° tour ↗</a>
+    </div>
+    <div class="seat-layout${vow ? ' vow' : mode === 'plan' ? ' is-plan' : ''}" data-mode="${mode}">
+      ${vow ? `<aside class="side-panel vow-side" data-tab="${vsTab}">${vowSideHTML(info)}</aside>` : ''}
+      <div class="plan-col">
+        <div class="card plan-card">
+          ${vow ? '' : toolsHTML}
           <div class="stage-wrap" id="stageWrap">
+            ${vow ? toolsHTML : ''}
+            ${mode === 'plan' ? '<div class="plan-meta" id="planMeta"><span class="pm-dim"><span id="pmDim"></span><button type="button" class="pm-units" id="pmUnits" aria-label="Switch units"></button></span><span class="pm-clear" id="pmClear" role="status"></span></div>' : ''}
             <div id="planHost"></div>
             <div class="color-legend" id="legend"${rec && mode === 'plan' && legendHTML() ? '' : ' hidden'}>${rec ? legendHTML() : ''}</div>
             <div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
+            ${vow && mode === '3d' ? `<p class="hero-stats" id="heroStats">${statsText()}</p>
+            <div class="viewseg view-pill" role="tablist" aria-label="View"><button role="tab" data-mode="3d" aria-selected="true" class="on">3D view</button><button role="tab" data-mode="plan" aria-selected="false">Floor plan</button></div>
+            <button class="hero-exp" id="evening">Experience the evening <span aria-hidden="true">↗</span></button>` : ''}
           </div>
         </div>
       </div>
-      <aside class="side-panel">
+      ${vow ? '' : `<aside class="side-panel">
         ${rec ? '' : spaceToolsHTML(kindOf(), { state, SP, pool: partyPool })}
-        ${rec && mode === 'plan' ? seatPanelHTML() : ''}
         ${refHTML(rec)}
-      </aside>
-      <div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>
-    </div>`;
+      </aside>`}
+      ${vow ? '' : PLANFILE}
+    </div>
+    ${vow ? PLANFILE : ''}`;
 
   const host = root.querySelector('#planHost');
   const pop = root.querySelector('#pop');
@@ -696,10 +714,65 @@ export function renderSeating(root) {
   tabs.querySelectorAll('[data-space]').forEach((b) => b.onclick = () => {
     if (b.dataset.space === space) return;
     space = b.dataset.space; sel = null; view = null; enterAnim = true; lastFilled.clear();
+    if (space === 'reception') mode = '3d';
     const was = tabs.querySelector('.on');
     inkFrom = { x: was.offsetLeft, w: was.offsetWidth };
     renderSeating(root);
   });
+
+  let inspect = () => {};
+  /* ---- reception sidebar (Layout / Seat guests / Look), units, "In your plan" inspector ---- */
+  if (rec) {
+    const side = root.querySelector('.vow-side');
+    const applyVs = (k, click = true) => {
+      vsTab = k; side.dataset.tab = k;
+      side.querySelectorAll('[data-vs]').forEach((b) => { b.classList.toggle('on', b.dataset.vs === k); b.setAttribute('aria-selected', String(b.dataset.vs === k)); });
+      if (click && mode === 'plan' && k !== 'guests') side.querySelector(`[data-ref="${k === 'look' ? 'venue' : 'ideas'}"]`)?.click();
+    };
+    side.querySelectorAll('[data-vs]').forEach((b) => b.onclick = () => applyVs(b.dataset.vs));
+    applyVs(vsTab, false);
+    root.querySelectorAll('[data-units]').forEach((b) => b.onclick = () => setUnits(b.dataset.units));
+    root.querySelectorAll('.vs-add[data-preset]').forEach((b) => b.onclick = () => root.querySelector(`#areaMenu [data-preset="${b.dataset.preset}"]`)?.click());
+    const body = root.querySelector('#inspBody');
+    if (body) {
+      const L = (v) => fmtLen(v);
+      const field = (key, label, val, step = 0.5) => `<label class="insp-f"><span>${label} (${unitLbl()})</span><input class="input" data-k="${key}" type="number" step="${units === 'm' ? 0.05 : step}" value="${L(val)}"/></label>`;
+      inspect = () => {
+        const it = findItem(sel);
+        if (!it) { body.innerHTML = '<p class="vs-note">Tap a table or area on the plan to edit it here.</p>'; return; }
+        const area = sel.kind === 'area', name = area ? it.label : it.id === 'head' ? it.name : `Table ${it.name}`;
+        const cx = area ? it.x + it.w / 2 : it.x, cy = area ? it.y + it.h / 2 : it.y;
+        body.innerHTML = `<h4 class="insp-title">${esc(name)}</h4>
+          <div class="insp-grid">${area ? field('w', 'Width', it.w) + field('h', 'Depth', it.h) : it.shape === 'rect' ? field('tw', 'Width', rectDims(it).L) + field('td', 'Depth', rectDims(it).D) : ''}${field('x', 'Across', cx)}${field('y', 'Along', cy)}
+            <label class="insp-f"><span>Rotation (deg)</span><input class="input" data-k="rot" type="number" step="15" value="${Math.round(it.rot || 0)}"/></label></div>
+          <div class="insp-acts"><button type="button" class="btn sm ghost" id="inRot">Rotate 90°</button><button type="button" class="btn sm ghost" id="inDel">Remove</button></div>`;
+        const apply = (k, raw) => {
+          const v = +raw; if (!Number.isFinite(v)) return inspect();
+          const r = SP().room, before = { x: it.x, y: it.y, w: it.w, h: it.h, rot: it.rot }, prev = { len: it.len, dep: it.dep };
+          if (k === 'rot') it.rot = ((Math.round(v) % 360) + 360) % 360;
+          else if (k === 'tw' || k === 'td') { const f = fromLen(v); if (k === 'tw') it.len = Math.max(3, Math.min(30, f)); else it.dep = Math.max(2.6, Math.min(12, f)); before.len = prev.len; before.dep = prev.dep; }
+          else if (area) {
+            const f = fromLen(v);
+            if (k === 'w') it.w = Math.max(2, Math.min(r.w, f)); else if (k === 'h') it.h = Math.max(2, Math.min(r.h, f));
+            if (k === 'x') it.x = f - it.w / 2; if (k === 'y') it.y = f - it.h / 2;
+            it.x = Math.max(0, Math.min(r.w - it.w, it.x)); it.y = Math.max(0, Math.min(r.h - it.h, it.y));
+          } else {
+            const f = fromLen(v); if (k === 'x') it.x = Math.max(0, Math.min(r.w, f)); if (k === 'y') it.y = Math.max(0, Math.min(r.h, f));
+          }
+          if (!area && collides(it)) { Object.assign(it, before); toast('Needs a little more room there'); }
+          commit({ silent: true }); drawPlan();
+        };
+        body.querySelectorAll('input[data-k]').forEach((i) => i.onchange = () => apply(i.dataset.k, i.value));
+        body.querySelector('#inRot').onclick = () => apply('rot', (it.rot || 0) + 90);
+        body.querySelector('#inDel').onclick = () => {
+          const id = it.id; sel = null; closePop();
+          if (area) leave(host.querySelector(`.area[data-id="${CSS.escape(id)}"]`), () => localUndo(`${it.label} removed`, () => { SP().room.areas = SP().room.areas.filter((x) => x.id !== id); }));
+          else leave(host.querySelector(`.tbl[data-id="${CSS.escape(id)}"]`), () => localUndo(`${/^\d+$/.test(it.name) ? 'Table ' + it.name : it.name} removed`, () => { state.guests.forEach((g) => { if (g.tableId === id) g.tableId = null; }); SP().tables = SP().tables.filter((x) => x.id !== id); }));
+        };
+      };
+      inspect();
+    }
+  }
 
   /* ---- view mode ---- */
   root.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => {
@@ -712,9 +785,38 @@ export function renderSeating(root) {
 
   /* ---- 2D plan ---- */
   const legend = root.querySelector('#legend');
+  // Dimensions (Feet / Metres toggle) and the clearance check: chairs closer than 3.5 ft, stage steps, doors and the balcony rail
+  const setUnits = (v) => {
+    units = v; try { localStorage.setItem('seat-units', units); } catch { /* ignore */ }
+    planMeta(); inspect();
+    root.querySelectorAll('[data-units]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.units === units)));
+    const r = SP().room, W = root.querySelector('#vsW'), L = root.querySelector('#vsL');
+    if (W) W.textContent = `${fmtLen(r.w)} ${unitLbl()}`; if (L) L.textContent = `${fmtLen(r.h)} ${unitLbl()}`;
+  };
+  const planMeta = () => {
+    const dimEl = root.querySelector('#pmDim'), clr = root.querySelector('#pmClear'), u = root.querySelector('#pmUnits');
+    if (!dimEl) return;
+    const r = SP().room, m = units === 'm', f = (v) => (m ? (v * 0.3048).toFixed(2) : String(Math.round(v * 10) / 10));
+    dimEl.textContent = `${f(r.w)} × ${f(r.h)} ${m ? 'm' : 'ft'}${r.approx || space === 'reception' ? ' · estimate' : ''}`;
+    u.textContent = m ? 'Feet' : 'Metres';
+    u.onclick = () => setUnits(m ? 'ft' : 'm');
+    const c = clearanceIssues(r, SP().tables, kindOf() === 'cocktail' ? 1.5 : 3.5); // standing high-tops need less aisle than seated rounds
+    clr.textContent = c.items.length ? `Clearance: ${c.items.length} conflict${c.items.length > 1 ? 's' : ''}` : 'Clearance: no conflicts';
+    clr.classList.toggle('bad', c.items.length > 0);
+    clr.title = c.items.map((i) => i.msg).join('\n');
+    host.querySelectorAll('.tbl').forEach((g) => {
+      if (!c.ids.has(g.dataset.id)) return;
+      const t = SP().tables.find((x) => x.id === g.dataset.id), fp = t && footprint(t);
+      if (!fp) return;
+      const ring = document.createElementNS(SVGNS, 'rect');
+      ring.setAttribute('class', 'clash-ring'); ring.setAttribute('x', -fp.hw); ring.setAttribute('y', -fp.hh); ring.setAttribute('width', fp.hw * 2); ring.setAttribute('height', fp.hh * 2); ring.setAttribute('rx', 0.6);
+      g.prepend(ring);
+    });
+  };
   const drawPlan = () => {
     if (mode !== 'plan') return;
     host.replaceChildren(planSVG());
+    planMeta(); inspect();
     if (legend) { const l = legendHTML(); legend.innerHTML = l; legend.hidden = !l; }
     // tables that moved glide from where they were
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) host.querySelectorAll('.tbl[data-fromx]').forEach((g) => {
@@ -845,8 +947,22 @@ export function renderSeating(root) {
       resync(now);
     } });
   }
+  const histUndo = () => {
+    if (hist.length < 2) return;
+    hist.pop();
+    const from = tablePos();
+    Object.keys(state).forEach((k) => delete state[k]); Object.assign(state, JSON.parse(hist[hist.length - 1]));
+    if (mode === 'plan') { resync(from); toast('Undone'); } else { commit(); renderSeating(root); }
+    syncUndo();
+  };
+  { const u = root.querySelector('#hdrUndo'); if (u) u.onclick = histUndo; }
+  if (hist[hist.length - 1] !== stamp()) { hist.length = 0; hist.push(stamp()); } // changed elsewhere: start a fresh stack
+  syncUndo();
   const refresh = () => { commit({ silent: true }); drawPlan(); openPop(); lede(); };
-  const lede = () => { root.querySelector('#lede').textContent = spaceLede(); };
+  const lede = () => {
+    root.querySelector('#lede').textContent = spaceLede();
+    if (rec) root.querySelectorAll('#heroStats, #vsStats').forEach((el) => { el.textContent = statsText(); });
+  };
 
   function wireRename(input, get, set) {
     const fallback = get();
@@ -1049,7 +1165,7 @@ export function renderSeating(root) {
     });
   } else {
     // 3D view (loaded on demand); a quiet loader fades in until the scene is ready
-    host.innerHTML = '<div class="three-loading"><span></span>Loading 3D</div>';
+    host.innerHTML = '<div class="three-loading"><span></span>Opening the venue…</div>';
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
       three = host.__three = threeInst = await m.mount(host, state, moodNow(), {
@@ -1072,6 +1188,9 @@ export function renderSeating(root) {
       walk.onclick = () => { const on = three.walk(); walk.setAttribute('aria-pressed', String(on)); walk.classList.toggle('on', on); setLbl(walk, on ? 'Exit walk' : 'Walk through'); };
       const light = root.querySelector('#light');
       light.onclick = () => { const evening = three.toggleLight(); setLbl(light, evening ? 'Afternoon light' : 'Candlelight'); light.classList.toggle('on', evening); };
+      root.querySelector('#zIn3').onclick = () => three.zoom(0.78);
+      root.querySelector('#zOut3').onclick = () => three.zoom(1 / 0.78);
+      root.querySelector('#full3').onclick = () => { const w = root.querySelector('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen(); else w.requestFullscreen?.(); };
       root.querySelector('#evening').onclick = () => { three.experience(); setLbl(light, 'Afternoon light'); light.classList.add('on'); const w = root.querySelector('#walk'); setLbl(w, 'Walk through'); w.classList.remove('on'); };
     }).catch((err) => { console.error(err); host.innerHTML = '<p class="muted" style="padding:24px">3D view needs an internet connection.</p>'; });
   }
@@ -1206,6 +1325,41 @@ function moraisOrder() {
   return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => MORAIS_PHOTOS.find((p) => p.id === id));
 }
 /** One quiet panel for the photos: Layout ideas (copy a layout in one tap) and Venue photos (the Morais photos: drag to reorder, tap for the full photo). */
+/* ---------------- Vow-style reception layout: cream sidebar + hero ---------------- */
+const fmtLen = (v) => (units === 'm' ? (v * 0.3048).toFixed(2) : String(Math.round(v * 10) / 10));
+const unitLbl = () => (units === 'm' ? 'm' : 'ft');
+const fromLen = (v) => (units === 'm' ? v / 0.3048 : v);
+/** 'N tables · S seats · U unseated' for the reception. */
+function statsText() {
+  const ts = state.tables, seats = ts.reduce((n, t) => n + seatCount(t), 0);
+  const un = going().filter((g) => !g.tableId && g.party !== 'couple').length;
+  return `${ts.length} tables · ${seats} seats · ${un} unseated`;
+}
+const VS_TABS = [['layout', 'Layout', '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16M12 4v16"/>'], ['guests', 'Seat guests', '<circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3.5 3-5 5.5-5s5 1.5 5.5 5M16 6.5a2.6 2.6 0 0 1 0 5M17.5 14.5c2 .5 3 2 3.3 4.5"/>'], ['look', 'Look', '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10.5" r="1.6"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5"/>']];
+function planHeroHTML() {
+  return `<div class="plan-hero"><div><p class="eyebrow">Make room for your evening</p><h2 class="ph-title">Your venue, thoughtfully arranged.</h2></div>
+    <div class="ph-acts"><button class="btn sm ghost" type="button" data-mode="3d">Inspect in 3D</button><button class="btn sm moss" type="button" data-mode="3d">See in 3D <span aria-hidden="true">↗</span></button></div></div>`;
+}
+function vowSideHTML(info) {
+  const plan = mode === 'plan', r = SP().room;
+  const adds = plan ? [['round', 'Round table'], ['rect', 'Rectangle table']].map(([k, l]) => `<li><button type="button" class="vs-add" data-add="${k}">+ ${l}</button></li>`).join('')
+    + Object.entries(AREA_PRESETS).filter(([k]) => info.areas.includes(k)).filter(([k]) => !['dance', 'altar', 'aisle'].includes(k) || !r.areas.some((a) => a.preset === k)).map(([k, pr]) => `<li><button type="button" class="vs-add" data-preset="${k}">+ ${esc(pr.label)}</button></li>`).join('') : '';
+  return `<div class="vs-head"><p class="eyebrow">Your reception</p><h2 class="vs-title">The ballroom</h2><p class="vs-stats" id="vsStats">${statsText()}</p></div>
+    <div class="vs-tabs" role="tablist" aria-label="Sidebar">${VS_TABS.map(([k, l, ic]) => `<button role="tab" data-vs="${k}" aria-selected="${vsTab === k}" class="${vsTab === k ? 'on' : ''}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg>${l}</button>`).join('')}</div>
+    <div class="vs-body">
+      <section class="vs-pane" data-pane="layout">${plan ? `
+        <div class="vs-sec"><h3 class="caps">Room &amp; measurements</h3>
+          <div class="vs-units" role="group" aria-label="Units"><button type="button" data-units="ft" aria-pressed="${units === 'ft'}">Feet</button><button type="button" data-units="m" aria-pressed="${units === 'm'}">Metres</button></div>
+          <dl class="vs-dims"><div><dt>Width</dt><dd id="vsW">${fmtLen(r.w)} ${unitLbl()}</dd></div><div><dt>Length</dt><dd id="vsL">${fmtLen(r.h)} ${unitLbl()}</dd></div></dl>
+          <p class="vs-note">Estimate from the Matterport tour (±5 ft); the floor plan from Morais will replace it.</p></div>
+        <div class="vs-sec"><h3 class="caps">Add to your reception</h3><ul class="vs-addlist">${adds}</ul></div>
+        <div class="vs-sec" id="inspector"><h3 class="caps">In your plan</h3><div id="inspBody"></div></div>` : `
+        <div class="vs-sec"><h3 class="caps">Set the scene</h3><p class="vs-note">Drag to look around, scroll to zoom. Tap a chair to seat someone.</p>
+          <button type="button" class="btn moss sm" data-mode="plan">Edit the floor plan</button></div>`}</section>
+      <section class="vs-pane" data-pane="guests">${plan ? seatPanelHTML() : `<div class="vs-sec"><h3 class="caps">Seat guests</h3><p class="vs-note" id="vsUn">${going().filter((g) => !g.tableId && g.party !== 'couple').length} guests still need a seat.</p><button type="button" class="btn moss sm" data-mode="plan">Seat in the floor plan</button></div>`}</section>
+      <section class="vs-pane vs-ref" data-pane="ref">${refHTML(true)}</section>
+    </div>`;
+}
 function seatPanelHTML() {
   return `<section class="card seat-panel" id="seatPanel" aria-label="Seat guests"><h3>Seat guests</h3>
     <input class="input sp-q" type="search" placeholder="Search guests" aria-label="Search guests"/>

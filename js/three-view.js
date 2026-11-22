@@ -102,11 +102,11 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   const onStage = (x, y) => !!stg && x < 0 && Math.abs(y - stg.cy) < stg.r + 1;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+  renderer.setPixelRatio(Math.min(1.5, devicePixelRatio));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.domElement.classList.add('three');
   host.appendChild(renderer.domElement);
 
@@ -126,7 +126,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   const sun = new THREE.DirectionalLight('#ffe9c4', 1.6);
   sun.position.set(-20, 40, -h); sun.castShadow = true;
   const coarse = matchMedia('(pointer: coarse)').matches;
-  sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048);
+  sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -w, right: w, top: h, bottom: -h, near: 1, far: 200 });
   sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3; // softer edges, no extra pass
   scene.add(sun);
@@ -415,7 +415,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     });
     if (t.shape !== 'round') top.rotation.y = -rot;
     g.position.set(X(t.x), onStage(t.x, t.y) ? PLATFORM : 0, Z(t.y));
-    const tag = label(t.id === 'head' ? t.name : `${t.name} · ${n}/${seatCount(t)}`, { size: 1.2 });
+    const tag = label(t.id === 'head' ? t.name : `${/^\d+$/.test(t.name) ? t.name.padStart(2, '0') : t.name} · ${n}/${seatCount(t)}`, { size: 1.2 });
     tag.position.set(0, 6, 0); g.add(tag);
     tableInfo.set(t.id, { group: g, tag, n, total: seatCount(t), table: t });
     g.scale.setScalar(0.001);
@@ -460,8 +460,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   /* ---- size ---- */
   const resize = () => {
     const W = host.clientWidth || 600;
-    const H = Math.max(320, Math.min(W * 0.8, innerHeight - 230));
-    renderer.setSize(W, H);
+    const H = host.closest('.vow') ? Math.max(320, host.clientHeight || innerHeight - 190) : Math.max(320, Math.min(W * 0.8, innerHeight - 230));
+    renderer.setSize(W, H, !host.closest('.vow'));
     camera.aspect = W / H; camera.updateProjectionMatrix();
   };
   const ro = new ResizeObserver(resize); ro.observe(host); resize();
@@ -597,7 +597,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     info.n += 1;
     // refresh the table's floating label
     info.group.remove(info.tag);
-    info.tag = label(info.table.id === 'head' ? info.table.name : `${info.table.name} · ${info.n}/${info.total}`, { size: 1.2 });
+    info.tag = label(info.table.id === 'head' ? info.table.name : `${/^\d+$/.test(info.table.name) ? info.table.name.padStart(2, '0') : info.table.name} · ${info.n}/${info.total}`, { size: 1.2 });
     info.tag.position.set(0, 6, 0); info.group.add(info.tag);
     const ch = promptChair; ch.scale.setScalar(1.25); popChairs.push({ ch, t: 0 });
     closePrompt(true);
@@ -606,7 +606,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   const popChairs = [];
 
   /* ---- loop ---- */
-  let raf, last = performance.now(), clock = 0;
+  let raf, last = performance.now(), clock = 0, lit = -1;
   const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
   function frame(now) {
     if (document.hidden) { last = now; raf = requestAnimationFrame(frame); return; }
@@ -638,10 +638,15 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
       l.material.opacity += (target - l.material.opacity) * Math.min(1, dt * 5);
       l.visible = l.material.opacity > 0.02;
     });
-    evening += (eveningTarget - evening) * Math.min(1, dt * 1.2);
-    applyLight(evening);
-    flames.forEach((f, i) => { f.scale.y = 1 + Math.sin(clock * 9 + i) * 0.15 * evening; });
-    lamps.forEach((l, i) => { l.intensity *= 1 + Math.sin(clock * 3 + i * 2) * 0.02; });
+    if (evening !== eveningTarget || lit !== evening) {
+      evening += (eveningTarget - evening) * Math.min(1, dt * 1.2);
+      if (Math.abs(eveningTarget - evening) < 0.0005) evening = eveningTarget;
+      applyLight(evening); lit = evening; // only while the mood is changing
+    }
+    if (evening > 0) {
+      flames.forEach((f, i) => { f.scale.y = 1 + Math.sin(clock * 9 + i) * 0.15 * evening; });
+      lamps.forEach((l, i) => { l.intensity = 150 * evening * (1 + Math.sin(clock * 3 + i * 2) * 0.02); });
+    }
     if (walking && !flight) {
       const speed = 14 * dt, fwd = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0), side = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
       const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
@@ -665,6 +670,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     toggleLight() { eveningTarget = eveningTarget ? 0 : 1; return !!eveningTarget; },
     walk(on) { return setWalk(on ?? !walking); },
     experience,
+    zoom(f) { camera.position.sub(controls.target).multiplyScalar(f).add(controls.target); },
     stats() { const i = renderer.info; return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, pixelRatio: renderer.getPixelRatio() }; },
     snapshot() { renderer.render(scene, camera); return renderer.domElement; },
     dispose() {

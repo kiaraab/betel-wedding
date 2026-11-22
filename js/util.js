@@ -55,7 +55,7 @@ export function confirmDialog({ title = 'Are you sure?', body = '', confirmLabel
     yes.onclick = () => done(true);
     no.onclick = () => done(false);
     scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) done(false); });
-    yes.focus();
+    no.focus(); // the safe choice has focus first, so a stray Enter never confirms a deletion
   });
 }
 
