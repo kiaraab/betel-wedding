@@ -77,6 +77,9 @@ export const PHOTOS = [
 
 const areaOf = (p) => { const t = state.photoTags?.[p.id]; return AREAS.some((a) => a.id === t) ? t : p.at; };
 const photosIn = (id) => PHOTOS.filter((p) => areaOf(p) === id);
+/** Photos tagged to a Seating space (the editor's Venue photos panel uses this, so the map's tags are the only ones). */
+export const photosForSpace = (space) => photosIn(space);
+export const photoById = (id) => PHOTOS.find((p) => p.id === id);
 
 /** Tiny status per editable area: tables/seats, or 'Not started'. */
 function statusOf(a) {

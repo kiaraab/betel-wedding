@@ -2,6 +2,7 @@ import { state, commit as baseCommit, uid, undoable, exportJSON, importJSON, isS
 import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
 import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers, clearanceIssues } from './layout.js';
 import { esc, toast, heartLoaderHTML } from './util.js';
+import { photosForSpace, photoById } from './venue-map.js';
 import { spaceToolsHTML, wireSpaceTools, partySVG, suggestHangout } from './spaces.js';
 import { renderVenueMap, MAP_PHOTO } from './venue-map.js';
 
@@ -681,7 +682,7 @@ export function renderSeating(root) {
         <h1 class="sr-only">${esc(info.label)}</h1>
         <a class="vm-back" href="#seating" title="Venue map"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Map</a>
         <div class="spaces" role="tablist" aria-label="Spaces">
-          ${(() => { const tb = (x, c) => `<button role="tab" data-space="${x.id}" aria-selected="${tabOn(x.id)}" class="${c}${tabOn(x.id) ? ' on' : ''}">${x.label}</button>`, l = tabList(); return `<div class="sp-row sp-row-main">${tb(l[0], 'sp-main')}</div><div class="sp-row sp-row-sub">${l.slice(1).map((x) => tb(x, 'sp-sub')).join('')}</div>`; })()}
+          ${(() => { const tb = (x, c) => `<button role="tab" data-space="${x.id}" aria-selected="${tabOn(x.id)}" class="${c}${tabOn(x.id) ? ' on' : ''}">${x.label}</button>`, l = tabList(); return `<div class="sp-row sp-row-sub">${l.map((x) => tb(x, 'sp-sub')).join('')}</div>`; })()}
           <span class="spaces-ink" aria-hidden="true"></span>
         </div>
         ${kindOf() === 'ceremony' ? `<div class="viewseg cer-seg" role="tablist" aria-label="Ceremony setting">${CER_VARIANTS.map(([id, l]) => `<button role="tab" data-variant="${id}" aria-selected="${space === id}" class="${space === id ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
@@ -1378,9 +1379,9 @@ let threeInst = null; // live 3D scene, disposed on re-render / leaving the page
 
 /* ---- Morais' photos beside the 3D view: drag to rearrange (saved), tap to see the whole photo ---- */
 function moraisOrder(sp = space) {
-  const ids = MORAIS_PHOTOS.filter((p) => !p.for || p.for.includes(sp)).map((p) => p.id); // only the current space's photos
+  const ids = photosForSpace(sp).map((p) => p.id); // only the photos tagged to this space on the map
   const saved = (Array.isArray(state.morais) ? state.morais : []).filter((id) => ids.includes(id));
-  return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => MORAIS_PHOTOS.find((p) => p.id === id));
+  return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => photoById(id));
 }
 /** One quiet panel for the photos: Layout ideas (copy a layout in one tap) and Venue photos (the Morais photos: drag to reorder, tap for the full photo). */
 /* ---------------- Vow-style reception layout: cream sidebar + hero ---------------- */
@@ -1540,7 +1541,7 @@ function wireMorais(root, signal) {
   };
   const show = (id) => {
     at = id;
-    const p = MORAIS_PHOTOS.find((x) => x.id === id);
+    const p = photoById(id);
     img.src = p.src; img.alt = p.name; name.textContent = p.name;
     thumbs().forEach((t) => t.classList.toggle('lifted', t.dataset.ph === id)); // the open photo 'leaves' its thumbnail
   };

@@ -3174,3 +3174,12 @@ body.seat-on .vm-back { color: var(--c-on-dark); }
   .vm-lb-img { max-width: 100vw; border-radius: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .vm-menu { animation: none; } .vm-area polygon, .vm-label, .vm-grp, .vm-lb-img { transition: none; } }
+
+/* --- round 11c: tiny cute heart loader --- */
+.heart-loader { gap: 6px; }
+.heart-loader svg { width: 30px; height: auto; }
+.heart-loader .hl-label { font-size: 9px; letter-spacing: .18em; }
+.heart-loader.sm svg { width: 20px; }
+.heart-loader.sm .hl-label { font-size: 9px; }
+.paste-status .heart-loader.sm svg, .live-note .heart-loader.sm svg { width: 20px; }
+.ap-think .heart-loader { transform: none; }
