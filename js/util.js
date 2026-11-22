@@ -163,3 +163,39 @@ export function trapFocus(box) {
   document.addEventListener('keydown', onKey, true);
   return (restore = true) => { document.removeEventListener('keydown', onKey, true); if (restore) restoreFocus(prev); };
 }
+
+/** A small wine pill / underline that slides to the active item of segmented controls and tab lists.
+ *  Purely visual: the buttons keep their own state; without this the selected button paints its own fill. */
+const SLIDE = '.viewseg, .vs-units, .pp-seg, .vs-tabs, .ref-tabs';
+const ACTIVE = '.on, [aria-selected="true"], [aria-pressed="true"], [aria-checked="true"]';
+export function initSlideInk() {
+  let raf = 0;
+  const sync = () => {
+    raf = 0;
+    document.querySelectorAll(SLIDE).forEach((box) => {
+      const on = [...box.children].find((b) => b.tagName === 'BUTTON' && b.matches(ACTIVE));
+      let ink = box.querySelector(':scope > .seg-ink');
+      if (!on || !on.offsetWidth) { if (ink) { ink.remove(); box.classList.remove('has-ink'); } return; }
+      const fresh = !ink;
+      if (fresh) {
+        ink = document.createElement('i');
+        ink.className = 'seg-ink still';
+        ink.setAttribute('aria-hidden', 'true');
+        box.prepend(ink);
+        box.classList.add('has-ink');
+        if (box.matches('.vs-tabs, .ref-tabs')) ink.classList.add('line');
+      }
+      const line = ink.classList.contains('line');
+      ink.style.setProperty('--ix', on.offsetLeft + 'px');
+      ink.style.setProperty('--iw', on.offsetWidth + 'px');
+      ink.style.setProperty('--iy', (line ? on.offsetTop + on.offsetHeight - 2 : on.offsetTop) + 'px');
+      ink.style.setProperty('--ih', (line ? 2 : on.offsetHeight) + 'px');
+      if (fresh) requestAnimationFrame(() => requestAnimationFrame(() => ink.classList.remove('still')));
+    });
+  };
+  const queue = () => { if (!raf) raf = requestAnimationFrame(sync); };
+  new MutationObserver(queue).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'aria-selected', 'aria-pressed', 'aria-checked', 'hidden'] });
+  addEventListener('resize', queue);
+  document.fonts?.ready.then(queue);
+  queue();
+}

@@ -40,3 +40,7 @@ These come straight from the owner's feedback on the first live version. Breakin
 ## Accessibility is a soft request (Kiara, Nov 22 2026)
 - Her friends are able-bodied with good vision. Do NOT add harsh high-contrast colours, heavy chips/tiles or opaque surfaces just to hit a contrast ratio. Aim for WCAG AA where it costs nothing visually (soft target; ~3:1 for muted text is fine). Keep the cheap basics: visible focus ring, Esc closes popovers, labels on controls, no keyboard traps. The soft, airy Vow + Betel look wins.
 - The help button is a glass circle (translucent cream, blur, hairline), never a solid green square.
+
+## Direction update (Nov 22 2026)
+- No more accessibility passes. Prefer dynamic, less flat looks: soft translucent glass, white-glass masthead, depth from blur/shadow/photo layers (still NO gradients).
+- Motion: tiny, simple, quaint transitions only (120-220ms ease-out: fade + 4px rise on appear, sliding tab underline, soft popover fade/scale-in). Never overdone. No hover movement. State changes only.

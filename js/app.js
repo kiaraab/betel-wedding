@@ -4,7 +4,7 @@ import { seatCount, RELATIONS, relationOf } from './layout.js';
 import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
 import { enableAddressLookup } from './address.js';
-import { esc, toast, daysUntil, fmtDate, confirmDialog, initTablists } from './util.js';
+import { esc, toast, daysUntil, fmtDate, confirmDialog, initTablists, initSlideInk } from './util.js';
 import { openPerson } from './person.js';
 import { detailsHTML, wireDetails } from './guest-details.js';
 import { renderAgenda } from './agenda.js';
@@ -703,7 +703,7 @@ let enterTimer;
 function countUp() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   view.querySelectorAll('.countup').forEach((el) => {
-    const to = +el.dataset.to, t0 = performance.now(), dur = 900;
+    const to = +el.dataset.to, t0 = performance.now(), dur = 600;
     const step = (now) => {
       const k = Math.max(0, Math.min(1, (now - t0) / dur));
       el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3)));
@@ -723,6 +723,8 @@ addEventListener('resize', moveInk);
 document.fonts?.ready.then(moveInk);
 document.fonts?.addEventListener?.('loadingdone', moveInk);
 setTimeout(moveInk, 400);
+setTimeout(() => document.querySelector('.nav-ink')?.classList.add('ready'), 700);   // the nav underline only glides after first paint
+initSlideInk();
 // Mood palettes stay internal (branding) — no page; old #mood links fall back to the overview
 const ROUTES = { overview, team, seating: () => renderSeating(view), guests, agenda: () => renderAgenda(view) };
 function route(opts = {}) {

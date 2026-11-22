@@ -231,6 +231,10 @@ export function mountLive(btn) {
     pop.setAttribute('aria-label', 'Edit together');
     document.body.appendChild(pop);
     btn.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('live-open');   // styles.css lifts the help button above the panel
+    const lift = () => document.body.style.setProperty('--live-up', pop.offsetHeight + 6 + 'px');
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(lift) : null;
+    ro?.observe(pop); lift();
     const onKey = (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); close(true); }
       else if (e.key === 'Tab') {
@@ -244,6 +248,7 @@ export function mountLive(btn) {
     };
     const off = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(false); };
     close = (restore) => {
+      ro?.disconnect(); document.body.classList.remove('live-open');
       pop.remove(); close = null; stopWatch();
       btn.setAttribute('aria-expanded', 'false');
       document.removeEventListener('pointerdown', off, true);
