@@ -160,7 +160,7 @@ export function seedRoom() {
     name: 'Ballroom', w, h,
     fixed: {
       openings: [...far, ...sides, opening('bottom', w / 2, 'entrance', 8)],
-      stage: { cx: 0, cy: 41, r: 10, steps: 3 },       // columned bay on the left long wall, ~34 ft from the balcony end
+      stage: { cx: 0, cy: 41, r: 10, d: 15, steps: 3 },       // columned bay on the left long wall, ~34 ft from the balcony end
       balcony: { depth: 12 },                          // overhead mezzanine across the near wall
     },
     areas: [{ id: 'dance', preset: 'dance', label: 'Dance floor', x: 17, y: 13, w: 16, h: 18 }],

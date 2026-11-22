@@ -4,12 +4,13 @@ import { seatCount, RELATIONS, relationOf } from './layout.js';
 import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
 import { enableAddressLookup } from './address.js';
-import { esc, toast, daysUntil, fmtDate } from './util.js';
+import { esc, toast, daysUntil, fmtDate, confirmDialog } from './util.js';
 import { openPerson } from './person.js';
 import { detailsHTML, wireDetails } from './guest-details.js';
 import { renderAgenda } from './agenda.js';
 import { initGuide, refreshGuide } from './guide.js';
 import { initHistory } from './history.js';
+import { initSync, mountLive } from './sync.js';
 import { mountPaste, openPaste, pasteIsOpen } from './guest-paste.js';
 
 const view = document.getElementById('view');
@@ -33,6 +34,7 @@ function milestoneList() {
   return state.milestones.slice().sort((a, b) => a.date.localeCompare(b.date));
 }
 
+const LOCKED_MS = ['wedding', 'engaged']; // sourced dates: can't be removed
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dayOf = (s) => new Date(s + 'T12:00:00');
@@ -48,7 +50,8 @@ function parseDay(str) {
   const t = String(str || '').trim().toLowerCase().replace(/(\d)(st|nd|rd|th)\b/g, '$1').replace(/[,.]/g, ' ');
   let m, d, y = null;
   let r;
-  if ((r = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) [y, m, d] = [+r[1], +r[2], +r[3]];
+  if ((r = t.match(/^(\d{2})(\d{2})$/))) [m, d] = [+r[1], +r[2]]; // 0303
+  else if ((r = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) [y, m, d] = [+r[1], +r[2], +r[3]];
   else if ((r = t.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/))) [m, d, y] = [+r[1], +r[2], r[3] ? +r[3] : null];
   else if ((r = t.match(/^([a-z]{3,})\s+(\d{1,2})(?:\s+(\d{2,4}))?$/))) [m, d, y] = [MONTHS.indexOf(r[1].slice(0, 3)) + 1, +r[2], r[3] ? +r[3] : null];
   else if ((r = t.match(/^(\d{1,2})\s+([a-z]{3,})(?:\s+(\d{2,4}))?$/))) [d, m, y] = [+r[1], MONTHS.indexOf(r[2].slice(0, 3)) + 1, r[3] ? +r[3] : null];
@@ -93,7 +96,7 @@ function milestonesHTML(H = 420) {
   const item = (p) => `<div class="mtl-item ${p.at < now ? 'past' : ''} ${p.m.id === 'wedding' ? 'big' : ''} ${p.m.id === justAddedMs ? 'fresh' : ''}" style="top:${p.y}px;--i:${i++}">
             <div class="what" title="${esc(p.m.label)}">${esc(p.m.label)}</div>
             <div class="when">${shortDate(p.m.date)}</div>
-            ${p.m.id !== 'wedding' ? `<button class="x mtl-x" data-delms="${esc(p.m.id)}" aria-label="Remove ${esc(p.m.label)}">×</button>` : ''}
+            ${!LOCKED_MS.includes(p.m.id) ? `<button class="x mtl-x" data-delms="${esc(p.m.id)}" aria-label="Remove ${esc(p.m.label)}">×</button>` : ''}
           </div>`;
   const last = Math.max(todayY, ...pts.map((p) => p.y));
   return `
@@ -112,10 +115,13 @@ function drawMilestones() {
   const n = milestoneList().length;
   const H = matchMedia(FIT_OV).matches ? Math.max(120, host.clientHeight - 92) : Math.min(460, 140 + n * 46);
   host.innerHTML = milestonesHTML(H);
-  host.querySelectorAll('[data-delms]').forEach((b) => b.onclick = () => {
+  host.querySelectorAll('[data-delms]').forEach((b) => b.onclick = async () => {
     const m = state.milestones.find((x) => x.id === b.dataset.delms);
-    if (!m) return;
-    undoable(`${m.label} removed`, () => { state.milestones = state.milestones.filter((x) => x.id !== m.id); }, toast);
+    if (!m || LOCKED_MS.includes(m.id)) return;
+    if (await confirmDialog({ title: 'Remove this milestone?', body: `“${m.label}” comes off the timeline.`, confirmLabel: 'Remove', cancelLabel: 'Keep' })) {
+      state.milestones = state.milestones.filter((x) => x.id !== m.id);
+      commit();
+    }
   });
   const fresh = host.querySelector('.mtl-item.fresh') || host.querySelector('.mtl-today');
   if (fresh && host.scrollHeight > host.clientHeight) host.scrollTop = Math.max(0, fresh.offsetTop - host.clientHeight / 3);
@@ -124,6 +130,27 @@ function drawMilestones() {
 let msResize;
 addEventListener('resize', () => { clearTimeout(msResize); msResize = setTimeout(drawMilestones, 120); });
 
+/** Expected guest count (state.guestTarget): one editable number, shared by the Overview tile and the Guests header. */
+const guestCountHTML = () => `<button type="button" class="gcount" data-gcount title="Change expected guests" aria-label="Expected guests ${state.guestTarget}. Edit">${state.guestTarget}</button>`;
+function wireGuestCount(root) {
+  root.querySelectorAll('[data-gcount]').forEach((btn) => btn.onclick = () => {
+    const inp = document.createElement('input');
+    Object.assign(inp, { type: 'number', min: 1, max: 300, value: state.guestTarget, className: 'gcount-in' });
+    inp.setAttribute('aria-label', 'Expected guests');
+    btn.replaceWith(inp);
+    inp.focus(); inp.select();
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      const v = Math.round(+inp.value);
+      if (save && v >= 1 && v <= 300 && v !== state.guestTarget) { state.guestTarget = v; commit(); } else inp.replaceWith(btn);
+    };
+    inp.onkeydown = (e) => { if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') { e.stopPropagation(); finish(false); } };
+    inp.onblur = () => finish(true);
+  });
+}
+
 function overview() {
   const days = Math.max(0, daysUntil(WEDDING.date));
   const done = state.roles.filter((r) => r.status === 'Done').length;
@@ -131,7 +158,7 @@ function overview() {
   const seated = going.filter((g) => g.tableId).length;
   const yes = state.guests.filter((g) => g.rsvp === 'Yes').length;
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
-  const stat = (href, n, of, label) => `<a class="stat" href="${href}"><b>${n}<small>/${of}</small></b><span>${label}</span><div class="meter"><i style="--w:${pct(n, of)}%"></i></div></a>`;
+  const stat = (href, n, of, label, ofHTML = of) => { const tag = href ? `a class="stat" href="${href}"` : 'div class="stat"'; return `<${tag}><b>${n}<small>/${ofHTML}</small></b><span>${label}</span><div class="meter"><i style="--w:${pct(n, of)}%"></i></div></${href ? 'a' : 'div'}>`; };
 
   view.innerHTML = `
     <div class="ov">
@@ -139,7 +166,7 @@ function overview() {
         <img class="banner-bg" src="assets/venue/site/ceremony-locations-pergola-1-2Blog-Images-0043.jpg" alt="" />
         <div class="banner-text">
           <h1 class="banner-names">Betel <i>&amp;</i> Carter</h1>
-          <p class="banner-place"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Morais Vineyards</p>
+          <p class="banner-place"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><a href="https://moraisvineyards.com/" target="_blank" rel="noopener">Morais Vineyards</a></p>
           <p class="banner-date">June 17, 2027 <span>·</span> <b class="countup" data-to="${days}">0</b> days to go</p>
         </div>
         <div class="lace-photo"><img src="${WEDDING.heroImage}" alt="Betel and Carter" /></div>
@@ -148,7 +175,7 @@ function overview() {
       <div class="ov-side">
         <div class="stats">
           ${stat('#team', done, state.roles.length, 'Tasks done')}
-          ${stat('#guests', going.length, state.guestTarget, 'Guests')}
+          ${stat(null, going.length, state.guestTarget, 'Guests', guestCountHTML())}
           ${stat('#guests', yes, state.guests.length, 'RSVP yes')}
           ${stat('#seating', seated, going.length, 'Seated')}
         </div>
@@ -158,7 +185,7 @@ function overview() {
             <h2>Milestones</h2>
             <div class="ov-scroll mtl-host"></div>
             <form class="mtl-add" autocomplete="off">
-              <input name="date" required placeholder="Mar 3" aria-label="Date (month and day)" class="mtl-date"/>
+              <input name="date" required placeholder="Mar 3 or 3/3" aria-label="Date (month and day)" title="Mar 3, 3/3, 0303, 3 March" class="mtl-date"/>
               <input name="label" required maxlength="60" placeholder="Add a milestone" aria-label="Milestone"/>
               <button class="mtl-plus" aria-label="Add milestone">+</button>
             </form>
@@ -173,10 +200,10 @@ function overview() {
           </section>
         </div>
       </div>
-      <p class="made-for">Made for Betel &amp; Carter by Kiara · Layout &amp; Website</p>
     </div>`;
 
   drawMilestones();
+  wireGuestCount(view);
   const f = view.querySelector('.mtl-add');
   f.onsubmit = (e) => {
     e.preventDefault();
@@ -209,7 +236,7 @@ const linkChip = (l, del) => {
 
 /* Team v2 (REQ-51). Bridesmaids' cards are filled with their group colour; anyone else is a plain cream card.
    The colour can be changed per person from the card's menu (stored as p.color: 'pink' | 'burgundy' | 'green' | 'none'). */
-const TEAM_COLORS = { none: 'None', pink: 'Pink', burgundy: 'Burgundy', green: 'Green' };
+const TEAM_COLORS = { none: 'Default', pink: 'Pink', burgundy: 'Burgundy', green: 'Green', cream: 'Cream', rose: 'Rose', sage: 'Sage', plum: 'Plum', sand: 'Sand' };
 const COLOR_OF = { kiara: 'pink', monica: 'pink', ashlyn: 'burgundy', eden: 'burgundy', noella: 'burgundy', noemi: 'green', morgan: 'green', isabele: 'green' };
 const colorOf = (p) => p.color || COLOR_OF[p.id] || 'none';
 let teamFilter = 'all';   // 'all' | 'st:<status-key>' | 'role:<title>'
@@ -217,10 +244,6 @@ let confirmDel = null;    // person id showing the inline "Remove X?"
 let menuFor = null;       // person id whose colour menu is open
 
 const statusDots = (r) => `<button type="button" class="stbtn ${statusKey(r.status)}" data-role="${r.id}" title="Change status" aria-label="Status: ${r.status}. Click to change"><i></i><span>${r.status}</span></button>`;
-const linkSelect = (r, p) => {
-  const others = state.people.filter((x) => !r.people.includes(x.id));
-  return others.length ? `<select class="tc-link" data-linkrole="${r.id}" aria-label="Add a person to ${esc(r.title)}"><option value="">+</option>${others.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : '';
-};
 
 /** Agenda blocks this person is responsible for (the Agenda page stays the source) */
 function agendaOf(pid) {
@@ -229,6 +252,9 @@ function agendaOf(pid) {
   const t = (x) => { const [h, m] = String(x || '0:0').split(':').map(Number); return `${(h % 12) || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${h >= 12 ? 'pm' : 'am'}`; };
   return `<ul class="tc-ag" aria-label="On the agenda">${list.map((a) => `<li><a href="#agenda">${t(a.start)} ${esc(a.title || 'Event')}</a></li>`).join('')}</ul>`;
 }
+const SHARE_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="9" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 19c.5-3 2.7-4.5 5.5-4.5s5 1.5 5.5 4.5M17 7v6M14 10h6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+/** Roles this person could join (a shared role is one role with several people, so status moves together). */
+const sharable = (p) => state.roles.filter((r) => !r.people.includes(p.id));
 function personCard(p) {
   const rs = rolesOf(p.id);
   const asking = confirmDel === p.id;
@@ -252,11 +278,18 @@ function personCard(p) {
       <ul class="tc-roles">
         ${rs.map((r) => {
           const w = r.people.length > 1 || r.with ? [...r.people.filter((x) => x !== p.id).map(personName), r.with].filter(Boolean).join(' & ') : '';
-          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}${w ? `<small>with ${esc(w)}</small>` : ''}</span>${linkSelect(r, p)}${statusDots(r)}</li>`;
+          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}${w ? `<small>with ${esc(w)}</small>` : ''}</span>${statusDots(r)}</li>`;
         }).join('')}
       </ul>
       ${agendaOf(p.id)}
-      <form class="tc-add" data-addrole="${p.id}" autocomplete="off"><input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/></form>
+      <form class="tc-add" data-addrole="${p.id}" autocomplete="off">
+        <div class="tc-add-row"><input name="title" placeholder="+ Role" aria-label="Add a role for ${esc(p.name)}"/>
+          <button type="button" class="tc-btn tc-sharebtn" data-share aria-label="Share this role" aria-expanded="false" title="Share with others">${SHARE_ICON}</button></div>
+        <div class="tc-share" hidden>
+          <div class="tc-chips" role="group" aria-label="Share with">${state.people.filter((x) => x.id !== p.id).map((x) => `<button type="button" class="tc-chip" data-with="${x.id}" aria-pressed="false">${esc(x.name)}</button>`).join('')}</div>
+          ${sharable(p).length ? `<select name="join" aria-label="Link to an existing role"><option value="">Link to existing role…</option>${sharable(p).map((r) => `<option value="${r.id}">${esc(r.title)} · ${esc(r.people.map(personName).join(' & '))}</option>`).join('')}</select>` : ''}
+        </div>
+      </form>
     </article>`;
 }
 
@@ -270,7 +303,7 @@ function matchesFilter(p) {
 /* order the grid so pink / burgundy / green alternate instead of sitting in blocks; uncoloured cards go last */
 function mixColors(list) {
   const by = { pink: [], burgundy: [], green: [], none: [] };
-  list.forEach((p) => by[colorOf(p)].push(p));
+  list.forEach((p) => (by[colorOf(p)] || by.none).push(p));
   const out = [];
   while (by.pink.length || by.burgundy.length || by.green.length) ['burgundy', 'pink', 'green'].forEach((k) => { if (by[k].length) out.push(by[k].shift()); });
   return [...out, ...by.none];
@@ -312,12 +345,6 @@ function team() {
     view.querySelectorAll('.st-tabs [data-f^="st:"]').forEach((sp, i) => { sp.querySelector('b').textContent = state.roles.filter((x) => x.status === STATUSES[i]).length; });
     commit({ silent: true });
   });
-  view.querySelectorAll('[data-linkrole]').forEach((sel) => sel.onchange = () => {
-    const r = state.roles.find((x) => x.id === sel.dataset.linkrole);
-    if (!r || !sel.value) return;
-    r.people.push(sel.value);
-    commit();
-  });
   view.querySelectorAll('[data-openperson]').forEach((b) => b.onclick = () => openPerson(b.dataset.openperson));
   view.querySelectorAll('[data-menu]').forEach((b) => b.onclick = () => { menuFor = menuFor === b.dataset.menu ? null : b.dataset.menu; confirmDel = null; team(); });
   view.querySelectorAll('[data-setcolor]').forEach((b) => b.onclick = () => {
@@ -329,11 +356,20 @@ function team() {
   view.querySelectorAll('[data-addrole]').forEach((f) => f.onsubmit = (e) => {
     e.preventDefault();
     const title = f.elements.title.value.trim();
+    const join = state.roles.find((r) => r.id === f.elements.join?.value);
+    if (join) { join.people.push(f.dataset.addrole); return commit(); }
     if (!title) return;
-    state.roles.push({ id: uid(), title, people: [f.dataset.addrole], status: 'Not started', details: [], links: [] });
+    const who = [f.dataset.addrole, ...[...f.querySelectorAll('[data-with][aria-pressed="true"]')].map((b) => b.dataset.with)];
+    state.roles.push({ id: uid(), title, people: who, status: 'Not started', details: [], links: [] });
     commit();
     view.querySelector(`[data-addrole="${CSS.escape(f.dataset.addrole)}"] input`)?.focus();
   });
+  view.querySelectorAll('[data-share]').forEach((b) => b.onclick = () => {
+    const panel = b.closest('form').querySelector('.tc-share');
+    panel.hidden = !panel.hidden;
+    b.setAttribute('aria-expanded', String(!panel.hidden));
+  });
+  view.querySelectorAll('[data-with]').forEach((b) => b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')));
   // × asks first (inline), then removes with Undo
   view.querySelectorAll('[data-delperson]').forEach((b) => b.onclick = () => { confirmDel = confirmDel === b.dataset.delperson ? null : b.dataset.delperson; menuFor = null; team(); });
   view.querySelector('[data-canceldel]')?.addEventListener('click', () => { confirmDel = null; team(); });
@@ -455,22 +491,17 @@ function guestGraph() {
 function guests() {
   if (guestView === 'graph') return guestGraph();
   stopConnections();
-  const tableOpts = (sel) => `<option value="">—</option>` + state.tables.map((t) => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${esc(t.id === 'head' ? 'Sweetheart' : t.name)}</option>`).join('');
-  // phones show "Table 3" in the card; named tables and the sweetheart table read fine alone
-  const tableWord = (id) => (/^\d+$/.test(state.tables.find((t) => t.id === id)?.name || '') ? 'Table' : '');
   const q = guestQuery.toLowerCase();
   const fil = filterDef(guestFilter)[2];
   const list = state.guests.filter((g) => fil(g)
     && (!q || [g.name, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
-  const relCell = (g) => g.party === 'couple' ? '<span class="rel-fixed">Couple</span>'
-    : `<select class="select rel" data-k="relation" data-v="${esc(relationOf(g))}" aria-label="Relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select>`;
   const c = (fn) => state.guests.filter(fn).length;
 
   view.innerHTML = `
     <div class="page-head">
       <div>
         <h1>Guests</h1>
-        <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${state.guestTarget} · ${c((g) => g.rsvp === 'Yes')} yes</p>
+        <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()} · ${c((g) => g.rsvp === 'Yes')} yes</p>
       </div>
       <div class="head-actions">${guestViewToggle()}<button class="btn line" id="csv">Export CSV</button></div>
     </div>
@@ -488,29 +519,27 @@ function guests() {
     </div>
 
     <section class="card flush">
-      ${list.length ? `<div class="table-wrap"><table class="guests"><colgroup><col class="w-name"><col class="w-side"><col class="w-rel"><col class="w-rsvp"><col class="w-meal"><col class="w-table"><col class="w-act"></colgroup>
-        <thead><tr><th>Name</th><th>Side</th><th>Relation</th><th>RSVP</th><th>Meal</th><th>Table</th><th><span class="sr">Details</span></th></tr></thead>
+      ${list.length ? `<div class="table-wrap"><table class="guests"><colgroup><col class="w-name"><col class="w-side"><col class="w-rsvp"><col class="w-meal"><col class="w-act"></colgroup>
+        <thead><tr><th>Name</th><th>Side</th><th>RSVP</th><th>Meal</th><th><span class="sr">Details</span></th></tr></thead>
         <tbody>${list.map((g) => `
           <tr class="row" data-id="${g.id}">
             <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/></div></td>
             <td class="c-side"><select class="select" data-k="side" aria-label="Side">${SIDES.map((s) => `<option ${s === g.side ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-            <td class="rel-td">${relCell(g)}</td>
             <td class="c-rsvp"><select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-v="${g.rsvp}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
             <td class="c-meal"><select class="select" data-k="meal" data-v="${esc(g.meal || '')}" aria-label="Meal"><option value="">—</option>${[...MEALS, ...(g.meal && !MEALS.includes(g.meal) ? [g.meal] : [])].map((m) => `<option ${m === g.meal ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></td>
-            <td class="c-table" data-t="${tableWord(g.tableId)}"><select class="select" data-k="tableId" aria-label="Table">${tableOpts(g.tableId)}</select></td>
             <td class="row-actions">
-              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Address & details" aria-label="Address & details for ${esc(g.name)}">Details</button>
-              ${g.party === 'couple' ? '' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
+              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Details" aria-label="Details for ${esc(g.name)}"><svg viewBox="0 0 4 16" width="4" height="16" aria-hidden="true"><circle cx="2" cy="2" r="1.6"/><circle cx="2" cy="8" r="1.6"/><circle cx="2" cy="14" r="1.6"/></svg></button>
+              ${g.party === 'couple' ? '<span class="x" aria-hidden="true" style="visibility:hidden">×</span>' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
             </td>
           </tr>
-          ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="7">${detailsHTML(g)}</td></tr>` : ''}`).join('')}</tbody></table></div>
+          ${openGuests.has(g.id) ? `<tr class="detail-row" data-id="${g.id}"><td colspan="5">${detailsHTML(g, { extra: true })}</td></tr>` : ''}`).join('')}</tbody></table></div>
 `
       : `<p class="muted" style="margin:0;padding:20px">No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.</p>`}
     </section>`;
 
   const add = (name, side = 'Both') => state.guests.push({ id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null });
   view.querySelector('#csv').onclick = () => guestsCSV();
-  wireGuestViewToggle();
+  wireGuestViewToggle(); wireGuestCount(view);
   const gForm = view.querySelector('#gForm');
   const typing = () => gForm.classList.toggle('typing', !!gForm.name.value.trim());
   gForm.name.addEventListener('input', typing);
@@ -558,16 +587,11 @@ function guests() {
     tr.querySelectorAll('[data-k]').forEach((el) => {
       el.onchange = () => {
         const k = el.dataset.k;
-        if (k === 'tableId' && el.value) {
-          const t = state.tables.find((x) => x.id === el.value);
-          if (state.guests.filter((x) => x.tableId === t.id && x.id !== g.id).length >= seatCount(t)) { toast('That table is full'); el.value = g.tableId || ''; return; }
-        }
         if (k === 'name' && !el.value.trim()) { el.value = g.name; return; }
         g[k] = el.value || (k === 'tableId' ? null : '');
         if (k === 'rsvp' || k === 'meal') el.dataset.v = el.value;
         if (k === 'relation') el.dataset.v = relationOf(g);
         if (k === 'name') { g.name = el.value.trim(); const p = state.people.find((x) => x.id === g.personId); if (p) p.name = g.name; }
-        if (k === 'tableId') el.parentElement.dataset.t = tableWord(g.tableId);
         refreshFilter();
         commit({ silent: !['rsvp', 'side', 'street'].includes(k) });
       };
@@ -657,8 +681,10 @@ function tickCountdown() { // the header pill is gone (REQ-21); the count lives 
   if (el) el.innerHTML = `<b>${Math.max(0, daysUntil(WEDDING.date))}</b> days`;
 }
 
-document.getElementById('resetBtn').onclick = () => {
-  undoable('Started fresh', reset, toast);
+mountLive(document.getElementById('liveBtn'));
+initSync();
+document.getElementById('resetBtn').onclick = async () => {
+  if (await confirmDialog({ title: 'Start over?', body: 'This clears everything you’ve planned.', confirmLabel: 'Start over', cancelLabel: 'Cancel' })) undoable('Started fresh', reset, toast);
 };
 document.addEventListener('storage-full', () => toast('Storage full — remove a few photos'));
 

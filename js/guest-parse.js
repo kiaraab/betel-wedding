@@ -91,3 +91,17 @@ export function parseGuestList(text) {
   }
   return out;
 }
+
+/** Clean up whatever the AI returned into [{ name, side, household, plusOne, notes, relation }]. */
+export function normalizeAiGuests(data) {
+  const arr = Array.isArray(data) ? data : Array.isArray(data?.guests) ? data.guests : [];
+  const side = (s) => { s = String(s || '').toLowerCase(); return /betel|bride/.test(s) ? 'Betel' : /carter|groom/.test(s) ? 'Carter' : /both|shared/.test(s) ? 'Both' : null; };
+  return arr.map((r) => ({
+    name: tidy(String(r?.name ?? '')),
+    side: side(r?.side),
+    household: String(r?.household || '').trim(),
+    plusOne: r?.plusOne === true || /^(yes|true|\+1)$/i.test(String(r?.plusOne || '')),
+    notes: String(r?.notes || '').trim(),
+    relation: null,
+  })).filter((r) => /\p{L}/u.test(r.name) && r.name.length <= 60);
+}

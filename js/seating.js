@@ -181,12 +181,12 @@ function fixedSVG() {
   }
   // Round tiered stage against the left wall
   if (fixed.stage) {
-    const { cx, cy, r, steps } = fixed.stage;
+    const { cx, cy, r, steps } = fixed.stage, dep = fixed.stage.d || r;
     for (let i = 0; i < steps; i++) {
-      const rr = r - i * (r / (steps + 1));
-      s += `<path class="stage" d="M ${cx} ${cy - rr} A ${rr} ${rr} 0 0 1 ${cx} ${cy + rr} Z"/>`;
+      const k = 1 - i / (steps + 1), rr = r * k;
+      s += `<path class="stage" d="M ${cx} ${cy - rr} A ${dep * k} ${rr} 0 0 1 ${cx} ${cy + rr} Z"/>`;
     }
-    s += `<text class="fixed-label" x="${cx + r * 0.42}" y="${cy + .5}">Stage</text>`;
+    s += `<text class="fixed-label" x="${cx + dep * 0.78}" y="${cy + .5}">Stage</text>`;
   }
   // Courtyard / tasting-room features (fixed, drawn from VENUE.md facts only)
   (fixed.decor || []).forEach((d) => {
@@ -583,6 +583,7 @@ export function renderSeating(root) {
       </div>
       <aside class="side-panel">
         ${rec ? '' : spaceToolsHTML(space, { state, SP, pool: partyPool })}
+        ${rec && mode === 'plan' ? seatPanelHTML() : ''}
         ${refHTML(rec)}
       </aside>
       <div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>
@@ -758,7 +759,7 @@ export function renderSeating(root) {
     sel = null; if (!pop.hidden) closePop(true);
     flip = from; drawPlan(); flip = null; lede();
     root.querySelectorAll('#sCount,#cCount,#hCount').forEach((i) => { i.value = state.guestTarget; });
-    preview();
+    preview(); seatPanelRefresh();
   }
   function localUndo(message, mutate) {
     const snap = JSON.stringify(state), from = tablePos();
@@ -1025,7 +1026,7 @@ export function renderSeating(root) {
   });
 
   /* ---- suggest (reception only) ---- */
-  let preview = () => {};
+  let preview = () => {}, seatPanelRefresh = () => {};
   if (rec && mode === 'plan') {
   const count = root.querySelector('#sCount'), prev = root.querySelector('#sPreview');
   const style = { value: TABLE_STYLES[state.lastStyle] ? state.lastStyle : 'round8' };
@@ -1042,6 +1043,8 @@ export function renderSeating(root) {
   };
   preview = () => { const { s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b>only ${s.tables.length} fit</b>`}`; };
   count.oninput = preview;
+  // the one guest-count control: edits state.guestTarget (also set from Overview) and re-lays out
+  count.onchange = () => { const n = Math.max(2, Math.min(300, +count.value || 2)); count.value = n; if (n !== state.guestTarget) suggest(); };
   markStyle();
   sugBtn.onclick = () => { const open = sugPop.hidden; sugPop.hidden = !open; sugBtn.setAttribute('aria-expanded', String(open)); if (open) preview(); };
   root.querySelectorAll('[data-style]').forEach((b) => b.onclick = () => { style.value = b.dataset.style; markStyle(); preview(); });
@@ -1065,6 +1068,40 @@ export function renderSeating(root) {
     toast(r.seated || r.left ? `${r.seated} seated${r.left ? ` · ${r.left} need a seat` : ''}` : 'Everyone has a seat');
   };
   root.querySelectorAll('[data-idea]').forEach((b) => b.onclick = () => { style.value = b.dataset.idea; markStyle(); suggest(); });
+
+  /* ---- Seat guests panel: search, drag a name onto a table (or pick a table), Unseated (N) ---- */
+  const sp = root.querySelector('#seatPanel'), spList = sp.querySelector('.sp-list'), spQ = sp.querySelector('.sp-q');
+  const seatAt = (g, tid) => {
+    const t = SP().tables.find((x) => x.id === tid);
+    if (!t || guestsAt(tid).length >= seatCount(t)) { toast('Table is full'); return; }
+    g.tableId = tid; commit({ silent: true }); drawPlan(); lede(); seatPanelRefresh();
+    toast(`${g.name} · ${tid === 'head' ? t.name : 'Table ' + t.name}`);
+  };
+  seatPanelRefresh = () => {
+    const q = spQ.value.trim().toLowerCase();
+    const un = going().filter((g) => !g.tableId && g.party !== 'couple');
+    sp.querySelector('.sp-count').textContent = `Unseated (${un.length})`;
+    const open = SP().tables.filter((t) => guestsAt(t.id).length < seatCount(t));
+    spList.innerHTML = un.filter((g) => !q || g.name.toLowerCase().includes(q)).map((g) => `<li data-gid="${esc(g.id)}"><span>${esc(g.name)}</span><select aria-label="Seat ${esc(g.name)} at"><option value="">Seat at…</option>${open.map((t) => `<option value="${esc(t.id)}">${t.id === 'head' ? esc(t.name) : 'Table ' + esc(t.name)}</option>`).join('')}</select></li>`).join('') || `<li class="empty">${un.length ? 'No match' : 'Everyone has a seat'}</li>`;
+  };
+  spQ.oninput = seatPanelRefresh;
+  spList.addEventListener('change', (e) => { const li = e.target.closest('li[data-gid]'); if (li && e.target.value) seatAt(state.guests.find((g) => g.id === li.dataset.gid), e.target.value); });
+  let sdrag = null;
+  const clearDrop = () => host.querySelectorAll('.tbl.drop').forEach((n) => n.classList.remove('drop'));
+  const tblAt = (e) => document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.tbl[data-id]');
+  spList.addEventListener('pointerdown', (e) => { const li = e.target.closest('li[data-gid]'); if (!li || e.target.closest('select') || e.button > 0) return; sdrag = { li, x: e.clientX, y: e.clientY, on: false }; li.setPointerCapture(e.pointerId); });
+  spList.addEventListener('pointermove', (e) => {
+    if (!sdrag) return;
+    if (!sdrag.on && Math.hypot(e.clientX - sdrag.x, e.clientY - sdrag.y) > 5) { sdrag.on = true; sdrag.li.classList.add('dragging'); }
+    if (sdrag.on) { clearDrop(); tblAt(e)?.classList.add('drop'); }
+  });
+  spList.addEventListener('pointerup', (e) => {
+    if (!sdrag) return;
+    const { li, on } = sdrag; sdrag = null; li.classList.remove('dragging'); clearDrop();
+    const tb = on && tblAt(e);
+    if (tb) seatAt(state.guests.find((g) => g.id === li.dataset.gid), tb.dataset.id);
+  });
+  seatPanelRefresh();
   }
 
   if (!rec) wireSpaceTools(root, space, { state, SP, commit, toast, pool: partyPool, draw: () => drawPlan(), lede: () => lede(),
@@ -1097,6 +1134,12 @@ function moraisOrder() {
   return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => MORAIS_PHOTOS.find((p) => p.id === id));
 }
 /** One quiet panel for the photos: Layout ideas (copy a layout in one tap) and Venue photos (the Morais photos: drag to reorder, tap for the full photo). */
+function seatPanelHTML() {
+  return `<section class="card seat-panel" id="seatPanel" aria-label="Seat guests"><h3>Seat guests</h3>
+    <input class="input sp-q" type="search" placeholder="Search guests" aria-label="Search guests"/>
+    <b class="muted small sp-count">Unseated</b>
+    <ul class="sp-list"></ul><p class="muted small">Drag a name onto a table, or pick one</p></section>`;
+}
 function refHTML(rec) {
   const tab = rec && mode === 'plan' ? refTab : 'venue';
   return `<section class="card ref" aria-label="Layout ideas and venue photos">

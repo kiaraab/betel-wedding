@@ -145,6 +145,8 @@ export function renderConnections(host) {
     const list = host.querySelector('.link-list');
     if (!list) return;
     const ls = edges();
+    const lede = document.querySelector('.page-head .lede'), n = state.links.length; // header counts every link: love, like and apart
+    if (lede) lede.textContent = n ? `${n} connection${n === 1 ? '' : 's'} · used by Auto-seat` : 'Tap two people to link them';
     const listed = new Set([...list.querySelectorAll('[data-k]')].map((li) => li.dataset.k));
     const first = (id) => byId.get(id).g.name.split(' ')[0];
     list.innerHTML = ls.length
@@ -293,12 +295,13 @@ export function renderConnections(host) {
     chooser.querySelectorAll('[data-type]').forEach((btn) => btn.onclick = () => {
       const type = btn.dataset.type;
       if (type === 'none') { chooser.hidden = true; picked = null; drawNodes(); return removeLink(a, b); }
+      const before = state.links.slice();
       state.links = state.links.filter((l) => key(l.a, l.b) !== key(a, b));
       if (type !== 'none') state.links.push({ a, b, type });
       commit({ silent: true });
       picked = null; chooser.hidden = true;
       drawNodes(); drawEdges(); render(); reheat();
-      toast(`${A.name.split(' ')[0]} & ${B.name.split(' ')[0]}: ${type}`);
+      toast(`${A.name.split(' ')[0]} & ${B.name.split(' ')[0]}: ${type}`, { undo: () => { state.links = before; commit({ silent: true }); drawEdges(); render(); reheat(); } });
     });
   }
 

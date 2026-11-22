@@ -1,0 +1,12 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function mail() { return request.auth.token.email; }
+    function verified() { return request.auth != null && request.auth.token.email_verified == true; }
+    function owner() { return verified() && mail() == 'raabkiara2@gmail.com'; }
+    function editor() { return verified() && (owner() || mail() == 'betelmekonnen@gmail.com' || exists(/databases/$(db)/documents/editors/$(mail()))); }
+    match /plans/{id} { allow read, write: if editor(); }
+    match /editors/{e} { allow read, write: if owner(); }
+    match /requests/{e} { allow create, update: if verified() && e == mail(); allow read, delete: if owner(); }
+  }
+}

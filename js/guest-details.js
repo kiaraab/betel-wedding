@@ -1,7 +1,7 @@
 // One "address & details" editor for a guest, shared by the Guests list (row details) and the person card.
 // Household + plus-one are picked from the guest list and create 'together' links automatically.
 import { state, commit, uid } from './store.js';
-import { togetherGroups, seatCount } from './layout.js';
+import { togetherGroups, seatCount, RELATIONS, relationOf } from './layout.js';
 import { esc, toast } from './util.js';
 
 export const DIETS = ['Gluten free', 'Vegetarian', 'Vegan', 'Dairy free', 'Nut allergy', 'Shellfish allergy', 'Halal', 'Kosher', 'Pescatarian'];
@@ -81,7 +81,8 @@ export function photoFromFile(file, max = 25_000) {
 /* ---------- markup ---------- */
 const field = (g, k, label, cls = '') => `<label class="gd-f ${cls}"><span>${label}</span><input class="input${k === 'street' ? ' addr-street' : ''}" data-k="${k}" value="${esc(g[k])}" autocomplete="${k === 'street' ? 'street-address' : 'off'}"/></label>`;
 
-export function detailsHTML(g) {
+/** extra: also show Relation + Table (the Guests list keeps only Side, RSVP and Meal in the row). */
+export function detailsHTML(g, { extra = false } = {}) {
   const hh = households();
   const cur = String(g.household || '').trim();
   const others = state.guests.filter((x) => x.id !== g.id && x.party !== 'couple').sort((a, b) => a.name.localeCompare(b.name));
@@ -99,6 +100,8 @@ export function detailsHTML(g) {
         ${field(g, 'city', 'City')}${field(g, 'state', 'State', 'short')}${field(g, 'zip', 'ZIP', 'short')}
       </div>
       <div class="gd-rel">
+        ${extra ? `${g.party === 'couple' ? '' : `<label class="gd-f"><span>Relation</span><select class="select" data-k="relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`}
+        <label class="gd-f"><span>Table</span><select class="select" data-tbl><option value="">—</option>${state.tables.map((t) => `<option value="${t.id}" ${t.id === g.tableId ? 'selected' : ''}>${esc(t.id === 'head' ? 'Sweetheart' : t.name)}</option>`).join('')}</select></label>` : ''}
         <label class="gd-f"><span>Household</span>
           <select class="select" data-hh>
             <option value="">—</option>
@@ -141,6 +144,13 @@ export function wireDetails(root, g, { onRedraw } = {}) {
     el.addEventListener('change', () => { if (el.dataset.k === 'street') onRedraw?.(); });
   });
   box.querySelectorAll('textarea').forEach(grow);
+
+  const tbl = box.querySelector('[data-tbl]');
+  if (tbl) tbl.onchange = () => {
+    const t = state.tables.find((x) => x.id === tbl.value);
+    if (t && state.guests.filter((x) => x.tableId === t.id && x.id !== g.id).length >= seatCount(t)) { toast('That table is full'); tbl.value = g.tableId || ''; return; }
+    g.tableId = t ? t.id : null; commit({ silent: true });
+  };
 
   // household: pick a group, or type a new one in place
   const hh = box.querySelector('[data-hh]');

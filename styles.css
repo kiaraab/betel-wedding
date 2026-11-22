@@ -2363,3 +2363,154 @@ table.guests .detail-row td { position: static; background: rgba(86, 105, 75, .0
 .st-tabs { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .st-tabs::-webkit-scrollbar { display: none; }
 @media (max-width: 760px) { .st-tabs { gap: 18px; margin-left: 0; width: 100%; } .st-tabs b { font-size: 26px; } }
+
+/* --- ui round 7 --- */
+:root { --foot-h: 34px; --glass-2: rgba(251, 248, 243, .82); --st-todo: #9a9992; --st-prog: #d9a21b; --st-wait: #9b1f33; --st-done: #4f8a3c; }
+
+/* slim footer: name left, two small icon buttons right */
+.foot, body[data-route] .foot, body[data-route="overview"] .foot { padding: 0 20px; }
+.foot-acts { gap: 2px; }
+.foot-ic { display: inline-grid; place-items: center; width: 28px; height: 26px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: #f3e1e3; cursor: pointer; }
+.foot-ic:hover, .foot-ic:focus-visible { background: rgba(243, 225, 227, .16); color: #fff; outline: none; }
+@media (max-width: 760px) { :root { --foot-h: 30px; } .foot, body[data-route] .foot { padding: 0 12px; flex-wrap: nowrap; } .foot-ic { width: 26px; height: 24px; } }
+
+/* nav: one underline only (hover and active share it; the second ::after line is gone) */
+.mainnav a::after, .mainnav a.active::after { content: none; display: none; }
+.mainnav a { box-shadow: inset 0 -1px 0 transparent; }
+.mainnav a:hover, .mainnav a.active { color: #fff; box-shadow: inset 0 -1px 0 #fff; }
+
+/* hero pin: real link, underline on hover only */
+.banner-place a { color: inherit; text-decoration: none; }
+.banner-place a:hover, .banner-place a:focus-visible { text-decoration: underline; text-underline-offset: 4px; }
+
+/* editable guest count */
+.gcount { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: text; border-bottom: 1px dotted currentColor; }
+.gcount:hover, .gcount:focus-visible { border-bottom-style: solid; outline: none; }
+.gcount-in { width: 4.2em; font: inherit; font-size: .8em; padding: 1px 4px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--glass-2); color: var(--ink); }
+.page-head .lede .gcount { font-size: inherit; }
+
+/* confirm dialog (glass) */
+.cd-scrim { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px; background: rgba(31, 38, 26, 0); transition: background-color .18s; }
+.cd-scrim.in { background: rgba(31, 38, 26, .3); }
+.cd { width: min(380px, 100%); box-sizing: border-box; padding: 22px 22px 18px; background: var(--glass-2); -webkit-backdrop-filter: saturate(1.4) blur(18px); backdrop-filter: saturate(1.4) blur(18px); border: 1px solid rgba(255, 255, 255, .6); border-radius: 6px; box-shadow: 0 18px 46px -18px rgba(31, 38, 26, .5); opacity: 0; transition: opacity .18s; }
+.cd-scrim.in .cd { opacity: 1; }
+.cd h2 { margin: 0 0 6px; font: 500 22px var(--display); color: var(--ink); }
+.cd p { margin: 0; font: 400 13.5px/1.45 var(--sans); color: var(--ink-soft); }
+.cd-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.cd-acts button { font: 500 13px var(--sans); padding: 7px 16px; border-radius: 4px; cursor: pointer; border: 1px solid var(--line-strong); background: transparent; color: var(--ink); }
+.cd-acts button:hover { background: rgba(31, 38, 26, .06); }
+.cd-acts .cd-yes { background: var(--wine); border-color: var(--wine); color: #fff; }
+.cd-acts .cd-yes:hover { background: #5a1822; }
+.cd-acts button:focus-visible { outline: 2px solid var(--wine); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .cd, .cd-scrim { transition: none; } }
+
+/* glass surfaces: overview cards, person popup, history, popovers */
+.ov-card, .ov .stat, .tcard.c-none, .tcard:not(.c-pink):not(.c-burgundy):not(.c-green):not(.t-add) {
+  background: rgba(255, 253, 250, .6); -webkit-backdrop-filter: saturate(1.3) blur(16px); backdrop-filter: saturate(1.3) blur(16px);
+  border: 1px solid rgba(255, 255, 255, .65); border-radius: 6px; box-shadow: 0 1px 2px rgba(31, 38, 26, .05), 0 12px 28px -18px rgba(31, 38, 26, .4);
+}
+.ov-card, .ov .stat { padding-left: 16px; padding-right: 16px; }
+.pp, .hist { background: var(--glass-2); -webkit-backdrop-filter: saturate(1.4) blur(18px); backdrop-filter: saturate(1.4) blur(18px); border: 1px solid rgba(255, 255, 255, .6); border-radius: 6px; box-shadow: 0 18px 46px -18px rgba(31, 38, 26, .45); }
+
+/* team status colours: grey / amber / burgundy / green */
+.dot { background: var(--st-todo); }
+.dot.not-started { background: var(--st-todo); }
+.dot.in-progress { background: var(--st-prog); }
+.dot.waiting-on-bride { background: var(--st-wait); }
+.dot.done { background: var(--st-done); }
+.stbtn i, .st-legend i { background: var(--st-todo); box-shadow: 0 0 0 1px rgba(255, 255, 255, .7); }
+.stbtn.in-progress i, .st-legend .in-progress i { background: var(--st-prog); box-shadow: 0 0 0 1px rgba(255, 255, 255, .7); }
+.stbtn.waiting-on-bride i, .st-legend .waiting-on-bride i { background: var(--st-wait); }
+.stbtn.done i, .st-legend .done i { background: var(--st-done); }
+.tc-role[data-status="done"] .tc-title { text-decoration: line-through; opacity: .55; filter: grayscale(1); }
+
+/* more card colours (flat) */
+main .tcard.c-cream.c-cream.c-cream { background: #f6efe3; border-color: #eadfcd; }
+main .tcard.c-rose.c-rose.c-rose { background: #d9959b; border-color: #d9959b; }
+main .tcard.c-sage.c-sage.c-sage { background: #c4cdae; border-color: #c4cdae; }
+main .tcard.c-sand.c-sand.c-sand { background: #dccdb4; border-color: #dccdb4; }
+main .tcard.c-plum.c-plum.c-plum { background: #4a2a3c; border-color: #4a2a3c; --fg: #f6ece3; --fg-soft: rgba(246, 236, 227, .72); --dot-ring: rgba(246, 236, 227, .55); }
+
+/* Notion-style swatch popover */
+.tc-menu { display: grid; grid-template-columns: repeat(5, 22px); gap: 6px; padding: 8px; top: 30px; background: var(--glass-2); -webkit-backdrop-filter: saturate(1.4) blur(16px); backdrop-filter: saturate(1.4) blur(16px); border: 1px solid rgba(255, 255, 255, .65); border-radius: 6px; }
+.sw { width: 22px; height: 22px; border-radius: 4px; }
+.sw-none { background: #fffdfa; } .sw-cream { background: #f6efe3; } .sw-rose { background: #d9959b; } .sw-sage { background: #c4cdae; } .sw-sand { background: #dccdb4; } .sw-plum { background: #4a2a3c; }
+.sw-none { position: relative; }
+
+/* add-role + share panel */
+.tc-add-row { display: flex; align-items: center; gap: 4px; }
+.tc-add-row input { flex: 1; min-width: 0; }
+.tc-sharebtn { width: 22px; height: 22px; flex: none; }
+.tc-share { margin-top: 6px; display: grid; gap: 6px; }
+.tc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tc-chip { border: 1px solid var(--dot-ring, rgba(0, 0, 0, .25)); background: transparent; color: var(--fg); font: 500 11px var(--sans); padding: 2px 7px; border-radius: 3px; cursor: pointer; }
+.tc-chip:hover { background: rgba(255, 255, 255, .25); }
+.tc-chip[aria-pressed="true"] { background: var(--fg); color: var(--ink); border-color: var(--fg); }
+.tcard.c-burgundy .tc-chip[aria-pressed="true"], .tcard.c-green .tc-chip[aria-pressed="true"], .tcard.c-plum .tc-chip[aria-pressed="true"] { color: #2a1a1d; background: #f6ece3; }
+.tc-share select { width: 100%; font-size: 11.5px; padding: 3px 24px 3px 6px; }
+
+/* --- guests+ai round 7 --- */
+col.w-name { width: 34%; } col.w-side { width: 14%; } col.w-rsvp { width: 20%; } col.w-meal { width: 20%; } col.w-act { width: auto; }
+table.guests th:last-child, table.guests td.row-actions { width: 96px; }
+table.guests td.row-actions .more { width: 28px; height: 30px; min-width: 0; padding: 0; margin-right: 6px; border-radius: 3px; display: inline-grid; place-items: center; }
+table.guests td.row-actions .more svg { fill: currentColor; display: block; }
+table.guests .detail-row td { background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, .6); }
+.paste-ai { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.paste-ai .spacer, .ap-foot .spacer { flex: 1; }
+.paste-status { font-size: 12.5px; color: var(--ink-faint); }
+.ai-link { font-size: 12px; }
+.paste { background: rgba(255, 255, 255, .72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, .6); border-radius: 4px; }
+.paste-rows { max-height: 300px; overflow: auto; margin-top: 10px; }
+.paste-rows:empty { display: none; }
+.paste-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.paste-table th { text-align: left; font-weight: 500; color: var(--ink-faint); padding: 2px 4px; position: sticky; top: 0; background: rgba(255, 255, 255, .85); }
+.paste-table td { padding: 2px 3px; }
+.paste-table .input, .paste-table .select { width: 100%; min-width: 0; padding: 4px 6px; font-size: 12.5px; }
+.paste-table .pc-x { border-radius: 3px; }
+.ap-foot { display: flex; align-items: center; gap: 8px; }
+.ap textarea[name=want] { width: 100%; resize: vertical; }
+.ap-prev { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 260px; overflow: auto; font-size: 12.5px; }
+.ap-prev li { display: flex; gap: 6px; align-items: baseline; padding: 3px 4px; background: rgba(255, 255, 255, .6); border-radius: 3px; }
+.ap-prev li b { font-weight: 500; white-space: nowrap; }
+.ap-prev li em { color: var(--ink-faint); font-style: normal; }
+.ap-prev li .x { margin-left: auto; }
+.ai-dlg { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: rgba(40, 20, 25, .35); }
+.ai-card { width: min(360px, calc(100vw - 32px)); display: grid; gap: 10px; padding: 16px; border-radius: 4px; background: rgba(255, 255, 255, .8); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, .7); box-shadow: 0 18px 40px -16px rgba(60, 30, 35, .4); }
+.ai-card h2 { margin: 0; font: 500 20px var(--display); }
+.ai-f { display: grid; gap: 3px; font-size: 11.5px; color: var(--ink-faint); }
+.ai-note { margin: 0; font-size: 11.5px; color: var(--ink-faint); }
+.ai-foot { display: flex; align-items: center; gap: 8px; }
+.ai-foot .spacer { flex: 1; }
+
+/* --- seating round 7 --- */
+/* glass: translucent flat colour + backdrop blur, 3-4px corners, no gradients, no hover movement */
+.plan .party-dot circle { stroke-width: .22; }
+.plan .party-dot .pd-hover { opacity: 0; }
+.plan .party-dot:hover .pd-hover { opacity: 1; }
+.plan .party-dot.sel .pd-hover { display: none; }
+.plan .party-dot .pd-label { font-size: 1.3px; }
+.plan .tbl.drop > * { stroke: var(--wine); }
+.pop, .color-legend, .chipmenu, .tool-hint { background: rgba(255,255,255,.74); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); border: 1px solid rgba(255,255,255,.7); border-radius: 4px; box-shadow: 0 14px 34px -14px rgba(60,30,35,.38), 0 1px 4px rgba(60,30,35,.08); }
+.plan-tools { background: rgba(255,255,255,.6); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.stage-wrap .three-loading, .stage-wrap .walk-pad, .stage-wrap .prompt { background: rgba(255,255,255,.62); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); border-radius: 4px; }
+.seat-panel { display: grid; gap: 8px; background: rgba(255,255,255,.7); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.seat-panel h3 { margin: 0; }
+.sp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 240px; overflow: auto; }
+.sp-list li { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 8px; border-radius: 3px; background: rgba(255,255,255,.7); border: 1px solid var(--line); font-size: 13.5px; cursor: grab; touch-action: none; }
+.sp-list li > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-list li select { font: inherit; font-size: 12.5px; max-width: 96px; border: 1px solid var(--line); border-radius: 3px; background: rgba(255,255,255,.8); padding: 3px 4px; }
+.sp-list li.dragging { opacity: .6; }
+.sp-list li.empty { background: none; border-style: dashed; color: var(--ink-faint); cursor: default; }
+
+/* open details button: keep the dots visible on the dark fill (warn colour was winning) */
+table.guests td.row-actions .more.addr-btn.open, .more.addr-btn.warn.open { color: var(--ivory); }
+
+/* --- live sync --- */
+#liveBtn{position:relative}
+.live-dot{position:absolute;right:1px;top:1px;width:6px;height:6px;border-radius:50%;background:#9a9a9a}
+.live-dot[data-s="on"]{background:#4c8a4c}.live-dot[data-s="wait"]{background:#c79a2a}
+.live-pop{position:fixed;right:14px;bottom:52px;z-index:80;width:min(300px,calc(100vw - 28px));padding:14px;border-radius:6px;background:rgba(255,252,247,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.6);box-shadow:0 8px 28px rgba(40,30,20,.18);font-size:13px}
+.live-pop h3{margin:0 0 4px;font-size:14px;font-weight:600}.live-pop p{margin:0 0 10px;color:#5b524a}
+.live-form{display:flex;gap:6px}.live-form input{flex:1;min-width:0;padding:7px 8px;border:1px solid rgba(0,0,0,.15);border-radius:4px;background:rgba(255,255,255,.7)}
+.live-reqs{list-style:none;margin:0 0 10px;padding:0}.live-reqs li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0}
+.live-note{margin:8px 0 0;font-size:12px}

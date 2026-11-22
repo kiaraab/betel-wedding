@@ -223,3 +223,18 @@ export async function importJSON(file) {
   replaceAll = true; // the imported file is the whole plan
   commit();
 }
+
+/** Live sync (js/sync.js): fold a copy from the shared database into this tab. Parts this tab is mid-edit on are kept. */
+export function mergeRemote(next) {
+  if (!next || typeof next !== 'object' || next.version !== VERSION) return false;
+  if (!dirty) { adopt(next); return true; }
+  Object.keys(next).forEach((k) => {
+    if (META.has(k) || scratch(k)) return;
+    if (JSON.stringify(state[k]) === base.parts[k] && JSON.stringify(next[k]) !== base.parts[k]) state[k] = next[k];
+  });
+  ensureAutoGuests();
+  listeners.forEach((fn) => fn());
+  return true;
+}
+/** The plan as it would be saved (no throwaway __keys). */
+export const snapshot = () => persisted();

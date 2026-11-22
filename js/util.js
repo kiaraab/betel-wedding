@@ -23,3 +23,35 @@ export function daysUntil(iso) {
 }
 
 export const fmtDate = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+/** Friendly in-page confirm (glass modal). Resolves true on Confirm, false on Cancel / Esc / click outside. */
+export function confirmDialog({ title = 'Are you sure?', body = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel' } = {}) {
+  return new Promise((resolve) => {
+    const prev = document.activeElement;
+    const scrim = document.createElement('div');
+    scrim.className = 'cd-scrim';
+    scrim.innerHTML = `<section class="cd" role="alertdialog" aria-modal="true" aria-labelledby="cdT" ${body ? 'aria-describedby="cdB"' : ''}>
+      <h2 id="cdT">${esc(title)}</h2>${body ? `<p id="cdB">${esc(body)}</p>` : ''}
+      <div class="cd-acts"><button type="button" class="cd-no">${esc(cancelLabel)}</button><button type="button" class="cd-yes">${esc(confirmLabel)}</button></div>
+    </section>`;
+    document.body.append(scrim);
+    requestAnimationFrame(() => scrim.classList.add('in'));
+    const yes = scrim.querySelector('.cd-yes'), no = scrim.querySelector('.cd-no');
+    const done = (v) => {
+      removeEventListener('keydown', onKey, true);
+      scrim.classList.remove('in');
+      setTimeout(() => scrim.remove(), 160);
+      prev?.focus?.({ preventScroll: true });
+      resolve(v);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); done(false); }
+      else if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === yes ? no : yes).focus(); }
+    };
+    addEventListener('keydown', onKey, true);
+    yes.onclick = () => done(true);
+    no.onclick = () => done(false);
+    scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) done(false); });
+    yes.focus();
+  });
+}

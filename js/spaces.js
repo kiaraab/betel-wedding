@@ -3,7 +3,7 @@
 import { togetherGroups, relationOf, blockers, footprint } from './layout.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const PER_COL = 5, DOT_STEP = 2.4, DOT_X0 = 4.6, DOT_Y0 = 6.2; // wedding party stands in lateral rows either side of the aisle
+const DOT_STEP = 2.8, DOT_X0 = 4.4, DOT_Y0 = 6.4, DOT_R = 1.25; // the wedding party stands in ONE lateral row per side of the 5 ft aisle (1 = nearest the altar/aisle)
 
 /* ---------------- wedding party ---------------- */
 /**
@@ -29,20 +29,21 @@ export function ensureParty(room, pool) {
 const partyName = (pool, key) => pool.find((x) => x.id === key)?.name || (/^g\d+$/.test(key) ? `Groomsman ${key.slice(1)}` : '');
 export const partyDots = (room, pool) => {
   const p = ensureParty(room, pool), cx = room.w / 2;
-  const at = (side, i) => ({ x: cx + side * (DOT_X0 + (i % PER_COL) * DOT_STEP), y: DOT_Y0 + Math.floor(i / PER_COL) * DOT_STEP });
+  const step = (k) => Math.min(DOT_STEP, k > 1 ? (cx - DOT_X0 - 2) / (k - 1) : DOT_STEP); // squeeze evenly if a long line would hit the wall
+  const at = (side, i, k) => ({ x: cx + side * (DOT_X0 + i * step(k)), y: DOT_Y0 });
   return [
-    ...p.order.b.map((id, i) => ({ side: 'b', n: i + 1, label: partyName(pool, id), id, ...at(-1, i) })),
-    ...p.order.g.map((id, i) => ({ side: 'g', n: i + 1, label: partyName(pool, id), id, ...at(1, i) })),
+    ...p.order.b.map((id, i) => ({ side: 'b', n: i + 1, label: partyName(pool, id), id, ...at(-1, i, p.order.b.length) })),
+    ...p.order.g.map((id, i) => ({ side: 'g', n: i + 1, label: partyName(pool, id), id, ...at(1, i, p.order.g.length) })),
   ];
 };
 /** SVG for the dots (drawn with the fixed features). `anim` makes them pop in one after another; a tapped dot shows its name right beside it (no popover). */
 export function partySVG(room, pool, anim, selKey) {
-  return partyDots(room, pool).map((d, k) => `<g class="party-dot ${d.side}${selKey === d.id ? ' sel' : ''}" data-pkey="${esc(d.id)}" transform="translate(${d.x} ${d.y})"><g class="pd-in"${anim ? ` style="animation-delay:${k * 40}ms"` : ''}><circle r="1"/><text y=".38">${d.n}</text></g>${selKey === d.id ? `<text class="pd-label" y="-1.6">${esc(d.label)}</text>` : ''}</g>`).join('');
+  return partyDots(room, pool).map((d, k) => `<g class="party-dot ${d.side}${selKey === d.id ? ' sel' : ''}" data-pkey="${esc(d.id)}" transform="translate(${d.x} ${d.y})"><title>${esc(d.label)}</title><g class="pd-in"${anim ? ` style="animation-delay:${k * 40}ms"` : ''}><circle r="${DOT_R}"/><text y=".48">${d.n}</text></g>${selKey === d.id ? `<text class="pd-label" y="-1.9">${esc(d.label)}</text>` : ''}<text class="pd-label pd-hover" y="-1.9">${esc(d.label)}</text></g>`).join('');
 }
 /** Lowest y a row of chairs may start at so it clears the standing party. */
 export function partyBottom(room, pool) {
   const d = partyDots(room, pool);
-  return d.length ? Math.max(...d.map((x) => x.y)) + 3.5 : 0;
+  return d.length ? Math.max(...d.map((x) => x.y)) + 4 : 0;
 }
 
 /* ---------------- ceremony ---------------- */

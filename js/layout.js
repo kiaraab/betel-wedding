@@ -29,7 +29,7 @@ export function roundRadius(seats) {
 
 export function rectDims(t) {
   const { top, bottom, left, right } = t.sides;
-  return { L: Math.max(Math.max(top, bottom) * 2.1 + 0.6, 3), D: Math.max(Math.max(left, right) * 2.1 + 0.4, 2.6) };
+  return { L: Math.max(Math.max(top, bottom) * 2.1 + 0.6, t.len || 0, 3), D: Math.max(Math.max(left, right) * 2.1 + 0.4, 2.6) };
 }
 
 /** Footprint incl. chairs, after rotation: half-width / half-height */
@@ -98,7 +98,7 @@ const rbox = (r, pad = 0) => ({ x1: r.x - pad, x2: r.x + r.w + pad, y1: r.y - pa
 export function blockers(room, tables = [], { areaPad = 4, noStage = false } = {}) {
   const b = [];
   const st = room.fixed?.stage;
-  if (st && !noStage) b.push({ x1: st.cx - st.r - 3, x2: st.cx + st.r + 3, y1: st.cy - st.r - 3, y2: st.cy + st.r + 3 });
+  if (st && !noStage) b.push({ x1: st.cx - st.r - 3, x2: st.cx + (st.d || st.r) + 3, y1: st.cy - st.r - 3, y2: st.cy + st.r + 3 });
   (room.fixed?.openings || []).forEach((o) => {
     if (o.kind === 'window') return;
     const clear = o.kind === 'entrance' ? 14 : 4; // 44" in front of exits; a real aisle in from the entrance
@@ -129,7 +129,7 @@ function makeTable(style, x, y) {
  */
 export function suggestTables(room, guestCount, style = 'round8', head) {
   // every style starts from the sweetheart table at the arched doors (a previous 'on the stage' suggestion must not stick); the result carries the head table it used
-  const home = head && { ...head, shape: 'rect', x: room.w / 2, y: 7, rot: 0, sides: { top: 2, bottom: 0, left: 0, right: 0 } };
+  const home = head && { ...head, len: undefined, shape: 'rect', x: room.w / 2, y: 7, rot: 0, sides: { top: 2, bottom: 0, left: 0, right: 0 } };
   return { ...suggestInner(room, guestCount, style, style === 'stage' || style === 'headlong' ? head : home), ...(head && style !== 'stage' && style !== 'headlong' ? { head: home } : {}) };
 }
 function suggestInner(room, guestCount, style, head) {
@@ -242,13 +242,13 @@ const CUSTOM = {
   /** Sweetheart table on the round stage (near-left corner), couple facing the room; dance floor in front of the stage, rounds around it. */
   stage(room, guestCount, head) {
     const st = room.fixed?.stage, dance = danceOf(room);
-    const nh = { ...(head || { id: 'head', name: 'Mr. & Mrs. Griffin', sides: { top: 2, bottom: 0, left: 0, right: 0 }, o: 0 }), shape: 'rect', rot: 90, x: st ? st.cx + st.r * 0.45 : 4.5, y: st ? st.cy : room.h * 0.8 };
+    const nh = { ...(head || { id: 'head', name: 'Mr. & Mrs. Griffin', sides: { top: 2, bottom: 0, left: 0, right: 0 }, o: 0 }), shape: 'rect', rot: 90, len: 7, x: st ? st.cx + (st.d || st.r) * 0.4 : 6, y: st ? st.cy : room.h * 0.8 };
     const n = Math.max(1, Math.ceil(Math.max(0, guestCount - 2) / 8));
     // Try roomier plans first; the 50 x 75 ft room is tight with a stage bay, so fall back to a smaller floor, tighter aisles, then the lounge end
     const tries = [{ dw: 18, dh: 20, gap: 3.5, end: nearEnd(room) }, { dw: 16, dh: 18, gap: 2.5, end: nearEnd(room) }, { dw: 14, dh: 16, gap: 2.5, end: nearEnd(room) }, { dw: 14, dh: 16, gap: 2, end: room.h - 3 }];
     let best = null;
     for (const o of tries) {
-      if (dance) { dance.w = o.dw; dance.h = o.dh; dance.x = (st ? st.cx + st.r + 3 : 12); dance.y = Math.max(8, (st ? st.cy : room.h * 0.8) - dance.h * 0.5 - 2); }
+      if (dance) { dance.w = o.dw; dance.h = o.dh; dance.x = (st ? st.cx + (st.d || st.r) + 2 : 17); dance.y = Math.max(8, (st ? st.cy : room.h * 0.8) - dance.h * 0.5 - 2); }
       const cx = dance ? dance.x + dance.w / 2 : room.w / 2, cy = dance ? dance.y + dance.h / 2 : room.h / 2;
       const d = (p) => Math.min(p.x, room.w - p.x, p.y);
       const rounds = packRounds(room, [nh], n, 8, (a, b) => Math.round(d(a) / 3) - Math.round(d(b) / 3) || Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy), o.end, o.gap);

@@ -4,6 +4,7 @@
 import { state, commit, uid, undoable } from './store.js';
 import { WEDDING } from './data.js';
 import { esc, toast } from './util.js';
+import { aiAvailable, askGemini, aiLinkHTML, wireAiLink } from './ai.js';
 
 const PLACES = ['Ceremony', 'Reception', 'Hangout spot', 'Other'];
 // Real Morais spaces (VENUE.md); `sp` = the Seating tab that shows it
@@ -18,6 +19,9 @@ const PREFS = [['firstlook', 'First look'], ['dinner', 'Longer dinner'], ['danci
 let selId = null;        // block open in the side panel
 let suggesting = false;  // side panel shows the "suggest" form
 let prefs = new Set();
+let sug = { from: '', to: '22:00', want: '' }; // the suggest form's values survive redraws
+let aiPrev = null;      // events the AI proposed, waiting to be accepted
+let thinking = false;
 
 const toMin = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 const toTime = (min) => { const m = ((Math.round(min) % DAY) + DAY) % DAY; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
@@ -48,7 +52,6 @@ function migrate() {
 function suggestBlocks(from, to) {
   const seq = [
     ...(prefs.has('firstlook') ? [['First look', 'Other', 20]] : []),
-    ['Guests arrive', 'Ceremony', 30],
     ['Ceremony', 'Ceremony', 30],
     ['Cocktail hour', 'Hangout spot', 60],
     ['Grand entrance', 'Reception', 10],
@@ -68,6 +71,39 @@ function suggestBlocks(from, to) {
     const blk = { id: uid(), title, place, venue: '', responsible: '', notes: '', suggested: true }; setTimes(blk, start, end); return blk;
   });
 }
+
+/** Words in the free-text box nudge the built-in plan when there is no AI. */
+const prefsFromText = (t) => new Set([/first look/i.test(t) && 'firstlook', /dinner|dining|feast/i.test(t) && 'dinner', /danc|party|music/i.test(t) && 'dancing'].filter(Boolean));
+const placeFor = (venue) => ({ ceremony: 'Ceremony', reception: 'Reception', cocktail: 'Hangout spot' }[(VENUES.find((v) => v[0] === venue) || [])[1]] || 'Other');
+const clash = (a, b) => S(a) < E(b) && S(b) < E(a);
+
+/** Turn the AI's JSON into blocks inside [from, to]; anything unreadable or outside the window is dropped. */
+function blocksFromAi(data, from, to) {
+  const list = Array.isArray(data) ? data : Array.isArray(data?.events) ? data.events : [];
+  const ok = /^\d{1,2}:\d{2}$/;
+  return list.filter((e) => e && ok.test(String(e.start)) && ok.test(String(e.end))).map((e) => {
+    let s = toMin(e.start); if (s < from) s += DAY;
+    let en = toMin(e.end); if (en <= s) en += DAY;
+    const venue = VENUES.some((v) => v[0] === e.venue) ? e.venue : '';
+    const b = { id: uid(), title: String(e.title || '').slice(0, 60), place: placeFor(venue), venue, responsible: '', notes: String(e.notes || '').slice(0, 200), suggested: true };
+    setTimes(b, s, Math.min(en, to)); b.title ||= 'Event';
+    return b;
+  }).filter((b) => S(b) >= from && S(b) < to && E(b) > S(b)).sort((a, b) => S(a) - S(b));
+}
+
+/** Replace earlier suggestions with `fresh`, skipping any that overlap your own events or each other. */
+function addSuggested(fresh) {
+  const kept = state.agenda.filter((a) => !a.suggested), out = [];
+  fresh.forEach((b) => { if (![...kept, ...out].some((x) => clash(x, b))) out.push(b); });
+  const skipped = fresh.length - out.length;
+  if (!out.length) { toast('Everything overlaps events you already have'); return; }
+  undoable(`${out.length} events added${skipped ? `, ${skipped} skipped (overlap)` : ''}`, () => {
+    state.agenda.filter((a) => a.suggested).forEach(dropNote);
+    state.agenda = [...kept, ...out];
+  }, toast);
+}
+
+const AI_SYSTEM = `You plan a wedding-day timeline at Morais Vineyards. Reply with JSON only: an array of {"title","start","end","venue","notes"}. start/end are 24h "HH:MM" and a time past midnight is fine. Events must be in order, must not overlap, and must fit inside the window given. venue must be exactly one of: ${VENUES.map((v) => v[0]).join(', ')} (or ""). Notes are short. The first event starts exactly at the window start.`;
 
 /* ---------- layout ---------- */
 function range() {
@@ -111,19 +147,25 @@ function blockHTML(a, r, ln) {
 
 function panelHTML() {
   if (suggesting) {
-    const c = ceremonyMin();
+    if (!sug.from) sug.from = toTime(ceremonyMin() - (prefs.has('firstlook') ? 20 : 0));
+    const ai = aiAvailable();
     return `
       <form class="ap" id="agSuggestForm">
         <div class="ap-head"><h2>Suggest</h2><button type="button" class="x" data-closepanel aria-label="Close">×</button></div>
+        <label class="ap-f"><span>What do you want?</span><textarea name="want" rows="2" placeholder="e.g. lots of dancing, dinner around 7">${esc(sug.want)}</textarea></label>
         <div class="ap-row2">
-          <label class="ap-f"><span>Start</span><input type="time" name="from" value="${toTime(c - 30 - (prefs.has('firstlook') ? 20 : 0))}" step="900"/></label>
-          <label class="ap-f"><span>End</span><input type="time" name="to" value="22:00" step="900"/></label>
+          <label class="ap-f"><span>Start</span><input type="time" name="from" value="${sug.from}" step="900"/></label>
+          <label class="ap-f"><span>End</span><input type="time" name="to" value="${sug.to}" step="900"/></label>
         </div>
-        <div class="ap-chips" role="group" aria-label="Preferences">
+        ${ai ? '' : `<div class="ap-chips" role="group" aria-label="Preferences">
           ${PREFS.map(([k, l]) => `<button type="button" class="chip${prefs.has(k) ? ' on' : ''}" data-pref="${k}" aria-pressed="${prefs.has(k)}">${l}</button>`).join('')}
+        </div>`}
+        ${aiPrev ? `<ul class="ap-prev">${aiPrev.map((b) => `<li data-pid="${b.id}"><b>${fmt(b.start)}–${fmt(b.end)}</b> ${esc(b.title)}${b.venue ? ` <em>${esc(b.venue)}</em>` : ''}<button type="button" class="x" data-prevx aria-label="Remove ${esc(b.title)}">×</button></li>`).join('')}</ul>` : ''}
+        <p class="ap-note">${thinking ? 'Thinking…' : 'Replaces earlier suggestions. Your own events stay.'}</p>
+        <div class="ap-foot">
+          ${aiLinkHTML()}
+          ${aiPrev ? '<button type="button" class="btn moss sm" data-addprev>Add all</button>' : `<button class="btn moss sm"${thinking ? ' disabled' : ''}>${ai && sug.want.trim() ? 'Ask AI' : 'Fill the day'}</button>`}
         </div>
-        <p class="ap-note">Replaces earlier suggestions. Your own events stay.</p>
-        <button class="btn moss sm">Fill the day</button>
       </form>`;
   }
   const a = state.agenda.find((x) => x.id === selId);
@@ -214,7 +256,7 @@ export function renderAgenda(view) {
     rerender();
     view.querySelector('.ap [data-k="title"]')?.focus();
   };
-  view.querySelector('#agSuggest').onclick = () => { suggesting = !suggesting; selId = null; rerender(); };
+  view.querySelector('#agSuggest').onclick = () => { suggesting = !suggesting; selId = null; aiPrev = null; rerender(); };
 
   // Double-click empty time = new event there
   col.addEventListener('dblclick', (e) => {
@@ -277,22 +319,38 @@ export function renderAgenda(view) {
   panel.querySelector('[data-closepanel]').onclick = () => { selId = null; suggesting = false; rerender(); };
   const form = panel.querySelector('#agSuggestForm');
   if (form) {
+    wireAiLink(form, rerender);
+    const read = () => { sug = { from: form.elements.from.value, to: form.elements.to.value, want: form.elements.want.value }; };
+    form.querySelectorAll('input,textarea').forEach((el) => el.addEventListener('input', read));
     form.querySelectorAll('[data-pref]').forEach((b) => b.onclick = () => {
       prefs.has(b.dataset.pref) ? prefs.delete(b.dataset.pref) : prefs.add(b.dataset.pref);
       b.classList.toggle('on'); b.setAttribute('aria-pressed', String(prefs.has(b.dataset.pref)));
     });
-    form.onsubmit = (e) => {
+    form.querySelectorAll('[data-prevx]').forEach((b) => b.onclick = () => { aiPrev = aiPrev.filter((x) => x.id !== b.closest('li').dataset.pid); if (!aiPrev.length) aiPrev = null; rerender(); });
+    form.querySelector('[data-addprev]')?.addEventListener('click', () => { const list = aiPrev; aiPrev = null; suggesting = false; addSuggested(list); });
+    form.querySelectorAll('input,textarea').forEach((el) => el.addEventListener('change', () => { if (aiPrev) { aiPrev = null; rerender(); } }));
+    form.onsubmit = async (e) => {
       e.preventDefault();
-      const from = toMin(form.elements.from.value);
-      let to = toMin(form.elements.to.value);
-      if (to <= from) to += 24 * 60;                 // an end like 2am means the next morning
+      read();
+      const from = toMin(sug.from);
+      let to = toMin(sug.to);
+      if (to <= from) to += DAY;                 // an end like 2am means the next morning
       if (to - from < 60) { toast('The event needs to run at least an hour'); return; }
+      if (aiAvailable() && sug.want.trim()) {
+        thinking = true; aiPrev = null; rerender();
+        try {
+          const data = await askGemini({ system: AI_SYSTEM, json: true, prompt: `Window: ${sug.from} to ${sug.to}. Ceremony time on the invitation: ${toTime(ceremonyMin())}. Guests: ${state.guestTarget}. Request: ${sug.want}` });
+          const list = blocksFromAi(data, from, to);
+          if (!list.length) throw new Error('The AI plan did not fit the window.');
+          aiPrev = list;
+        } catch (err) { toast(`${err.message || 'AI failed.'} Using the basic plan.`); aiPrev = null; thinking = false; suggesting = false; return addSuggested(suggestBlocks(from, to)); }
+        thinking = false; return rerender();
+      }
+      const own = prefs; prefs = new Set([...prefs, ...prefsFromText(sug.want)]);
       const fresh = suggestBlocks(from, to);   // may run past midnight: the day view extends
+      prefs = own;
       suggesting = false;
-      undoable(`${fresh.length} events suggested`, () => {
-        state.agenda.filter((a) => a.suggested).forEach(dropNote);
-        state.agenda = [...state.agenda.filter((a) => !a.suggested), ...fresh];
-      }, toast);
+      addSuggested(fresh);
     };
     return;
   }

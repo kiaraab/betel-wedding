@@ -125,7 +125,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   const coarse = matchMedia('(pointer: coarse)').matches;
   sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048);
   Object.assign(sun.shadow.camera, { left: -w, right: w, top: h, bottom: -h, near: 1, far: 200 });
-  sun.shadow.bias = -0.0005;
+  sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3; // softer edges, no extra pass
   scene.add(sun);
 
   /* ---- floor + walls ---- */
@@ -254,6 +254,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     for (let i = 0; i < steps; i++) {
       const rr = r - i * (r / (steps + 1));
       const tier = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, 0.7, 48, 1, false, 0, Math.PI), stoneMat);
+      tier.scale.x = (fixed.stage.d || r) / r;
       tier.position.set(X(cx), 0.35 + i * 0.7, Z(cy));
       tier.castShadow = tier.receiveShadow = true;
       scene.add(tier);
