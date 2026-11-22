@@ -45,7 +45,7 @@ export function initGuide(getRoute) {
   btn = document.createElement('button');
   btn.className = 'guide-q';
   btn.setAttribute('aria-label', 'Quick tour of this page');
-  btn.textContent = '?';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M9.2 9.3a2.9 2.9 0 1 1 4.4 2.5c-.9.6-1.6 1.1-1.6 2.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.05" fill="currentColor"/></svg>';
   btn.onclick = () => startTour(routeNow());
   document.body.append(btn);
   refreshGuide();
