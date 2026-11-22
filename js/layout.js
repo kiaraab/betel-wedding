@@ -114,6 +114,8 @@ export function blockers(room, tables = [], { areaPad = 4, noStage = false } = {
     const dep = (st.d || 15) + 3, keep = st.keep ?? 8;
     b.push(st.wall === 'top' ? { x1: st.cx - st.r - 3, x2: st.cx + st.r + 3, y1: -dep, y2: keep } : { x1: -dep, x2: keep, y1: st.cy - st.r - 3, y2: st.cy + st.r + 3 });
   }
+  // The balcony overhangs the near end: no table or chair goes under the rail (2D and 3D share this)
+  if (room.fixed?.balcony) b.push({ x1: -1, x2: room.w + 1, y1: room.h - room.fixed.balcony.depth, y2: room.h + 1 });
   (room.fixed?.openings || []).forEach((o) => {
     if (o.kind === 'window') return;
     // 44" in front of exits; ~8 ft (6-8) in front of the balcony-end doors (photo #143); a real aisle in from the others

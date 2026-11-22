@@ -22,6 +22,10 @@ let prefs = new Set();
 let sug = { from: '', to: '22:00', want: '' }; // the suggest form's values survive redraws
 let aiPrev = null;      // events the AI proposed, waiting to be accepted
 let thinking = false;
+let reviewing = false;   // side panel lists overlapping suggested events
+const NOTE_KEY = 'betel-agenda-overlap-dismissed';
+const seen = (k) => { try { return sessionStorage.getItem(NOTE_KEY) === k; } catch { return false; } };
+const markSeen = (k) => { try { sessionStorage.setItem(NOTE_KEY, k); } catch { /* fine */ } };
 
 const toMin = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 const toTime = (min) => { const m = ((Math.round(min) % DAY) + DAY) % DAY; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
@@ -103,6 +107,19 @@ function addSuggested(fresh) {
   }, toast);
 }
 
+/** Suggested events that overlap your own events or an earlier suggestion (stray duplicates). Your own events are never listed. */
+function overlappingSuggested() {
+  const kept = state.agenda.filter((a) => !a.suggested), out = [], bad = [];
+  state.agenda.filter((a) => a.suggested).sort((a, b) => S(a) - S(b) || E(a) - E(b)).forEach((b) => {
+    (([...kept, ...out].some((x) => clash(x, b))) ? bad : out).push(b);
+  });
+  return bad;
+}
+function removeSuggested(list, label) {
+  const ids = new Set(list.map((b) => b.id));
+  undoable(label, () => { state.agenda.filter((a) => ids.has(a.id)).forEach(dropNote); state.agenda = state.agenda.filter((a) => !ids.has(a.id)); }, toast);
+}
+
 /** Events the team entered themselves are fixed: the AI plans around them (internal context, never shown as suggestions). */
 function fixedNote() {
   const own = state.agenda.filter((a) => !a.suggested && a.title);
@@ -153,6 +170,16 @@ function blockHTML(a, r, ln) {
 }
 
 function panelHTML() {
+  if (reviewing) {
+    const bad = overlappingSuggested();
+    return `
+      <div class="ap" id="agReview">
+        <div class="ap-head"><h2>Overlapping suggestions</h2><button type="button" class="x" data-closepanel aria-label="Close">×</button></div>
+        ${bad.length ? `<ul class="ap-prev">${bad.map((b) => `<li data-pid="${b.id}"><b>${fmt(b.start)}–${fmt(b.end)}</b> ${esc(b.title || 'Event')}<button type="button" class="x" data-rmsug aria-label="Remove ${esc(b.title || 'event')}">×</button></li>`).join('')}</ul>
+        <p class="ap-note">Only suggested events are listed. Your own events stay.</p>
+        <div class="ap-foot"><span></span><button type="button" class="btn moss sm" data-rmall>Remove suggested duplicates</button></div>` : '<p class="ap-note">No overlaps left.</p>'}
+      </div>`;
+  }
   if (suggesting) {
     if (!sug.from) sug.from = toTime(ceremonyMin() - (prefs.has('firstlook') ? 20 : 0));
     const ai = aiAvailable();
@@ -185,8 +212,10 @@ function panelHTML() {
         <label class="ap-f"><span>Start</span><input type="time" data-k="start" value="${esc(a.start)}" step="900"/></label>
         <label class="ap-f"><span>End</span><input type="time" data-k="end" value="${esc(a.end)}" step="900"/></label>
       </div>
-      <label class="ap-f"><span>Place</span><select data-k="place">${PLACES.map((p) => `<option ${p === a.place ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
-      <label class="ap-f"><span>Venue place</span><select data-k="venue"><option value="">—</option>${VENUES.map(([v]) => `<option ${v === a.venue ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="ap-f"><span>Where</span><select data-k="where">
+        <optgroup label="At Morais">${VENUES.map(([v]) => `<option value="v:${v}" ${v === a.venue ? 'selected' : ''}>${v}</option>`).join('')}</optgroup>
+        <optgroup label="General">${PLACES.map((p) => `<option value="p:${p}" ${!a.venue && p === (PLACES.includes(a.place) ? a.place : 'Other') ? 'selected' : ''}>${p}</option>`).join('')}</optgroup>
+      </select></label>
       ${a.venue ? `<a class="ap-link" href="#seating/${venueSp(a.venue)}">View ${esc(a.venue)} in Seating</a>` : ''}
       <label class="ap-f"><span>Responsible</span><select data-k="responsible"><option value="">—</option>${state.people.map((p) => `<option value="${p.id}" ${p.id === a.responsible ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
       <label class="ap-f"><span>Notes</span><textarea data-k="notes" rows="3">${esc(a.notes)}</textarea></label>
@@ -219,15 +248,18 @@ export function renderAgenda(view) {
   const r = range(), ln = lanes(state.agenda);
   const hours = [];
   for (let m = r.from; m < r.to; m += 60) hours.push(m);
-  const open = suggesting || !!selId;
+  const open = suggesting || reviewing || !!selId;
+  const overlap = overlappingSuggested(), sig = overlap.map((b) => b.id).join(',');
+  const showNote = overlap.length && !reviewing && !seen(sig);
   view.innerHTML = `
     <div class="page-head ag-head">
       <h1>Agenda</h1>
       <div class="head-actions">
-        <button class="btn line sm" id="agSuggest">Suggest an agenda</button>
+        <button class="icon-btn" id="agSuggest" aria-label="Suggest an agenda" title="Suggest an agenda" aria-pressed="${suggesting}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h10M4 12h7M4 18h10"/><path d="M17 9v6M14 12h6"/></svg></button>
         <button class="btn moss sm" id="agAdd">+ Event</button>
       </div>
     </div>
+    ${showNote ? `<div class="ag-note" role="status"><span>${overlap.length} overlapping suggested event${overlap.length > 1 ? 's' : ''}</span><button type="button" class="linklike" data-review>Review</button><button type="button" class="x" data-dismissnote aria-label="Dismiss">×</button></div>` : ''}
     <div class="ag-wrap${open ? ' with-panel' : ''}">
       <div class="ag-cal" id="agCal">
         <div class="ag-colhead"><span></span><span>June 17</span></div>
@@ -258,12 +290,14 @@ export function renderAgenda(view) {
     const a = { id: uid(), title: '', place: 'Reception', venue: '', responsible: '', notes: '', suggested: false };
     setTimes(a, s, s + 30);
     state.agenda.push(a);
-    selId = a.id; suggesting = false;
+    selId = a.id; suggesting = false; reviewing = false;
     commit({ silent: true });
     rerender();
     view.querySelector('.ap [data-k="title"]')?.focus();
   };
-  view.querySelector('#agSuggest').onclick = () => { suggesting = !suggesting; selId = null; aiPrev = null; rerender(); };
+  view.querySelector('#agSuggest').onclick = () => { suggesting = !suggesting; selId = null; reviewing = false; aiPrev = null; rerender(); };
+  view.querySelector('[data-review]')?.addEventListener('click', () => { reviewing = true; suggesting = false; selId = null; rerender(); });
+  view.querySelector('[data-dismissnote]')?.addEventListener('click', () => { markSeen(sig); rerender(); });
 
   // Double-click empty time = new event there
   col.addEventListener('dblclick', (e) => {
@@ -273,7 +307,7 @@ export function renderAgenda(view) {
     const a = { id: uid(), title: '', place: 'Reception', venue: '', responsible: '', notes: '', suggested: false };
     setTimes(a, s, s + 30);
     state.agenda.push(a);
-    selId = a.id; suggesting = false;
+    selId = a.id; suggesting = false; reviewing = false;
     commit({ silent: true });
     rerender();
     view.querySelector('.ap [data-k="title"]')?.focus();
@@ -307,7 +341,7 @@ export function renderAgenda(view) {
   const end = () => {
     if (!drag) return;
     const d = drag; drag = null;
-    if (!d.moved) { selId = d.a.id; suggesting = false; return rerender(); }
+    if (!d.moved) { selId = d.a.id; suggesting = false; reviewing = false; return rerender(); }
     setTimes(d.a, d.s, d.e);
     if (d.a.noteLine) { dropNote(d.a); addNote(d.a); }
     commit({ silent: true });
@@ -317,13 +351,18 @@ export function renderAgenda(view) {
   col.addEventListener('pointercancel', end);
   col.addEventListener('keydown', (e) => {
     const el = e.target.closest('.ab');
-    if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selId = el.dataset.id; suggesting = false; rerender(); }
+    if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selId = el.dataset.id; suggesting = false; reviewing = false; rerender(); }
   });
 
   /* side panel */
   const panel = view.querySelector('.ag-panel');
   if (!panel) return;
-  panel.querySelector('[data-closepanel]').onclick = () => { selId = null; suggesting = false; rerender(); };
+  panel.querySelector('[data-closepanel]').onclick = () => { selId = null; suggesting = false; reviewing = false; rerender(); };
+  if (reviewing) {
+    panel.querySelectorAll('[data-rmsug]').forEach((b) => b.onclick = () => { const id = b.closest('li').dataset.pid; removeSuggested(overlap.filter((x) => x.id === id), 'Suggested event removed'); });
+    panel.querySelector('[data-rmall]')?.addEventListener('click', () => { removeSuggested(overlap, `${overlap.length} suggested duplicates removed`); reviewing = false; });
+    return;
+  }
   const form = panel.querySelector('#agSuggestForm');
   if (form) {
     wireAiLink(form, rerender);
@@ -372,7 +411,8 @@ export function renderAgenda(view) {
   panel.querySelectorAll('[data-k]').forEach((el) => {
     const k = el.dataset.k;
     const apply = () => {
-      if (k === 'responsible') { dropNote(a); a.responsible = el.value; addNote(a); }
+      if (k === 'where') { const [t, v] = [el.value[0], el.value.slice(2)]; if (t === 'v') { a.venue = v; a.place = placeFor(v); } else { a.venue = ''; a.place = v; } }
+      else if (k === 'responsible') { dropNote(a); a.responsible = el.value; addNote(a); }
       else if (k === 'start' || k === 'end') {
         const len = E(a) - S(a);
         if (k === 'start') { setTimes(a, toMin(el.value) + (a.day2 ? DAY : 0), toMin(el.value) + (a.day2 ? DAY : 0) + len); panel.querySelector('[data-k="end"]').value = a.end; }
@@ -384,7 +424,7 @@ export function renderAgenda(view) {
       }
       commit({ silent: true });
       // times/place can change the grid's range or lanes → redraw; text edits update just the block
-      if (k === 'start' || k === 'end' || k === 'place' || k === 'venue') rerender(); else refreshBlock();
+      if (k === 'start' || k === 'end' || k === 'where') rerender(); else refreshBlock();
     };
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'time' ? 'change' : 'input', apply);
   });

@@ -30,12 +30,13 @@ let fb = null;          // { auth, db, A, F } once loaded
 let user = null;
 let role = 'out';       // out | pending (signed in, not approved) | editor | owner
 let status = 'Offline';
+let failed = false;     // the last connect attempt failed (the Live panel offers Retry)
 let unsub = null, pushTimer = null, lastPushed = '', applying = false;
 const watchers = new Set();
 const store = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* storage blocked */ } };
 const fetchKey = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 export const onSyncChange = (fn) => { watchers.add(fn); return () => watchers.delete(fn); };
-export const info = () => ({ role, status, email: user?.email || '', live: role === 'editor' || role === 'owner' });
+export const info = () => ({ role, status, failed, email: user?.email || '', live: role === 'editor' || role === 'owner' });
 const emit = () => watchers.forEach((fn) => { try { fn(info()); } catch { /* a watcher must not break sync */ } });
 
 async function load() {
@@ -87,7 +88,7 @@ async function startLive() {
     const d = snap.data();
     if (d.by === CLIENT) return; // my own write coming back
     take(d);
-  }, () => { status = 'Reconnecting…'; emit(); });
+  }, (e) => { console.warn('[sync] listener error', e?.code || e?.message || e); status = 'Reconnecting…'; emit(); });
   status = 'Live';
   emit();
 }
@@ -101,7 +102,7 @@ async function push(force = false) {
     await fb.F.setDoc(planRef(), { data, by: CLIENT, who: user.email, at: fb.F.serverTimestamp() });
     lastPushed = data;
     status = 'Live';
-  } catch { status = 'Not saved, retrying'; setTimeout(() => push(), 4000); }
+  } catch (e) { console.warn('[sync] save failed', e?.code || e?.message || e); status = 'Not saved, retrying'; setTimeout(() => push(), 4000); }
   emit();
 }
 
@@ -116,6 +117,7 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeo
 async function onUser(u) {
   user = u;
   unsub?.(); unsub = null;
+  failed = false;
   if (!u) { role = 'out'; status = 'Offline'; emit(); return; }
   status = 'Connecting…'; emit();
   try {
@@ -123,7 +125,10 @@ async function onUser(u) {
     if (isEditor()) await withTimeout(startLive(), 20000);
     else { status = 'Needs approval'; emit(); }
   } catch (e) {
-    status = `Could not connect (${e?.code || e?.message || 'unknown'})`;
+    const code = e?.code || e?.message || 'unknown';
+    console.warn('[sync] could not connect:', code, e);
+    failed = true;
+    status = `Could not connect (${code})`;
     emit();
   }
 }
@@ -132,16 +137,21 @@ async function onUser(u) {
 export async function initSync() {
   const isLink = /[?&]oobCode=/.test(location.search);
   if (fetchKey(ON_KEY) !== '1' && !isLink) return;
-  const { auth, A } = await load();
+  let auth, A;
+  try { ({ auth, A } = await load()); }
+  catch (e) { console.warn('[sync] could not load Firebase:', e?.code || e?.message || e); failed = true; status = 'Could not connect (offline?)'; emit(); return; }
   if (A.isSignInWithEmailLink(auth, location.href)) {
     let email = fetchKey(EMAIL_KEY) || '';
     if (!email) email = window.prompt('Confirm your email to finish signing in') || '';
     try { await A.signInWithEmailLink(auth, email.trim().toLowerCase(), location.href); store(ON_KEY, '1'); toast('Signed in'); }
-    catch { toast('That sign-in link did not work. Send a new one.'); }
+    catch (e) { console.warn('[sync] sign-in link failed:', e?.code || e?.message || e); toast('That sign-in link did not work. Send a new one.'); }
     history.replaceState(null, '', location.pathname + (location.hash || '#overview'));
   }
-  A.onAuthStateChanged(auth, onUser);
+  A.onAuthStateChanged(auth, onUser, (e) => { console.warn('[sync] auth error', e?.code || e?.message || e); failed = true; status = `Could not connect (${e?.code || 'auth'})`; emit(); });
 }
+
+/** Try the connection again after a failure. */
+export function retrySync() { if (fb?.auth?.currentUser) return onUser(fb.auth.currentUser); return initSync(); }
 
 export async function sendLink(email) {
   const { auth, A } = await load();
@@ -195,7 +205,7 @@ export function mountLive(btn) {
     };
     const off = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(false); };
     close = (restore) => {
-      pop.remove(); close = null;
+      pop.remove(); close = null; stopWatch();
       btn.setAttribute('aria-expanded', 'false');
       document.removeEventListener('pointerdown', off, true);
       document.removeEventListener('keydown', onKey, true);
@@ -203,7 +213,10 @@ export function mountLive(btn) {
     };
     const draw = async () => {
       const i = info();
-      if (i.role === 'out') {
+      if (i.failed || (i.role === 'out' && i.email)) {
+        pop.innerHTML = `<h3>${esc(i.status)}</h3><p>${esc(i.email || 'Not connected')}</p><button class="btn moss" data-retry>Retry</button> <button class="btn" data-out>Sign out</button><p class="live-note" role="status"></p>`;
+        pop.querySelector('[data-retry]').onclick = async () => { pop.querySelector('.live-note').textContent = 'Connecting…'; await retrySync(); draw(); };
+      } else if (i.role === 'out') {
         pop.innerHTML = `<h3>Edit together</h3><p>Sign in to share changes live. We email you a link.</p>
           <form class="live-form"><input type="email" required placeholder="you@email.com" aria-label="Email" autocomplete="email"/><button class="btn">Send link</button></form><p class="live-note" role="status"></p>`;
         pop.querySelector('form').onsubmit = async (e) => {
@@ -231,6 +244,7 @@ export function mountLive(btn) {
       pop.querySelector('[data-reset]').onclick = () => { close(false); document.getElementById('resetBtn')?.click(); };
       pop.querySelector('[data-out]')?.addEventListener('click', async () => { await signOutLive(); close(true); });
     };
+    const stopWatch = onSyncChange(() => { if (pop.isConnected && !pop.contains(document.activeElement)) draw(); });
     await draw();
     document.addEventListener('keydown', onKey, true);
     setTimeout(() => document.addEventListener('pointerdown', off, true), 0);

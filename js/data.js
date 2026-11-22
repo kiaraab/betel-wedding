@@ -317,9 +317,19 @@ export const seedSpaces = () => ({ ceremony: seedCeremony(), indoor: seedIndoor(
 
 /* ---------- Morais' own album (shown beside the 3D view; order is Betel's, saved as state.morais) ---------- */
 export const MORAIS_PHOTOS = [
-  { id: 'ballroom', src: 'assets/venue/ballroom.jpg', name: 'Ballroom' },
-  { id: 'tasting-room', src: 'assets/venue/tasting-room.jpg', name: 'Tasting room' },
-  { id: 'tasting-room-2', src: 'assets/venue/tasting-room-2.jpg', name: 'Tasting room' },
+  { id: 'ballroom', src: 'assets/venue/ballroom.jpg', name: 'Ballroom', w: 1050, h: 1400 },
+  { id: 'tasting-room', src: 'assets/venue/tasting-room.jpg', name: 'Tasting room', w: 1050, h: 1400 },
+  { id: 'tasting-room-2', src: 'assets/venue/tasting-room-2.jpg', name: 'Tasting room', w: 1050, h: 1400 },
+  // The Knot listing photos (real photos; credit stays with the photographers)
+  { id: 'knot-ballroom-rounds', src: 'assets/venue/knot/028_bf7b0fcf.jpg', name: 'Ballroom, rounds', w: 600, h: 400 },
+  { id: 'knot-ballroom-rows', src: 'assets/venue/knot/029_e524b771.jpg', name: 'Ballroom, ceremony rows', w: 600, h: 399 },
+  { id: 'knot-lawn', src: 'assets/venue/knot/022_60ec6619.jpg', name: 'Ceremony lawn', w: 600, h: 400 },
+  { id: 'knot-greenhouse', src: 'assets/venue/knot/020_96c1cd2b.jpg', name: 'Greenhouse', w: 1400, h: 940 },
+  { id: 'knot-fountain', src: 'assets/venue/knot/056_229129c2.jpg', name: 'Fountain courtyard', w: 1400, h: 940 },
+  { id: 'knot-fountain-2', src: 'assets/venue/knot/055_331a1877.jpg', name: 'Fountain courtyard', w: 1280, h: 854 },
+  { id: 'knot-courtyard-glass', src: 'assets/venue/knot/026_a783fc6d.jpg', name: 'Courtyard, cocktail hour', w: 400, h: 600 },
+  { id: 'knot-dusk', src: 'assets/venue/knot/023_4efb749d.jpg', name: 'Palacio at dusk', w: 600, h: 400 },
+  { id: 'knot-wine-wall', src: 'assets/venue/knot/057_0d23a108.jpg', name: 'Wine wall', w: 1280, h: 853 },
 ];
 
 export const headTable = () => ({ id: 'head', name: 'Mr. & Mrs. Griffin', shape: 'rect', x: 25, y: 7, sides: { top: 2, bottom: 0, left: 0, right: 0 }, rot: 0, o: 0 });

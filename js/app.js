@@ -167,7 +167,7 @@ function overview() {
         <div class="banner-text">
           <h1 class="banner-names">Betel <i>&amp;</i> Carter</h1>
           <p class="banner-place"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><a href="https://moraisvineyards.com/" target="_blank" rel="noopener">Morais Vineyards</a></p>
-          <p class="banner-date">June 17, 2027 <span>·</span> <b class="countup" data-to="${days}">0</b> days to go</p>
+          <p class="banner-date"><span class="bd-d">June 17, 2027</span><span class="bd-sep" aria-hidden="true">·</span><span class="bd-n"><b class="countup" data-to="${days}">0</b> days to go</span></p>
         </div>
         <div class="lace-photo"><img src="${WEDDING.heroImage}" alt="Betel and Carter" /></div>
       </section>

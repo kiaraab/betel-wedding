@@ -665,6 +665,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     toggleLight() { eveningTarget = eveningTarget ? 0 : 1; return !!eveningTarget; },
     walk(on) { return setWalk(on ?? !walking); },
     experience,
+    stats() { const i = renderer.info; return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, pixelRatio: renderer.getPixelRatio() }; },
     snapshot() { renderer.render(scene, camera); return renderer.domElement; },
     dispose() {
       cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose(); renderer.forceContextLoss();

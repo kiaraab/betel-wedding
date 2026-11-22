@@ -147,7 +147,7 @@ export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' |
   if (space === 'ceremony') {
     const room = ctx.SP().room;
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
-      <div class="field-row"><label class="field">Guests<input class="input" id="cCount" type="number" min="2" max="200" value="${ctx.state.guestTarget}"/></label></div>
+      <div class="field-row"><label class="field">Guests<input class="input" id="cCount" type="number" min="2" max="300" value="${ctx.state.guestTarget}"/></label></div>
       <div id="partyBox">${partyHTML(room, ctx.pool(), ctx.partySel?.())}</div>
       <div class="acts">
         <div class="act"><button class="btn moss sm" id="cGo">Suggest ceremony</button><span class="tip" tabindex="0" role="note" data-tip="Rows of chairs with a center aisle for this many guests; grows the room if they don't fit. The wedding party stands either side of the altar.">ⓘ</span></div>
@@ -156,7 +156,7 @@ export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' |
   }
   if (space === 'cocktail') {
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
-      <div class="field-row"><label class="field">Guests<input class="input" id="hCount" type="number" min="2" max="200" value="${ctx.state.guestTarget}"/></label></div>
+      <div class="field-row"><label class="field">Guests<input class="input" id="hCount" type="number" min="2" max="300" value="${ctx.state.guestTarget}"/></label></div>
       <div class="acts"><div class="act"><button class="btn moss sm" id="hGo">Suggest hangout</button><span class="tip" tabindex="0" role="note" data-tip="Tables spread through the open middle, clear of the fountain, building and entrance.">ⓘ</span></div></div></section>`;
   }
   return '';

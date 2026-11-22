@@ -2798,3 +2798,64 @@ body[data-route="team"] main .tcard.c-rose.c-rose.c-rose.c-rose { --fg-soft: #2a
 .gate-card .gate-row button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .gate-card .gate-err { min-height: 18px; margin: 10px 0 0; font: 500 13px var(--sans); letter-spacing: .02em; text-transform: none; color: #ffd9d9; }
 @media (prefers-reduced-motion: reduce) { .gate, .gate-card { animation: none; transition: none; } .gate.shake .gate-card input { animation: none; } }
+
+/* --- ui round 8 --- */
+/* one glass token set: translucent flat colour + blur, 4-6px corners, no gradients */
+:root {
+  --glass-bg: rgba(251, 248, 243, .78);
+  --glass-bg-strong: rgba(251, 248, 243, .88);
+  --glass-border: 1px solid rgba(255, 255, 255, .65);
+  --glass-blur: saturate(1.3) blur(16px);
+  --glass-shadow: 0 12px 30px -16px rgba(31, 38, 26, .42);
+  --glass-r: 6px;
+}
+.ov-card, .ov .stat, .tcard.c-none, .tcard:not(.c-pink):not(.c-burgundy):not(.c-green):not(.t-add),
+.pp, .hist, .live-pop, .cd, .ai-card, .paste, .glass-pop, .tc-menu, .gf-menu, .pop, .chipmenu, .ag-panel, .ag-note {
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: var(--glass-border); border-radius: var(--glass-r); box-shadow: var(--glass-shadow);
+}
+.pp, .hist, .live-pop, .cd, .ai-card, .glass-pop, .ag-panel, .tc-menu, .gf-menu { background: var(--glass-bg-strong); }
+/* history over the hero: near-opaque so text reads (ink on cream is well over 4.5:1) */
+.hist { background: rgba(251, 248, 243, .88); color: var(--ink); }
+.hist-v span, .hist-empty, .hist-peek { color: var(--ink-soft); }
+.hist-v b { color: var(--ink); }
+/* popovers/panels no longer drift from the set: same corners everywhere */
+.hist-v { border-radius: 4px; }
+/* hero date: one tidy line on desktop, two tidy lines on phones */
+.banner .banner-date { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.banner .banner-date .bd-d, .banner .banner-date .bd-n { margin: 0; opacity: 1; white-space: nowrap; }
+.banner .banner-date .bd-sep { margin: 0; opacity: .6; }
+.banner .banner-date b { font: inherit; letter-spacing: inherit; }
+@media (max-width: 480px) {
+  .banner .banner-date { display: grid; gap: 4px; font-size: 11px; letter-spacing: .14em; white-space: normal; }
+  .banner .banner-date b { font-size: inherit; letter-spacing: inherit; }
+  .banner .banner-date .bd-sep { display: none; }
+}
+/* agenda: icon button, overlap notice */
+.icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--line-strong); border-radius: 4px; background: transparent; color: var(--ink); cursor: pointer; }
+.icon-btn:hover { border-color: var(--wine); color: var(--wine); }
+.icon-btn[aria-pressed="true"] { background: var(--wine); border-color: var(--wine); color: #fff; }
+.icon-btn:focus-visible { outline: 2px solid var(--wine); outline-offset: 2px; }
+@media (pointer: coarse) { .icon-btn { width: 44px; height: 44px; } }
+.ag-note { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; padding: 6px 8px 6px 12px; font-size: 13px; color: var(--ink); }
+.ag-note span { flex: 1; min-width: 0; }
+.ag-note .linklike { color: var(--wine); font-weight: 600; min-height: 32px; }
+.ag-note .x { min-width: 32px; min-height: 32px; }
+.ap-prev { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.ap-prev li { display: flex; align-items: center; gap: 6px; }
+.ap-prev li .x { margin-left: auto; }
+/* live panel failure state */
+.live-pop h3 { color: var(--ink); }
+.live-pop [data-retry] { margin-right: 6px; }
+
+/* --- seating round 8 --- */
+.plan-tools .tool.icon { width: 44px; height: 44px; min-width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 3px; }
+.plan-tools .tool.icon svg { display: block; }
+.plan-tools .tool:focus-visible, .lb button:focus-visible { outline: 2px solid var(--moss-800); outline-offset: 2px; }
+.lb button:focus-visible { outline-color: #fff; }
+.morais-th { position: relative; border-radius: 3px; transition: opacity .2s; }
+.morais-th:hover { box-shadow: none; }
+.morais-th .morais-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 8px; text-align: left; font: 500 11px var(--sans); color: #fff; background: rgba(31, 14, 20, .62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.lb { -webkit-backdrop-filter: none; }
+.lb-nav, .lb-x { min-width: 44px; min-height: 44px; border-radius: 3px; }
+@media (prefers-reduced-motion: reduce) { .morais-th { animation: none; } .morais-th img { transition: none; } }

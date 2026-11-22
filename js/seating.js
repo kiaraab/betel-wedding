@@ -67,6 +67,16 @@ function legendHTML() {
   return Object.keys(pal).filter((k) => used.has(k)).map((k) => `<span><i style="background:${pal[k]}"></i>${esc(k || 'No relation')}</span>`).join('');
 }
 
+/** Toolbar icons: plain 24px line glyphs (functional, not decorative). Buttons carry aria-label + title. */
+const ICONS = {
+  round: '<circle cx="12" cy="12" r="7"/>', rect: '<rect x="4" y="7" width="16" height="10" rx="1"/>', row: '<path d="M4 8h16M4 12h16M4 16h16"/>',
+  high: '<circle cx="12" cy="9" r="4"/><path d="M12 13v7M8 20h8"/>', area: '<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 3"/>',
+  photo: '<rect x="3" y="6" width="18" height="13" rx="1.5"/><circle cx="12" cy="12.5" r="3"/>', fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  evening: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', walk: '<circle cx="12" cy="5" r="2"/><path d="M12 8v6l-3 6M12 14l3 6M8 11l4-2 4 2"/>',
+  light: '<path d="M12 3v3M5 6l2 2M19 6l-2 2"/><circle cx="12" cy="13" r="4"/><path d="M10 19h4"/>',
+};
+const toolIcon = (k, label, attrs = '') => `<button class="tool icon" ${attrs} aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg></button>`;
+
 /** Layout ideas: real reference photos, each mapped to the closest suggestion style (see VENUE.md). */
 const IDEAS = [
   { key: 'round8', src: 'assets/refs/owner-ref-r5-13.png' },
@@ -79,7 +89,7 @@ const IDEAS = [
 ];
 
 /* ---------------- backdrop: a soft blurred photo of the space being planned (real photos only), crossfading when the space changes ---------------- */
-const BACKDROP = { reception: 'assets/venue/ballroom.jpg', ceremony: 'assets/venue/site/ceremony-locations-pergola-1-2Blog-Images-0043.jpg', indoor: 'assets/venue/site/ceremony-locations-indoor-ceremony-1.jpg', cocktail: 'assets/venue/courtyard.jpg' };
+const BACKDROP = { reception: 'assets/venue/ballroom.jpg', ceremony: 'assets/venue/knot/022_60ec6619.jpg', indoor: 'assets/venue/site/ceremony-locations-indoor-ceremony-1.jpg', cocktail: 'assets/venue/knot/056_229129c2.jpg', tasting: 'assets/venue/tasting-room.jpg' };
 let bgEl = null;
 function setBackdrop(src) {
   if (!bgEl || !bgEl.isConnected) { bgEl = document.createElement('div'); bgEl.className = 'seat-bg'; bgEl.setAttribute('aria-hidden', 'true'); document.body.prepend(bgEl); }
@@ -574,7 +584,20 @@ function readImage(file) {
 }
 
 /* ---------------- page ---------------- */
+/** Older plans may have tables under the balcony rail: move those to the nearest free spot (seats move with the table). */
+function clearBalcony() {
+  const bal = state.room?.fixed?.balcony; if (!bal) return;
+  const edge = state.room.h - bal.depth;
+  const under = (t) => t.id !== 'head' && t.y + footprint(t).hh > edge + 0.01;
+  const moved = state.tables.filter(under);
+  moved.forEach((t) => {
+    const rest = state.tables.filter((o) => o !== t);
+    Object.assign(t, findFreeSpot(state.room, rest, t));
+  });
+  if (moved.length) commit({ silent: true });
+}
 export function renderSeating(root) {
+  clearBalcony();
   const rec = space === 'reception';
   setBackdrop(BACKDROP[space] || BACKDROP.reception);
   if (!rec) mode = 'plan'; // 3D is the ballroom only (for now)
@@ -601,26 +624,26 @@ export function renderSeating(root) {
         <div class="card plan-card">
           <div class="plan-tools">
             ${mode === 'plan' ? `
-              ${info.add === 'row' ? '<button class="tool" data-add="row">Row</button>'
-                : info.add === 'high' ? '<button class="tool" data-add="high">High-top</button>'
-                : '<button class="tool" data-add="round">Round</button><button class="tool" data-add="rect">Rectangle</button>'}
-              <span class="tool-wrap"><button class="tool" id="areaBtn" aria-expanded="false">Area</button>
+              ${info.add === 'row' ? toolIcon('row', 'Add row', 'data-add="row"')
+                : info.add === 'high' ? toolIcon('high', 'Add high-top', 'data-add="high"')
+                : toolIcon('round', 'Add round table', 'data-add="round"') + toolIcon('rect', 'Add rectangle table', 'data-add="rect"')}
+              <span class="tool-wrap">${toolIcon('area', 'Add area', 'id="areaBtn" aria-expanded="false"')}
                 <div class="chipmenu" id="areaMenu" hidden>${Object.entries(AREA_PRESETS).filter(([k]) => info.areas.includes(k)).filter(([k]) => !['dance', 'altar', 'aisle'].includes(k) || !SP().room.areas.some((a) => a.preset === k)).map(([k, p]) => `<button data-preset="${k}">${k === 'custom' ? '+ Custom' : esc(p.label)}</button>`).join('')}</div>
               </span>
-              ${rec && state.guests.some((g) => g.photo) ? `<button class="tool${showPhotos ? ' on' : ''}" id="photosBtn" aria-pressed="${showPhotos}">Guest photos</button>` : ''}
+              ${rec && state.guests.some((g) => g.photo) ? `${toolIcon('photo', 'Show guest photos', `id="photosBtn" aria-pressed="${showPhotos}"`).replace('class="tool icon"', `class="tool icon${showPhotos ? ' on' : ''}"`)}` : ''}
               ${rec ? `<label class="colorby">Color by<select id="colorBy" aria-label="Color seats by">${[['side', 'Side'], ['relation', 'Relation'], ['off', 'Off']].map(([k, l]) => `<option value="${k}"${colorBy === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
               <span class="spacer"></span>
-              <span class="zoom"><button class="tool icon" id="zOut" aria-label="Zoom out">−</button><button class="tool icon" id="zIn" aria-label="Zoom in">+</button><button class="tool" id="zFit">Fit</button></span>
-              ${rec ? `<span class="tool-wrap" id="sugWrap"><button class="tool" id="sugBtn" aria-expanded="false" aria-haspopup="dialog">Suggest or auto-add</button>
+              <span class="zoom"><button class="tool icon" id="zOut" aria-label="Zoom out">−</button><button class="tool icon" id="zIn" aria-label="Zoom in">+</button>${toolIcon('fit', 'Fit to view', 'id="zFit"')}</span>
+              ${rec ? `<span class="tool-wrap" id="sugWrap"><button class="tool" id="sugBtn" aria-expanded="false" aria-haspopup="dialog">Suggest</button>
                 <div class="glass-pop" id="sugPop" role="dialog" aria-label="Suggest or auto-add" hidden>
                   <label class="sg-count">Guests<input class="input" id="sCount" type="number" min="2" max="300" value="${state.guestTarget}"/></label>
                   <div class="sg-styles" role="radiogroup" aria-label="Layout style">${Object.entries(TABLE_STYLES).map(([k, st]) => `<button type="button" role="radio" data-style="${k}" aria-checked="false">${st.label}</button>`).join('')}</div>
                   <p class="sg-prev" id="sPreview"></p>
                   <div class="sg-acts"><button class="btn moss sm" id="sGo">Suggest floor plan</button><button class="btn sm ghost" id="sSeat">Auto-seat guests</button></div>
                 </div></span>` : ''}`
-            : `<button class="tool" id="evening">Experience the evening</button>
-               <button class="tool" id="walk" aria-pressed="false">Walk</button>
-               <button class="tool" id="light">Candlelight</button>
+            : `${toolIcon('evening', 'Experience the evening', 'id="evening"')}
+               ${toolIcon('walk', 'Walk through', 'id="walk" aria-pressed="false"')}
+               ${toolIcon('light', 'Candlelight', 'id="light"')}
                <span class="spacer"></span>
                <span class="tool-hint">Tap a chair to seat someone</span>`}
             <button class="btn moss sm" id="share">Share</button>
@@ -1029,7 +1052,7 @@ export function renderSeating(root) {
     host.innerHTML = '<div class="three-loading"><span></span>Loading 3D</div>';
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
-      three = threeInst = await m.mount(host, state, moodNow(), {
+      three = host.__three = threeInst = await m.mount(host, state, moodNow(), {
         unseated: () => going().filter((g) => !g.tableId),
         // Seat someone from the 3D view (an existing unseated guest, or a new name)
         onSeat: (tableId, name) => {
@@ -1044,11 +1067,12 @@ export function renderSeating(root) {
         },
       });
       if (mode !== '3d' || !host.isConnected) { three.dispose(); threeInst = null; return; }
+      const setLbl = (b, t) => { b.setAttribute('aria-label', t); b.title = t; };
       const walk = root.querySelector('#walk');
-      walk.onclick = () => { const on = three.walk(); walk.setAttribute('aria-pressed', String(on)); walk.classList.toggle('on', on); walk.textContent = on ? 'Exit walk' : 'Walk'; };
+      walk.onclick = () => { const on = three.walk(); walk.setAttribute('aria-pressed', String(on)); walk.classList.toggle('on', on); setLbl(walk, on ? 'Exit walk' : 'Walk through'); };
       const light = root.querySelector('#light');
-      light.onclick = () => { const evening = three.toggleLight(); light.textContent = evening ? 'Afternoon' : 'Candlelight'; };
-      root.querySelector('#evening').onclick = () => { three.experience(); light.textContent = 'Afternoon'; const w = root.querySelector('#walk'); w.textContent = 'Walk'; w.classList.remove('on'); };
+      light.onclick = () => { const evening = three.toggleLight(); setLbl(light, evening ? 'Afternoon light' : 'Candlelight'); light.classList.toggle('on', evening); };
+      root.querySelector('#evening').onclick = () => { three.experience(); setLbl(light, 'Afternoon light'); light.classList.add('on'); const w = root.querySelector('#walk'); setLbl(w, 'Walk through'); w.classList.remove('on'); };
     }).catch((err) => { console.error(err); host.innerHTML = '<p class="muted" style="padding:24px">3D view needs an internet connection.</p>'; });
   }
 
@@ -1194,7 +1218,7 @@ function refHTML(rec) {
     <div class="ref-head">${rec && mode === 'plan' ? `<div class="ref-tabs" role="tablist"><button role="tab" data-ref="ideas" aria-selected="${tab === 'ideas'}" class="${tab === 'ideas' ? 'on' : ''}">Layout ideas</button><button role="tab" data-ref="venue" aria-selected="${tab === 'venue'}" class="${tab === 'venue' ? 'on' : ''}">Venue photos</button></div>` : '<h3>Venue photos</h3>'}</div>
     ${rec && mode === 'plan' ? `<div class="idea-grid" id="ideasGrid"${tab === 'ideas' ? '' : ' hidden'}>${IDEAS.map((d) => `<figure class="idea"><img src="${d.src}" alt="${esc(TABLE_STYLES[d.key].label)}" loading="lazy" draggable="false"/><figcaption><b>${esc(TABLE_STYLES[d.key].label)}</b><button type="button" class="idea-use" data-idea="${d.key}">Use this layout</button></figcaption></figure>`).join('')}</div>` : ''}
     <div class="ref-grid morais-grid"${tab === 'venue' ? '' : ' hidden'}>
-      ${moraisOrder().map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${p.name}"><img src="${p.src}" alt="" draggable="false" loading="lazy"/></button>`).join('')}
+      ${moraisOrder().map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" width="${p.w}" height="${p.h}" alt="${esc(p.name)}" draggable="false" loading="lazy" decoding="async"/><span class="morais-cap">${esc(p.name)}</span></button>`).join('')}
     </div>
   </section>`;
 }
@@ -1279,6 +1303,7 @@ function wireMorais(root, signal) {
   lb.hidden = true;
   lb.setAttribute('role', 'dialog');
   lb.setAttribute('aria-modal', 'true');
+  lb.setAttribute('aria-label', 'Venue photo');
   lb.innerHTML = `<img class="lb-img" alt=""/><span class="lb-name"></span>
     <button class="lb-nav prev" aria-label="Previous">‹</button><button class="lb-nav next" aria-label="Next">›</button>
     <button class="lb-x" aria-label="Close">×</button>`;
@@ -1349,6 +1374,11 @@ function wireMorais(root, signal) {
   addEventListener('keydown', (e) => {
     if (lb.hidden) return;
     if (e.key === 'Escape') close();
+    else if (e.key === 'Tab') { // focus trap: Close / Previous / Next only
+      const f = [...lb.querySelectorAll('button')], i = f.indexOf(document.activeElement);
+      e.preventDefault();
+      f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+    }
     else if (e.key === 'ArrowRight') step(1);
     else if (e.key === 'ArrowLeft') step(-1);
   }, { signal });

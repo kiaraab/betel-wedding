@@ -17,7 +17,7 @@ Only what we've **seen** (Morais' shared album: 3 photos + 4 videos) or what the
 - Long rectangle, hardwood throughout (the "dance floor" is open floor, not a separate surface)
 - Far end wall: 5 arched French doors to the outside
 - Both long walls: tall windows; right wall also has one arched French door
-- **Round, tiered stage** (3 curved steps) in the near-left corner, next to the balcony end
+- **Stage** = the domed, columned bay on the left long wall (3 curved steps reach ~4-5 ft into the hall); first read as a 'round stage in the near-left corner' from the balcony photo, corrected by the Matterport tour (see below)
 - **Balcony / mezzanine** overlooking the room from the near end
 - Coffered ceiling, gold chandeliers, textured gold-taupe walls
 - Furniture shown: 60" round tables, gold chiavari chairs, a wine-barrel cocktail table
@@ -30,7 +30,7 @@ These show *how the room has been used*, not fixed features:
 - Open hardwood dance floor in the middle, tables all around it
 - Mixes seen: rounds of 8–10 with gold chiavari chairs; long banquet/family rows with greenery garlands; a long head table near the arched doors
 - Under the balcony: double doors; couples sometimes hang a large decor piece (mirror installation) there
-- Room proportion looks about 1.6 : 1 (long side runs from the balcony to the 5 arched doors) → working plan **≈ 50 ft wide × 80 ft long** (≈ 4,000 sq ft) until Morais confirms
+- Room proportion looks about 1.6 : 1 (long side runs from the balcony to the 5 arched doors) → working plan **≈ 50 ft wide × 75 ft long** (Matterport-calibrated; 50 × 80 was the earlier photo estimate) until Morais confirms
 - Full weddings show 20+ tables, so 60 guests leaves plenty of open/lounge space
 
 ### Tasting room (photos + video IMG_0652)
@@ -49,11 +49,11 @@ These show *how the room has been used*, not fixed features:
 
 ## ESTIMATES used in the plan (not venue facts)
 Derived from the balcony photo (ballroom.jpg) using 5 ft round tables as a ruler. Confidence in brackets.
-- Room **50 × 80 ft** — only the ~4,000 sq ft is published; the aspect (~1.6:1) is from the photo [medium; width could be 46–54]
+- Room **50 × 75 ft** (earlier 50 × 80) — only the ~4,000 sq ft is published; the aspect (1.5-1.6:1) is from the photo and Matterport [medium; width could be 46–54]
 - Far wall: 5 arched doors, **~9 ft pitch, ~5 ft wide, centered** (wide-angle lens stretches the edges, so the apparent 8–11 ft pitch is read as uniform) [medium]
 - Ceiling **~20 ft** to the coffers (arched doors ≈ 10 ft; about half the wall height) [low-medium]
 - Long-wall window/door positions: order is observed, exact feet are placed by eye [low]
-- Balcony depth 12 ft overhead the near end [low]; stage radius 9 ft, 3 steps [low-medium]
+- Balcony depth 12 ft overhead the near end [low]; stage radius 9 ft, 3 steps [low-medium] (stage radius/steps superseded by the Matterport bay: ≈ 20 × 15 ft)
 - Open middle floor ~16 × 18 ft default dance area — typical for ~60 guests in other couples' photos, not a venue rule
 - Instagram (@morais_weddings) could not be read by automated fetch (login wall) — nothing taken from it
 
@@ -81,7 +81,7 @@ The appeal of the reference site (wedding.wawasensei.dev/plan) is **interactivit
 
 
 ## Layout styles (reception 'Suggest' list) and the photos each is based on
-All use the 50 x 80 ft working room (ESTIMATE), keep door paths/stage/entrance aisle clear via `blockers()`, and the near end under the balcony stays an arrival lounge. Reference photos are in `assets/refs/` (converted to <=1200px JPEGs).
+All use the 50 x 75 ft working room (ESTIMATE), keep door paths/stage/entrance aisle clear via `blockers()`, and the near end under the balcony stays an arrival lounge. Reference photos are in `assets/refs/` (converted to <=1200px JPEGs).
 - **Rounds · 8 / 10**: 60" / 72" rounds in a U around the dance floor, sweetheart table at the arched doors. Based on the Palacio package photos (`google-morais-1/2/3.jpg`, rounds of 8 with gold chiavari chairs).
 - **Open floor**: big open dance floor, rounds on the perimeter and far side, two 9 ft tables at the near end. Based on the owner's reference photo (`owner-ref-6.webp`: guests dancing mid-room, rounds along the far wall, long tables near the camera).
 - **Head on stage**: sweetheart table up on the round stage (near-left corner), couple facing the room, dance floor in front of the stage, rounds around. Based on couples who seated the head table on the stage (`owner-ref-6.webp` shows the stage steps at the left edge of the dance floor). Stage use itself is a question for Morais.
@@ -110,3 +110,10 @@ Floor-plan view, calibrated to the published 4,000 sq ft ballroom (not a tape me
 - **Balcony** at one short end (over the foyer side); spiral staircase in the foyer beside it.
 - **Foyer** (cream marble) at the balcony end, between the ballroom and a service corridor; **bar room** is the separate room at the top-left with 4 tables and an oval bar.
 - Tour viewer: https://my.matterport.com/show/?m=K76R3QeJThF&brand=0
+
+
+## Spaces in the plan (state.spaces)
+Seeded in `data.js` `seedSpaces()`: **ceremony** (lawn at the pergola), **indoor** (rain plan in the stage bay), **cocktail** (garden courtyard) and **tasting** (tasting room as a second hangout option: high-tops by the fireplace, carved bar in the octagonal sunroom). All sizes are estimates. The reception is the ballroom (`state.room` / `state.tables`). The balcony overhang (12 ft deep at the near end, ESTIMATE) is a no-table zone in `blockers()`.
+
+## The Knot listing photos (`assets/venue/knot/`, shown under Seating > Venue photos)
+Real photos; credit stays with the photographers. 020 greenhouse (green iron conservatory) · 022 ceremony lawn with the pergola and white chairs (plan backdrop for Ceremony) · 023 Palacio at dusk · 026 courtyard cocktail hour (portrait) · 028 ballroom with rounds · 029 ballroom set for a ceremony (rows, balcony at left, bay at the far end) · 055/056 fountain courtyard with cafe tables (056 is the Cocktail plan backdrop) · 057 wine wall (black and white).
