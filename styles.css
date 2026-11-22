@@ -2786,3 +2786,15 @@ main.enter :is(.tcard, .ov-card, .stat, .card):nth-child(6) { animation-delay: 1
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 1ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
 }
+
+/* --- Overview: full-bleed header hero (touches the nav, no side margins, a little taller) --- */
+body[data-route="overview"] main { max-width: none; padding-left: 0; padding-right: 0; padding-top: var(--top-h); }
+body[data-route="overview"] .ov { width: 100%; gap: 0; }
+body[data-route="overview"] .banner { border-radius: 0; min-height: 300px; padding-left: max(56px, calc((100% - 1280px) / 2 + 56px)); box-shadow: none; }
+body[data-route="overview"] .banner .lace-photo { right: max(36px, calc((100% - 1280px) / 2 + 36px)); }
+body[data-route="overview"] .ov-side { width: 100%; max-width: 1280px; margin: 0 auto; padding: 24px 32px 0; box-sizing: border-box; }
+@media (min-width: 1100px) and (min-height: 700px) {
+  body[data-route="overview"] .ov { height: calc(100vh - var(--top-h) - 40px); grid-template-rows: clamp(340px, 46vh, 500px) minmax(0, 1fr); }
+  body[data-route="overview"] .banner { min-height: 0; }
+}
+@media (max-width: 640px) { body[data-route="overview"] .ov-side { padding: 16px 16px 0; } body[data-route="overview"] .banner { padding-left: 20px; } }
