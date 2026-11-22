@@ -41,7 +41,7 @@ async function load() {
   if (fb) return fb;
   const [{ initializeApp }, A, F] = await Promise.all([import(CDN('app')), import(CDN('auth')), import(CDN('firestore'))]);
   const app = initializeApp(CONFIG);
-  fb = { auth: A.getAuth(app), db: F.getFirestore(app), A, F };
+  fb = { auth: A.getAuth(app), db: F.initializeFirestore(app, { experimentalAutoDetectLongPolling: true }), A, F };
   return fb;
 }
 const planRef = () => fb.F.doc(fb.db, 'plans', 'main');
@@ -99,14 +99,21 @@ onSave(() => {
   pushTimer = setTimeout(() => push(), 700);
 });
 
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), ms))]);
+
 async function onUser(u) {
   user = u;
   unsub?.(); unsub = null;
   if (!u) { role = 'out'; status = 'Offline'; emit(); return; }
   status = 'Connecting…'; emit();
-  role = await checkRole();
-  if (isEditor()) await startLive();
-  else { status = 'Needs approval'; emit(); }
+  try {
+    role = await withTimeout(checkRole(), 15000);
+    if (isEditor()) await withTimeout(startLive(), 20000);
+    else { status = 'Needs approval'; emit(); }
+  } catch (e) {
+    status = `Could not connect (${e?.code || e?.message || 'unknown'})`;
+    emit();
+  }
 }
 
 /** Boot: finish an email-link sign-in if the URL is one, resume a previous session. Does nothing (and loads nothing) otherwise. */

@@ -2514,3 +2514,11 @@ table.guests td.row-actions .more.addr-btn.open, .more.addr-btn.warn.open { colo
 .live-form{display:flex;gap:6px}.live-form input{flex:1;min-width:0;padding:7px 8px;border:1px solid rgba(0,0,0,.15);border-radius:4px;background:rgba(255,255,255,.7)}
 .live-reqs{list-style:none;margin:0 0 10px;padding:0}.live-reqs li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0}
 .live-note{margin:8px 0 0;font-size:12px}
+
+/* --- password screen --- */
+.gate { background: #2b2a24 url("assets/venue/site/morais-vineyards-wedding-photo-191-scaled.jpg") 50% 40% / cover no-repeat; }
+.gate::before { background: rgba(28, 30, 22, .5); }
+.gate-card { padding: 36px 40px 40px; border-radius: 6px; background: rgba(250, 246, 238, .14); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, .28); box-shadow: 0 18px 50px rgba(20, 16, 10, .35); }
+.gate-card h1 { font-family: "Cinzel", serif; letter-spacing: .08em; text-transform: uppercase; font-size: clamp(30px, 6vw, 54px); }
+.gate-card input { border-radius: 4px; background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .4); }
+.gate-card button { border-radius: 4px; }
