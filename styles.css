@@ -20,6 +20,7 @@
   --c-pink: #c9a0a6;           /* data colour (team cards, sides) */
   --c-pink-fill: #ecc6c8;
   --c-leaf: #56694b;           /* data colour only (Carter side, Done) — not chrome */
+  --c-sage: #b9c6a4;           /* light green data colour (venue map: Ceremony) */
   --c-on-dark: #f6efe6;        /* text on wine / dark glass */
   --c-line: #e6ddd2;           /* hairline */
   --c-line-strong: #d9cdc0;    /* control border on cream (decorative) */
@@ -2807,9 +2808,9 @@ body[data-route="overview"] .ov-side { width: 100%; max-width: 1280px; margin: 0
 
 /* --- heart loader --- */
 .heart-loader { display: inline-grid; justify-items: center; gap: 12px; color: #8a2237; }
-.heart-loader .hl-dot { fill: currentColor; opacity: .22; animation: hl-pulse 1.3s ease-in-out infinite; animation-delay: var(--d); }
+.heart-loader .hl-dot { fill: currentColor; opacity: .16; animation: hl-chase 2.2s linear infinite; }
 .heart-loader .hl-label { font: 500 11px/1 var(--sans, system-ui); letter-spacing: .22em; text-transform: uppercase; color: inherit; opacity: .85; }
-@keyframes hl-pulse { 0%, 100% { opacity: .2; } 45% { opacity: 1; } }
+@keyframes hl-chase { 0% { opacity: 1; } 35% { opacity: .55; } 70%, 100% { opacity: .14; } }
 @media (prefers-reduced-motion: reduce) { .heart-loader .hl-dot { animation: none; opacity: .8; } }
 
 /* --- agenda notion --- */
@@ -3080,3 +3081,96 @@ table.guests th:hover .col-rs::after, .col-rs.on::after { opacity: 1; }
 /* Suggest popover: solid enough to read over the floor plan, above everything in the stage */
 .glass-pop { z-index: 80; background: rgba(255, 253, 250, .97); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 #sugWrap { position: relative; z-index: 81; }
+
+/* --- round 11b: guests add row sits in the header; Side only appears once typing; plain "Couple" --- */
+.couple-tag { text-transform: none; letter-spacing: 0; font-size: 13px; padding: 3px 10px; }
+.page-head:has(.guest-add) { align-items: center; gap: 16px; flex-wrap: wrap; }
+.page-head .guest-add { flex: 1 1 340px; max-width: 520px; display: flex; gap: 8px; align-items: center; margin: 0; }
+.page-head .guest-add .input { flex: 1; min-width: 0; }
+.guest-add:not(.typing) .bs-btn, .guest-add:not(.typing) select[name="side"] { display: none; }
+@media (max-width: 760px) { .page-head .guest-add { flex-basis: 100%; max-width: none; order: 3; } }
+
+/* --- seating map --- */
+/* #seating entry view: the drone photo with flat outlined areas (js/venue-map.js) beside the photos grouped by place. Sits over the blurred photo backdrop (body.seat-on). */
+.vm-head { margin-bottom: 14px; --ring: var(--focus-on-dark); }
+.vm-title { margin: 0; font: 400 clamp(30px, 3.4vw, 42px)/1.05 var(--display); color: var(--c-on-dark); }
+.vm-wrap { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
+.vm-map { position: relative; aspect-ratio: 16 / 9; border-radius: var(--glass-r); overflow: hidden; background: #2a1519; box-shadow: 0 18px 44px -20px rgba(0, 0, 0, .6); user-select: none; -webkit-user-select: none; --ring: var(--focus-on-dark); }
+.vm-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.vm-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.vm-area { cursor: pointer; }
+.vm-area polygon { stroke-linejoin: round; transition: fill-opacity var(--dur-2) var(--ease), stroke-width var(--dur-2) var(--ease); }
+.vm-halo { fill: none; stroke: rgba(42, 21, 25, .5); stroke-width: 4; }
+.vm-poly { fill: var(--a); fill-opacity: .2; stroke: var(--a); stroke-width: 2; }
+.vm-area:not(.edit) .vm-poly, .vm-area.out .vm-poly { stroke-dasharray: 5 4; fill-opacity: .1; }
+.vm-area.hot .vm-poly { fill-opacity: .46; stroke-width: 3; }
+.vm-area.hot .vm-halo { stroke-width: 5; }
+.vm-label {
+  position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 1px; padding: 4px 9px 5px; max-width: 46%;
+  border: 1px solid rgba(255, 255, 255, .22); border-radius: 12px; background: rgba(42, 21, 25, .62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  color: var(--c-on-dark); font: 500 11.5px/1.2 var(--sans); white-space: nowrap; cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
+}
+.vm-label b { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.vm-label b i, .vm-gh h3 i, .vm-menu i { width: 7px; height: 7px; border-radius: 50%; background: var(--a); flex: none; box-shadow: 0 0 0 1px rgba(42, 21, 25, .35); }
+.vm-st { font-size: 10px; font-weight: 400; opacity: .78; font-variant-numeric: tabular-nums; }
+.vm-label.hot { background: rgba(110, 31, 46, .9); border-color: var(--a); }
+.vm-label:not(.edit) b { font-weight: 500; }
+.vm-approx { position: absolute; left: 8px; top: 8px; padding: 2px 8px; border-radius: 12px; background: rgba(42, 21, 25, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: var(--c-on-dark); font: 500 10px/1.5 var(--sans); letter-spacing: .02em; }
+
+/* photo groups, like albums: heading + count, square thumbnails */
+.vm-gallery {
+  max-height: calc(100vh - var(--top-h) - var(--foot-h) - 150px); overflow-y: auto; overscroll-behavior: contain; padding: 4px 14px 14px;
+  border-radius: var(--glass-r); background: rgba(250, 246, 238, .74); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, .55); box-shadow: 0 18px 44px -20px rgba(0, 0, 0, .6);
+}
+.vm-grp { padding: 10px 0 12px; border-bottom: var(--hairline); transition: opacity var(--dur-2) var(--ease); }
+.vm-grp:last-child { border-bottom: 0; }
+.vm-gallery.picking .vm-grp:not(.hot) { opacity: .45; }
+.vm-gh { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 8px; margin-bottom: 8px; cursor: pointer; }
+.vm-gh h3 { display: inline-flex; align-items: center; gap: 7px; margin: 0; font: 500 18px/1.2 var(--display); color: var(--c-ink); }
+.vm-n { font: 500 11px var(--sans); color: var(--c-faint); font-variant-numeric: tabular-nums; }
+.vm-place { grid-column: 1; font-size: 11px; color: var(--c-faint); }
+.vm-open { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--c-wine); text-decoration: none; white-space: nowrap; }
+.vm-open:hover { text-decoration: underline; }
+.vm-grp.hot .vm-gh h3 { color: var(--c-wine); }
+.vm-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.vm-cell { position: relative; }
+.vm-th { display: block; width: 100%; aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--r-chip); overflow: hidden; background: var(--c-surface-2); cursor: zoom-in; }
+.vm-th img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity var(--dur-2) var(--ease); }
+.vm-th:hover img { opacity: .86; }
+.vm-more { position: absolute; top: 3px; right: 3px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: rgba(42, 21, 25, .5); color: #fff; cursor: pointer; opacity: 0; transition: opacity var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease); }
+.vm-cell:hover .vm-more, .vm-more:focus-visible, .vm-more[aria-expanded="true"] { opacity: 1; }
+.vm-more:hover { background: rgba(110, 31, 46, .9); }
+@media (hover: none) { .vm-more { opacity: .9; } }
+.vm-empty { margin: 0; font-size: 11px; color: var(--c-faint); }
+
+/* Move-to menu (bubbly, like the other dropdown menus) */
+.vm-menu { position: fixed; z-index: 70; min-width: 168px; padding: 6px; border-radius: 12px; background: rgba(251, 248, 243, .94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, .7); box-shadow: var(--sh-2); animation: vm-in var(--dur-2) var(--ease); }
+.vm-menu-h { margin: 2px 8px 4px; font: 600 10px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--c-faint); }
+.vm-menu button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--c-ink); font: 13px var(--sans); text-align: left; cursor: pointer; }
+.vm-menu button svg { margin-left: auto; color: var(--c-wine); }
+.vm-menu button:hover, .vm-menu button:focus-visible { background: var(--c-wine-tint); }
+@keyframes vm-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* lightbox: the whole photo, simple fade */
+.vm-lb { display: grid; place-items: center; }
+.vm-lb[hidden] { display: none; }
+.vm-lb-img { max-width: 92vw; max-height: 84vh; border-radius: var(--glass-r); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .7); cursor: default; opacity: 0; transition: opacity var(--dur-3) var(--ease); }
+.vm-lb.on .vm-lb-img { opacity: 1; }
+
+/* back to the map from a space */
+.vm-back { display: inline-flex; align-items: center; gap: 2px; margin: 0 0 6px -4px; padding: 2px 6px 2px 2px; border-radius: var(--r); font: 500 12px var(--sans); color: var(--c-ink); text-decoration: none; }
+.vm-back:hover { text-decoration: underline; }
+body.seat-on .vm-back { color: var(--c-on-dark); }
+
+@media (max-width: 760px) {
+  .vm-wrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .vm-gallery { max-height: none; overflow: visible; padding: 2px 12px 10px; }
+  .vm-label { padding: 2px 7px 3px; font-size: 10px; }
+  .vm-label b { gap: 4px; }
+  .vm-st { display: none; }
+  .vm-approx { font-size: 9px; left: 6px; top: 6px; }
+  .vm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .vm-lb-img { max-width: 100vw; border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .vm-menu { animation: none; } .vm-area polygon, .vm-label, .vm-grp, .vm-lb-img { transition: none; } }

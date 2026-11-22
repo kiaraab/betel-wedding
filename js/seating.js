@@ -3,6 +3,7 @@ import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } fro
 import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers, clearanceIssues } from './layout.js';
 import { esc, toast, heartLoaderHTML } from './util.js';
 import { spaceToolsHTML, wireSpaceTools, partySVG, suggestHangout } from './spaces.js';
+import { renderVenueMap, MAP_PHOTO } from './venue-map.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const M = 3; // margin around the room (ft)
@@ -619,7 +620,24 @@ function healHangout() {
   }
   if (changed) commit({ silent: true });
 }
+const SPACE_IDS = ['reception', 'ceremony', 'indoor', 'cocktail', 'tasting'];
 export function renderSeating(root) {
+  // '#seating' = the venue map (entry view); '#seating/<space>' = that space's editor
+  const sub = location.hash.slice(1).split('/')[1];
+  if (!SPACE_IDS.includes(sub)) {
+    cleanup?.abort(); cleanup = new AbortController();
+    { const c = cleanup; addEventListener('hashchange', () => c.abort(), { once: true }); } // leaving the map drops its listeners and lightbox
+    threeInst?.dispose(); threeInst = null;
+    document.querySelectorAll('.pop-backdrop').forEach((b) => b.remove());
+    setBackdrop(MAP_PHOTO);
+    renderVenueMap(root, { signal: cleanup.signal });
+    return;
+  }
+  if (sub !== space) { // arrived by URL (map, agenda link, back/forward): open that space fresh
+    space = sub; sel = null; view = null; enterAnim = true; lastFilled.clear(); partySel = null;
+    if (sub === 'ceremony' || sub === 'indoor') cerVariant = sub;
+    mode = sub === 'reception' ? '3d' : 'plan';
+  }
   clearBalcony(); healHangout();
   const rec = space === 'reception';
   setBackdrop(BACKDROP[space] || BACKDROP.reception);
@@ -661,6 +679,7 @@ export function renderSeating(root) {
     <div class="page-head">
       <div>
         <h1 class="sr-only">${esc(info.label)}</h1>
+        <a class="vm-back" href="#seating" title="Venue map"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Map</a>
         <div class="spaces" role="tablist" aria-label="Spaces">
           ${(() => { const tb = (x, c) => `<button role="tab" data-space="${x.id}" aria-selected="${tabOn(x.id)}" class="${c}${tabOn(x.id) ? ' on' : ''}">${x.label}</button>`, l = tabList(); return `<div class="sp-row sp-row-main">${tb(l[0], 'sp-main')}</div><div class="sp-row sp-row-sub">${l.slice(1).map((x) => tb(x, 'sp-sub')).join('')}</div>`; })()}
           <span class="spaces-ink" aria-hidden="true"></span>
@@ -732,6 +751,7 @@ export function renderSeating(root) {
     if (id === 'ceremony' || id === 'indoor') cerVariant = id;
     space = id; sel = null; view = null; enterAnim = true; lastFilled.clear();
     if (space === 'reception') mode = '3d';
+    history.replaceState(null, '', `#seating/${id}`); // the URL follows the tab (no hashchange, so no page reload)
     const was = tabs.querySelector('.on');
     inkFrom = { x: was.offsetLeft, y: was.offsetTop + was.offsetHeight - 2, w: was.offsetWidth };
     renderSeating(root);

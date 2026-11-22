@@ -33,7 +33,7 @@ function showOnPlan(tableId) {
       g.dispatchEvent(new PointerEvent('pointerdown', o)); g.dispatchEvent(new PointerEvent('pointerup', o));
     }, 380);
   };
-  if (location.hash !== '#seating') location.hash = '#seating';
+  if (location.hash !== '#seating/reception') location.hash = '#seating/reception'; // '#seating' alone is the venue map
   setTimeout(tap, 120);
 }
 
@@ -143,7 +143,7 @@ export function openPerson(idOrPerson) {
   addEventListener('keydown', onKey, true);
   scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) close(); });
   card.querySelector('.pp-x').onclick = () => close();
-  card.querySelector('[data-plan]')?.addEventListener('click', () => { const tid = g.tableId; close(true); tid ? showOnPlan(tid) : (location.hash = '#seating'); });
+  card.querySelector('[data-plan]')?.addEventListener('click', () => { const tid = g.tableId; close(true); tid ? showOnPlan(tid) : (location.hash = '#seating/reception'); });
   open = { el: scrim, close };
   card.focus({ preventScroll: true });
 }

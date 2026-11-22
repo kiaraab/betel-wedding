@@ -200,16 +200,19 @@ export function initSlideInk() {
   queue();
 }
 
-/** Cute loader: a heart drawn from small round dots that ripple. Use anywhere something loads: el.innerHTML = heartLoaderHTML('Opening the venue…'). */
+/** Cute loader: only the outline of a pixel heart, dots lighting up one after another around the border. el.innerHTML = heartLoaderHTML('Opening the venue…'). */
 export function heartLoaderHTML(label = '', { sm = false } = {}) {
-  const S = 3.4, dots = [];
-  for (let gy = -7; gy <= 7; gy++) for (let gx = -8; gx <= 8; gx++) {
-    const x = gx / 7.6, y = -gy / 7.6 + 0.12; // heart curve: (x²+y²-1)³ - x²y³ ≤ 0
-    if ((x * x + y * y - 1) ** 3 - x * x * y ** 3 <= 0) dots.push([gx, gy]);
+  const S = 3.6, R = 8, inside = (gx, gy) => { const x = gx / 7.4, y = -gy / 7.4 + 0.12; return (x * x + y * y - 1) ** 3 - x * x * y ** 3 <= 0; };
+  const edge = [];
+  for (let gy = -R; gy <= R; gy++) for (let gx = -R - 1; gx <= R + 1; gx++) {
+    if (!inside(gx, gy)) continue;
+    if (!inside(gx - 1, gy) || !inside(gx + 1, gy) || !inside(gx, gy - 1) || !inside(gx, gy + 1)) edge.push([gx, gy]);
   }
-  const W = 17 * S, H = 15 * S;
-  const circles = dots.map(([gx, gy], i) => `<circle class="hl-dot" cx="${(gx + 8.5) * S}" cy="${(gy + 7.5) * S}" r="${S * 0.36}" style="--d:${((gx + 8) * 0.045 + (gy + 7) * 0.035).toFixed(2)}s"/>`).join('');
-  return `<div class="heart-loader${sm ? ' sm' : ''}" role="status" aria-live="polite"><svg viewBox="0 0 ${W} ${H}" width="${W * 1.6}" height="${H * 1.6}" aria-hidden="true">${circles}</svg>${label ? `<span class="hl-label">${label}</span>` : ''}</div>`;
+  // walk around the border clockwise from the top notch
+  edge.sort((a, b) => ((Math.atan2(a[0], -(a[1] - 0.6)) + 6.2832) % 6.2832) - ((Math.atan2(b[0], -(b[1] - 0.6)) + 6.2832) % 6.2832));
+  const W = (2 * R + 3) * S, H = (2 * R + 1) * S, n = edge.length, T = 2.2;
+  const px = edge.map(([gx, gy], i) => `<rect class="hl-dot" x="${((gx + R + 1.5) * S - S * 0.34).toFixed(2)}" y="${((gy + R + 0.5) * S - S * 0.34).toFixed(2)}" width="${(S * 0.68).toFixed(2)}" height="${(S * 0.68).toFixed(2)}" style="animation-delay:${(-(i / n) * T).toFixed(3)}s;animation-duration:${T}s"/>`).join('');
+  return `<div class="heart-loader${sm ? ' sm' : ''}" role="status" aria-live="polite"><svg viewBox="0 0 ${W} ${H}" width="${W * 1.6}" height="${H * 1.6}" aria-hidden="true">${px}</svg>${label ? `<span class="hl-label">${label}</span>` : ''}</div>`;
 }
 
 /* ---------- bubbly selects: a native <select data-bub> keeps the value; a button + floating glass menu is what you see ---------- */

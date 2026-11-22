@@ -601,15 +601,15 @@ function guests() {
         <h1>Guests</h1>
         <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()} · ${c((g) => g.party === 'couple' || g.rsvp === 'Yes')} yes</p>
       </div>
-      <div class="head-actions">${guestViewToggle()}<button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
-    </div>
-
-    <form class="guest-add" id="gForm">
+      <form class="guest-add" id="gForm">
       <input class="input" name="name" placeholder="Add guests" aria-label="Guest name" required/>
       <select class="select" name="side" data-bub aria-label="Side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
       <button class="btn moss">Add</button>
       <button type="button" class="btn line icon-btn paste-btn" id="pasteBtn" aria-expanded="false" aria-label="Paste a list" title="Paste a list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M9 4.5h6v3H9zM15 6h2.5a1 1 0 0 1 1 1v12.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H9M8.5 12h7M8.5 15.5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
+      <div class="head-actions">${guestViewToggle()}<button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+    </div>
+
     <div id="pasteHost"></div>
 
     <div class="guest-tools">
