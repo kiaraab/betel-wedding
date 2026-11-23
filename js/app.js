@@ -885,13 +885,14 @@ enableAddressLookup((k, v, row) => {
 (() => {
   let last = state.updatedAt, active = 0, lastNudge = 0;
   const nudge = () => {
+    try { if (localStorage.getItem('bc-nudge-off') === '1') return; } catch { /* storage blocked: remind as before */ }
     if (document.getElementById('signNudge')) return;
     const n = document.createElement('div');
     n.id = 'signNudge'; n.className = 'sign-nudge'; n.setAttribute('role', 'status');
     n.innerHTML = '<span>Sign in to save your changes so everyone sees them.</span><button type="button" class="btn moss sm" data-go>Sign in</button><button type="button" class="x" data-x aria-label="Dismiss">×</button>';
     document.body.append(n);
     n.querySelector('[data-go]').onclick = () => { n.remove(); document.getElementById('liveBtn')?.click(); };
-    n.querySelector('[data-x]').onclick = () => n.remove();
+    n.querySelector('[data-x]').onclick = () => { n.remove(); try { localStorage.setItem('bc-nudge-off', '1'); } catch { /* storage blocked */ } }; // x = don't remind me again on this browser
     setTimeout(() => n.remove(), 20000);
   };
   setInterval(() => {

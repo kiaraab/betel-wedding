@@ -3748,3 +3748,8 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .fb-type button { flex: 1; height: 36px; border: 1px solid var(--line-strong); background: rgba(255, 253, 250, .8); color: var(--ink-soft); font: 500 13px var(--sans); cursor: pointer; }
 .fb-type button[aria-checked="true"] { background: var(--c-wine, #6e1f2e); border-color: var(--c-wine, #6e1f2e); color: #fff; }
 #fbDlg textarea { width: 100%; resize: vertical; font: 400 16px var(--sans); }
+
+/* Dismiss x on a bell entry */
+.bell-h { align-items: center; }
+.bell-x { flex: none; width: 24px; height: 24px; padding: 0; border: 0; background: transparent; color: var(--ink-faint); font-size: 18px; line-height: 1; cursor: pointer; }
+.bell-x:hover, .bell-x:focus-visible { color: var(--wine, #6e1f2e); }

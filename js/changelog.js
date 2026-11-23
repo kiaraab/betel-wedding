@@ -11,7 +11,11 @@ export const ENTRIES = [
 const KEY = 'bc-seen-updates';
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const write = (ids) => { try { localStorage.setItem(KEY, JSON.stringify(ids)); } catch { /* storage blocked: the dot shows again next time */ } };
-const unread = () => { const seen = new Set(read()); return ENTRIES.filter((e) => !seen.has(e.id)); };
+const DKEY = 'bc-dismissed-updates'; // entries this person x-ed out (remembered per browser)
+const readD = () => { try { return JSON.parse(localStorage.getItem(DKEY) || '[]'); } catch { return []; } };
+const writeD = (ids) => { try { localStorage.setItem(DKEY, JSON.stringify(ids)); } catch { /* storage blocked: they come back next visit */ } };
+const shown = () => { const d = new Set(readD()); return ENTRIES.filter((e) => !d.has(e.id)); };
+const unread = () => { const seen = new Set(read()); return shown().filter((e) => !seen.has(e.id)); };
 const fmt = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 const asText = (e) => `${e.title} (${fmt(e.date)})\n${e.items.map((i) => `• ${i}`).join('\n')}`;
 
@@ -34,9 +38,10 @@ export function mountBell(btn) {
     const fresh = new Set(unread().map((e) => e.id));
     pop = document.createElement('div');
     pop.className = 'live-pop bell-pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'What’s new');
-    pop.innerHTML = `<h3>What’s new</h3>${ENTRIES.map((e) => `
-      <section class="bell-e${fresh.has(e.id) ? ' new' : ''}"><div class="bell-h"><b>${esc(e.title)}</b><span>${esc(fmt(e.date))}</span></div>
-        <ul>${e.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></section>`).join('')}
+    const list = shown();
+    pop.innerHTML = `<h3>What’s new</h3>${list.length ? list.map((e) => `
+      <section class="bell-e${fresh.has(e.id) ? ' new' : ''}" data-id="${esc(e.id)}"><div class="bell-h"><b>${esc(e.title)}</b><span>${esc(fmt(e.date))}</span><button type="button" class="bell-x" data-dismiss="${esc(e.id)}" aria-label="Dismiss ${esc(e.title)}" title="Dismiss">×</button></div>
+        <ul>${e.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></section>`).join('') : '<p class="muted small" style="margin:6px 0 10px">Nothing new</p>'}
       <div class="bell-f"><button type="button" class="linklike" data-fb>Send feedback</button></div>`;
     document.body.append(pop);
     btn.setAttribute('aria-expanded', 'true');
@@ -48,6 +53,11 @@ export function mountBell(btn) {
     pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
     pop.querySelector('[data-fb]').onclick = () => { close(false); openFeedback(); };
     document.addEventListener('pointerdown', outside, true);
+    pop.querySelectorAll('[data-dismiss]').forEach((x) => x.onclick = () => {
+      writeD([...new Set([...readD(), x.dataset.dismiss])]);
+      x.closest('.bell-e').remove(); paint();
+      if (!pop.querySelector('.bell-e')) pop.querySelector('h3').insertAdjacentHTML('afterend', '<p class="muted small" style="margin:6px 0 10px">Nothing new</p>');
+    });
     write([...new Set([...read(), ...ENTRIES.map((e) => e.id)])]); paint();
   });
 }
