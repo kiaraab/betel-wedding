@@ -87,3 +87,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - 3D decor options (Look): canopy, aisle, backdrop, arch florals, table dressing, candles, ceiling, centerpieces, grazing/bar, guest extras. Bridesmaid figures use their Team card color. Bell: new entry.
 
 - Seating defaults to 100 guests: ceremony has 10 rows a side (100 chairs), new plans start with a 100-seat reception.
+
+- 3D view only redraws while something moves, so phones and laptops stay cooler.
