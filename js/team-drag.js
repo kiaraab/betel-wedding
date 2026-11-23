@@ -128,14 +128,16 @@ export function wireTeamDrag(grid, { save }) {
   };
   function onMove(e) {
     if (!drag || e.pointerId !== drag.id) return;
-    const jit = Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < 2;   // a held, resting hand jitters: ignore sub-2px moves
     drag.px = e.clientX; drag.py = e.clientY;
-    place(); if (!jit) target();
+    place();   // the hit-test runs from tick() once per frame
   }
   // edge auto-scroll while the card is held near the top / bottom of the window
   function tick() {
     if (!drag) return;
-    const { py } = drag;
+    const { py, px } = drag;
+    // hit-test once per frame, but only when the pointer moved >2px since the last test (a resting hand jitters) or a glide just ended
+    if (performance.now() < lockUntil) drag.again = true;
+    else if (!drag.tx || drag.again || Math.hypot(px - drag.tx.x, py - drag.tx.y) >= 2) { drag.tx = { x: px, y: py }; drag.again = false; target(); }
     if (py < 90) scrollBy(0, -14); else if (py > innerHeight - 100) scrollBy(0, 14);
     drag.raf = requestAnimationFrame(tick);
   }

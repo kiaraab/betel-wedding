@@ -195,7 +195,7 @@ function overview() {
           <section class="card ov-card">
             <h2>Team</h2>
             <ul class="glance ov-scroll">
-              ${state.people.map((p) => `<li><a href="#team">${p.photo ? `<img class="gl-ph" src="${p.photo}" alt=""/>` : ''}${esc(p.name)}</a>
+              ${state.people.map((p) => `<li><a href="#team">${(() => { const ph = state.guests.find((g) => g.personId === p.id)?.photo; return ph ? `<img class="gl-ph" src="${esc(ph)}" alt=""/>` : ''; })()}${esc(p.name)}</a>
                 <span class="dots">${rolesOf(p.id).map((r) => `<i class="dot ${statusKey(r.status)}" title="${esc(r.title)} · ${esc(r.status)}"></i>`).join('')}</span></li>`).join('')}
             </ul>
             <div class="legend"><span><i class="dot not-started"></i>To do</span><span><i class="dot in-progress"></i>In progress</span><span><i class="dot waiting-on-bride"></i>Waiting</span><span><i class="dot done"></i>Done</span></div>
@@ -604,7 +604,9 @@ function guests() {
     && (!q || [g.name, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
   const c = (fn) => state.guests.filter(fn).length;
   const cols = visibleCols();
-  const cw = (k, d) => Math.max(56, Math.min(520, +(state.guestColW || {})[k] || d));   // resizable widths, saved with the plan
+  const colW = () => { try { return JSON.parse(localStorage.getItem('betel-colw') || '{}'); } catch { return {}; } };   // resizable widths: per device (not shared with the plan)
+  const saveColW = (o) => { try { localStorage.setItem('betel-colw', JSON.stringify(o)); } catch { /* storage blocked */ } };
+  const cw = (k, d) => Math.max(56, Math.min(520, +colW()[k] || d));
   const nameW = cw('name', 190);
   const tw = cols.reduce((n, x) => n + cw(x.k, x.w), 0) + nameW + 104;   // name column + actions column
 
@@ -673,9 +675,9 @@ function guests() {
       e.preventDefault(); e.stopPropagation(); h.setPointerCapture(e.pointerId);
       const x0 = e.clientX, w0 = parseFloat(col.style.width); h.classList.add('on');
       h.onpointermove = (m) => { const w = Math.max(56, Math.min(520, Math.round(w0 + m.clientX - x0))); col.style.width = w + 'px'; tbl.style.setProperty('--gw', total() + 'px'); };
-      h.onpointerup = h.onpointercancel = () => { h.onpointermove = h.onpointerup = h.onpointercancel = null; h.classList.remove('on'); state.guestColW = { ...(state.guestColW || {}), [k]: Math.round(parseFloat(col.style.width)) }; commit({ silent: true }); };
+      h.onpointerup = h.onpointercancel = () => { h.onpointermove = h.onpointerup = h.onpointercancel = null; h.classList.remove('on'); saveColW({ ...colW(), [k]: Math.round(parseFloat(col.style.width)) }); };
     };
-    h.ondblclick = () => { const o = { ...(state.guestColW || {}) }; delete o[k]; state.guestColW = o; commit({ silent: true }); guests(); };
+    h.ondblclick = () => { const o = { ...colW() }; delete o[k]; saveColW(o); guests(); };
   });
   bubbleSelects(view);
   wireGuestViewToggle(); wireGuestCount(view);

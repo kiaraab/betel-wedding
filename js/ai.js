@@ -80,7 +80,7 @@ export function openAiSettings(onChange) {
     <form class="ai-card" role="dialog" aria-modal="true" aria-label="AI settings">
       <h2>Keys</h2>
       <label class="ai-f"><span>Gemini API key</span><input class="input" type="password" name="key" autocomplete="off" spellcheck="false" value="${esc(getKey())}"/></label>
-      <label class="ai-f"><span>Google Maps key <em>(address autofill, optional)</em></span><input class="input" type="password" name="maps" autocomplete="off" spellcheck="false" placeholder="Uses the built-in key if empty" value="${esc(localStorage.getItem('betel-maps-key') || '')}"/></label>
+      <label class="ai-f"><span>Google Maps key <em>(address autofill, optional)</em></span><input class="input" type="password" name="maps" autocomplete="off" spellcheck="false" placeholder="Uses the built-in key if empty" value="${esc((() => { try { return localStorage.getItem('betel-maps-key') || ''; } catch { return ''; } })())}"/></label>
       ${share.can() ? '<label class="ai-share"><input type="checkbox" name="share" checked/> Share with everyone who can edit (Betel, Carter…)</label><p class="ai-note">Shared keys are readable only by approved editors.</p>' : '<p class="ai-note">Stored in this browser only.</p>'}
       <div class="ai-foot"><button type="button" class="btn line sm" data-rm>Remove</button><span class="spacer"></span><button type="button" class="btn line sm" data-x>Close</button><button class="btn moss sm">Save</button></div>
     </form>`;

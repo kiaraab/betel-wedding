@@ -1381,7 +1381,7 @@ let threeInst = null; // live 3D scene, disposed on re-render / leaving the page
 
 /* ---- Morais' photos beside the 3D view: drag to rearrange (saved), tap to see the whole photo ---- */
 function moraisOrder(sp = space) {
-  const ids = photosForSpace(sp).map((p) => p.id); // only the photos tagged to this space on the map
+  const ids = photosForSpace(sp === 'indoor' ? 'ceremony' : sp).map((p) => p.id); // only the photos tagged to this space on the map
   const saved = (Array.isArray(state.morais) ? state.morais : []).filter((id) => ids.includes(id));
   return [...saved, ...ids.filter((id) => !saved.includes(id))].map((id) => photoById(id));
 }
@@ -1465,7 +1465,7 @@ function wireMorais(root, signal) {
   let drag = null, justDragged = false;
   grid.addEventListener('pointerdown', (e) => {
     const th = e.target.closest('.morais-th');
-    if (!th || e.button > 0) return;
+    if (!th || e.button > 0 || e.pointerType === 'touch') return;   // touch swipes scroll the page; reorder is mouse / keyboard only
     const r = th.getBoundingClientRect();
     drag = { th, id: e.pointerId, x: e.clientX, y: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, on: false, order: thumbs().map((t) => t.dataset.ph).join() };
   }, { signal });

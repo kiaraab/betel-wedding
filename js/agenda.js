@@ -327,7 +327,7 @@ export function renderAgenda(view) {
     view.querySelector('.ap [data-k="title"]')?.focus();
   };
   view.querySelector('#agAdd').onclick = addEvent;
-  view.addEventListener('keydown', (e) => { if (e.key === 'Escape' && view.querySelector('.ag-panel')) { e.stopPropagation(); (view.querySelector('.ag-panel [data-closepanel]') || view.querySelector('#agSuggest[aria-pressed="true"]'))?.click(); } });
+  view.onkeydown = (e) => { if (e.key === 'Escape' && view.querySelector('.ag-panel')) { e.stopPropagation(); (view.querySelector('.ag-panel [data-closepanel]') || view.querySelector('#agSuggest[aria-pressed="true"]'))?.click(); } };
   view.querySelector('[data-addempty]')?.addEventListener('click', addEvent);
   view.querySelector('#agToday').onclick = () => {
     const n = nowMin(), at = n != null ? n : ceremonyMin();
