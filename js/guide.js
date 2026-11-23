@@ -27,7 +27,7 @@ const TOURS = {
     ['#pasteBtn', 'Paste a whole list, or a photo of one.'],
     ['.gf-btn', 'Filter the list.'],
     ['.gcols-btn', 'Choose which columns to show. Drag a column’s edge to resize it.'],
-    ['.addr-btn', 'Tap ⋮ for address, household and notes.'],
+    ['.addr-btn', 'Tap ⋮ for details. A dot on it means no seat yet.'],
     ['.viewseg', 'Connections: link people who should sit together.'],
     ['#csv', 'Download the list.'],
   ],

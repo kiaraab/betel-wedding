@@ -473,7 +473,8 @@ function team() {
 
 /* ---------------- Guests ---------------- */
 const RSVP = ['Not invited yet', 'Invited', 'Yes', 'Maybe', 'Declined'];
-const needsAddress = (g) => !g.street && g.party !== 'couple';
+const needsAddress = (g) => !g.street && g.party !== 'couple'; // a nice-to-have: only the "Need address" filter uses it
+const noSeat = (g) => g.party !== 'couple' && g.rsvp !== 'Declined' && !isSeated(g); // the dot on a guest's ⋮ button
 // small map-pin: the row's address & details button
 const PIN = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>';
 const SIDES = ['Betel', 'Carter', 'Both'];
@@ -533,7 +534,7 @@ function guestsCSV() {
 const going = (g) => g.rsvp !== 'Declined';
 const GUEST_FILTERS = [
   [['all', 'Everyone', () => true],
-   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !g.street || !isSeated(g))],
+   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !isSeated(g))],
    ['unseated', 'Still to seat', (g) => going(g) && !isSeated(g) && g.party !== 'couple'],
    ['reception', 'Reception guests', going],
    ['notinvited', 'Not invited yet', (g) => g.rsvp === 'Not invited yet'],
@@ -644,7 +645,7 @@ function guests() {
             <td class="c-name"><div class="name-cell"><input class="input g-name" data-k="name" value="${esc(g.name)}" aria-label="Name" spellcheck="false"/></div></td>
             ${cols.map((x) => guestCell(g, x.k, cols)).join('')}
             <td class="row-actions">
-              <button class="more addr-btn ${needsAddress(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="Details" aria-label="Details for ${esc(g.name)}"><svg viewBox="0 0 4 16" width="4" height="16" aria-hidden="true"><circle cx="2" cy="2" r="1.6"/><circle cx="2" cy="8" r="1.6"/><circle cx="2" cy="14" r="1.6"/></svg></button>
+              <button class="more addr-btn ${noSeat(g) ? 'warn' : ''} ${openGuests.has(g.id) ? 'open' : ''}" data-open="${g.id}" aria-expanded="${openGuests.has(g.id)}" title="${noSeat(g) ? 'Details · no seat yet' : 'Details'}" aria-label="Details for ${esc(g.name)}${noSeat(g) ? ', no seat yet' : ''}"><svg viewBox="0 0 4 16" width="4" height="16" aria-hidden="true"><circle cx="2" cy="2" r="1.6"/><circle cx="2" cy="8" r="1.6"/><circle cx="2" cy="14" r="1.6"/></svg></button>
               ${g.party === 'couple' ? '<span class="x" aria-hidden="true" style="visibility:hidden">×</span>' : `<button class="x" data-delg="${g.id}" aria-label="Remove ${esc(g.name)}">×</button>`}
             </td>
           </tr>
