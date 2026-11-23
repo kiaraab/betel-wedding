@@ -3183,3 +3183,69 @@ body.seat-on .vm-back { color: var(--c-on-dark); }
 .heart-loader.sm .hl-label { font-size: 9px; }
 .paste-status .heart-loader.sm svg, .live-note .heart-loader.sm svg { width: 20px; }
 .ap-think .heart-loader { transform: none; }
+
+/* --- round 11d: passcode gate (tall card, keypad, unlock) --- */
+.gate-card { width: min(360px, calc(100vw - 28px)); min-height: min(640px, calc(100vh - 36px)); padding: 44px 30px 26px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0; border-radius: 6px; }
+.gate-card .gate-date { margin-bottom: 14px; }
+.gate-card h1 { margin: 0; text-align: center; }
+.gate-card .gate-script { margin: 8px 0 22px; }
+.pin-dots { display: flex; gap: 16px; margin: 6px 0 4px; }
+.pin-dots i { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .8); transition: background-color .16s var(--ease), transform .16s var(--ease), border-color .16s; }
+.pin-dots i.on { background: #fff; }
+.gate-card .gate-err { min-height: 20px; margin: 10px 0 14px; }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 68px); gap: 14px 22px; justify-content: center; }
+.gate-card .pin-pad button { width: 68px; height: 68px; margin: 0; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .16); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #fff; font: 400 28px var(--sans); display: grid; place-items: center; cursor: pointer; transition: background-color .15s var(--ease), color .15s var(--ease); -webkit-tap-highlight-color: transparent; }
+.gate-card .pin-pad button:hover { background: rgba(255, 255, 255, .28); }
+.gate-card .pin-pad button:active { background: rgba(255, 255, 255, .5); }
+.gate-card .pin-pad .pin-hint-btn, .gate-card .pin-pad .pin-del { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; font: 500 11px var(--sans); letter-spacing: .16em; text-transform: uppercase; }
+.gate-card .pin-pad .pin-hint-btn:hover, .gate-card .pin-pad .pin-del:hover { background: rgba(255, 255, 255, .14); }
+.gate-card .pin-hint { margin: 16px 0 0; max-width: 250px; font: 400 13px/1.4 var(--sans); letter-spacing: .01em; text-transform: none; color: #fff; text-align: center; animation: rise .3s var(--ease); }
+.gate-card .gate-love { margin: 22px 0 0; display: inline-flex; align-items: center; gap: 6px; font: 400 12px var(--sans); letter-spacing: .12em; text-transform: none; color: rgba(255, 255, 255, .85); }
+.gate-card .gate-love svg { color: #f0a9bd; }
+.gate-card.shake .pin-dots { animation: shake .4s; }
+.gate-card.shake .pin-dots i { background: #ffb4b4; border-color: #ffb4b4; }
+.gate-card.unlocked .pin-dots i { background: #cfe8c8; border-color: #cfe8c8; animation: pin-pop .45s var(--ease) backwards; }
+.gate-card.unlocked .pin-dots i:nth-child(2) { animation-delay: .07s; } .gate-card.unlocked .pin-dots i:nth-child(3) { animation-delay: .14s; } .gate-card.unlocked .pin-dots i:nth-child(4) { animation-delay: .21s; }
+.gate-card.unlocked { transition: opacity .5s .2s var(--ease), transform .6s .2s var(--ease); opacity: 0; transform: translateY(-18px) scale(.98); }
+.gate.open { opacity: 0; transform: scale(1.04); transition: opacity .7s var(--ease), transform .8s var(--ease); }
+@keyframes pin-pop { 0% { transform: scale(1); } 45% { transform: scale(1.6); } 100% { transform: scale(1); } }
+@media (max-height: 700px) { .gate-card { padding-top: 26px; } .pin-pad { gap: 10px 20px; grid-template-columns: repeat(3, 58px); } .gate-card .pin-pad button { width: 58px; height: 58px; } }
+@media (prefers-reduced-motion: reduce) { .gate-card.unlocked, .gate.open { transition: opacity .2s; transform: none; } .pin-dots i { animation: none !important; } }
+.gate-card .pin-pad button { border-radius: 50% !important; }
+
+/* --- round 11e: team header (Team (n) + one status filter), svg status icons --- */
+.team-head { display: flex !important; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.team-head .t-n { font-size: .55em; font-weight: 400; opacity: .7; letter-spacing: 0; }
+.team-head .tfilter { margin-left: auto; }
+body[data-route="team"] .team-head .gf-btn { background: rgba(42, 21, 25, .5); color: #f6ece3; border: 1px solid rgba(255, 255, 255, .22); -webkit-backdrop-filter: var(--tg-blur); backdrop-filter: var(--tg-blur); }
+.tf-ic { display: inline-grid; place-items: center; width: 16px; color: var(--ink-soft); }
+.tf-ic svg { display: block; }
+.tfilter .st-done .tf-ic { color: #3f7a2e; } .tfilter .st-waiting-on-bride .tf-ic { color: #9b1f33; } .tfilter .st-in-progress .tf-ic { color: #8a6200; }
+.stbtn i { display: inline-grid; place-items: center; width: 16px; height: 16px; background: transparent !important; box-shadow: none !important; border-radius: 0; }
+.stbtn i::before, .stbtn i::after { content: none !important; }
+.stbtn i svg { display: block; }
+.tcard .stbtn.done, .tcard .stbtn.waiting-on-bride, .tcard .stbtn.in-progress, .tcard .stbtn.not-started { color: inherit; }
+.tcard .stbtn.done i svg { stroke-width: 2.2; }
+
+/* milestone date: never clipped */
+.mtl-add input.mtl-date, .mtl-add input[name="date"] { flex: 0 0 96px; width: 96px; min-width: 96px; }
+.mtl-add input.mtl-date::placeholder { font-style: normal; }
+.glance a { display: inline-flex; align-items: center; gap: 8px; }
+.glance .gl-ph { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: none; }
+/* guests: a bit more air between names */
+table.guests td { padding-top: 7px; padding-bottom: 7px; }
+table.guests td.c-name { padding-right: 18px; }
+
+/* --- round 11f: venue views switcher --- */
+.vm-views { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.vm-views::-webkit-scrollbar { display: none; }
+.vm-view { flex: none; position: relative; width: 92px; height: 58px; padding: 0; border: 2px solid transparent; border-radius: 4px; overflow: hidden; cursor: pointer; background: #2b1e1c; opacity: .75; transition: opacity .15s var(--ease), border-color .15s var(--ease); }
+.vm-view img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vm-view span { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 4px 3px; font: 500 10px var(--sans); letter-spacing: .04em; color: #fff; text-align: center; background: rgba(30, 18, 20, .55); }
+.vm-view:hover { opacity: 1; }
+.vm-view.on { opacity: 1; border-color: #fff; }
+.vm-map.plain .vm-svg, .vm-map.plain .vm-label, .vm-map.plain .vm-approx { display: none; }
+.vm-cap { position: absolute; left: 12px; bottom: 12px; z-index: 3; font: 500 12px var(--sans); letter-spacing: .06em; color: #fff; background: rgba(30, 18, 20, .55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); padding: 4px 10px; border-radius: 12px; }
+.vm-cap:empty { display: none; }
+.live-bottom { flex-wrap: wrap; row-gap: 6px; }
+.tfilter .gf-menu { left: auto; right: 0; min-width: 210px; }

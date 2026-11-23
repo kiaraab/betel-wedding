@@ -284,8 +284,9 @@ export function mountLive(btn) {
           <button class="btn" data-out>Sign out</button>`;
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });
       }
-      pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-reset>Start over</button></div>');
+      pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-gate>Preview unlock screen</button><button type="button" class="live-txt" data-reset>Start over</button></div>');
       pop.querySelector('[data-hist]').onclick = () => { close(false); document.getElementById('historyBtn')?.click(); };
+      pop.querySelector('[data-gate]').onclick = () => { location.href = location.pathname + '?gate' + location.hash; };
       pop.querySelector('[data-reset]').onclick = () => { close(false); document.getElementById('resetBtn')?.click(); };
       pop.querySelector('[data-out]')?.addEventListener('click', async () => { await signOutLive(); close(true); });
     };

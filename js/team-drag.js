@@ -11,7 +11,9 @@ export function wireTeamDrag(grid, { save }) {
   const ids = () => cards().map((c) => c.dataset.pid);
 
   /** Run `change()` (which reorders the DOM) and glide every tracked element from where it was to where it is. */
+  let lockUntil = 0;   // while cards glide, rects are mid-animation: do not re-detect (that made a held card flicker back and forth)
   const flip = (els, change) => {
+    lockUntil = performance.now() + 220;
     const first = new Map(els.map((el) => [el, el.getBoundingClientRect()]));
     change();
     for (const el of els) {
@@ -111,7 +113,9 @@ export function wireTeamDrag(grid, { save }) {
 
   const target = () => {
     const { card, ph, px, py } = drag;
-    const over = cards().find((c) => { if (c === card) return false; const r = c.getBoundingClientRect(); return px >= r.left && px <= r.right && py >= r.top && py <= r.bottom; });
+    if (performance.now() < lockUntil) return;
+    // only the inner part of a card counts as a hit, so resting on an edge never swaps back and forth
+    const over = cards().find((c) => { if (c === card) return false; const r = c.getBoundingClientRect(), ix = r.width * .22, iy = r.height * .22; return px >= r.left + ix && px <= r.right - ix && py >= r.top + iy && py <= r.bottom - iy; });
     if (!over) return;
     const after = ph.compareDocumentPosition(over) & Node.DOCUMENT_POSITION_FOLLOWING; // the card sits after the placeholder
     const others = cards().filter((c) => c !== card);
@@ -124,8 +128,9 @@ export function wireTeamDrag(grid, { save }) {
   };
   function onMove(e) {
     if (!drag || e.pointerId !== drag.id) return;
+    const jit = Math.hypot(e.clientX - drag.px, e.clientY - drag.py) < 2;   // a held, resting hand jitters: ignore sub-2px moves
     drag.px = e.clientX; drag.py = e.clientY;
-    place(); target();
+    place(); if (!jit) target();
   }
   // edge auto-scroll while the card is held near the top / bottom of the window
   function tick() {

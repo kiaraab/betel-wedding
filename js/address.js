@@ -1,15 +1,16 @@
 // Street autocomplete for guest addresses (Google Places). Does nothing until a key is set.
 // To turn it on: create a Google Maps Platform key with the "Places API" enabled, restrict it
 // to your GitHub Pages address (https://kiaraab.github.io/*) and paste it below.
-const GOOGLE_MAPS_KEY = 'AIzaSyCgWQNhQh8kBZNGDvaBfHhB73o6t8wGJrw';
+const BUILT_IN_KEY = 'AIzaSyCgWQNhQh8kBZNGDvaBfHhB73o6t8wGJrw';   // public by design; restricted to the site's address in Google Cloud
+const mapsKey = () => { try { return localStorage.getItem('betel-maps-key') || BUILT_IN_KEY; } catch { return BUILT_IN_KEY; } };
 
 let loading = null;
 function loadPlaces() {
-  if (!GOOGLE_MAPS_KEY) return Promise.resolve(false);
+  if (!mapsKey()) return Promise.resolve(false);
   if (window.google?.maps?.places) return Promise.resolve(true);
   loading ??= new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&loading=async&callback=__placesReady`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${mapsKey()}&libraries=places&loading=async&callback=__placesReady`;
     window.__placesReady = () => resolve(true);
     s.onerror = () => reject(new Error('Address lookup could not load'));
     document.head.appendChild(s);

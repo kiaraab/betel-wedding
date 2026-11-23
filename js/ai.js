@@ -78,8 +78,9 @@ export function openAiSettings(onChange) {
   d.id = 'aiDlg'; d.className = 'ai-dlg';
   d.innerHTML = `
     <form class="ai-card" role="dialog" aria-modal="true" aria-label="AI settings">
-      <h2>AI</h2>
+      <h2>Keys</h2>
       <label class="ai-f"><span>Gemini API key</span><input class="input" type="password" name="key" autocomplete="off" spellcheck="false" value="${esc(getKey())}"/></label>
+      <label class="ai-f"><span>Google Maps key <em>(address autofill, optional)</em></span><input class="input" type="password" name="maps" autocomplete="off" spellcheck="false" placeholder="Uses the built-in key if empty" value="${esc(localStorage.getItem('betel-maps-key') || '')}"/></label>
       ${share.can() ? '<label class="ai-share"><input type="checkbox" name="share" checked/> Share with everyone who can edit (Betel, Carter…)</label><p class="ai-note">Shared keys are readable only by approved editors.</p>' : '<p class="ai-note">Stored in this browser only.</p>'}
       <div class="ai-foot"><button type="button" class="btn line sm" data-rm>Remove</button><span class="spacer"></span><button type="button" class="btn line sm" data-x>Close</button><button class="btn moss sm">Save</button></div>
     </form>`;
@@ -89,7 +90,7 @@ export function openAiSettings(onChange) {
   const close = () => { release(); d.remove(); onChange?.(); (opener?.isConnected ? opener : document.querySelector('[data-ai-settings]') || document.getElementById('liveBtn'))?.focus?.({ preventScroll: true }); };
   const f = d.querySelector('form');
   f.key.focus();
-  f.onsubmit = async (e) => { e.preventDefault(); setKey(f.key.value); if (f.share?.checked && f.key.value.trim()) { try { await share.save(f.key.value.trim()); } catch { toast('Saved here, but sharing failed'); } } toast(aiAvailable() ? 'AI key saved' : 'AI key removed'); close(); };
+  f.onsubmit = async (e) => { e.preventDefault(); try { const m = f.maps.value.trim(); m ? localStorage.setItem('betel-maps-key', m) : localStorage.removeItem('betel-maps-key'); } catch { /* storage blocked */ } setKey(f.key.value); if (f.share?.checked && f.key.value.trim()) { try { await share.save(f.key.value.trim()); } catch { toast('Saved here, but sharing failed'); } } toast(aiAvailable() ? 'AI key saved' : 'AI key removed'); close(); };
   d.querySelector('[data-rm]').onclick = async () => { setKey(''); if (share.can()) { try { await share.remove(); } catch { /* not shared */ } } setSharedKey(''); toast('AI key removed'); close(); };
   d.querySelector('[data-x]').onclick = close;
   d.addEventListener('pointerdown', (e) => { if (e.target === d) close(); });
@@ -97,7 +98,7 @@ export function openAiSettings(onChange) {
 }
 
 /** Small entry point for panels: "AI on · Settings" or "Add AI key". */
-export const aiLinkHTML = () => `<button type="button" class="linklike ai-link" data-ai-settings>${aiAvailable() ? 'AI settings' : 'Add AI key'}</button>`;
+export const aiLinkHTML = () => `<button type="button" class="linklike ai-link" data-ai-settings>${aiAvailable() ? 'AI & map keys' : 'Add keys'}</button>`;
 export function wireAiLink(root, onChange) {
   root.querySelectorAll('[data-ai-settings]').forEach((b) => { b.onclick = () => openAiSettings(onChange); });
 }

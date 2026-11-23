@@ -41,24 +41,28 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
     } }
   </script>
-  <!-- Password screen (keeps casual visitors out; files are still public in the GitHub repo) -->
+  <!-- Passcode screen (keeps casual visitors out; files are still public in the GitHub repo) -->
   <div class="gate" id="gate" hidden>
-    <form class="gate-card" id="gateForm" autocomplete="off">
-      <p>June 17, 2027 · Morais Vineyards</p>
+    <div class="gate-card" id="gateCard" role="group" aria-label="Enter the passcode">
+      <p class="gate-date">June 17, 2027 &middot; Morais Vineyards</p>
       <h1>Betel &amp; Carter</h1>
       <p class="gate-script">are getting married</p>
-      <label class="sr" for="gatePw">Password</label>
-      <div class="gate-row">
-        <input id="gatePw" type="password" placeholder="Password" autocomplete="off" autofocus aria-describedby="gateErr" />
-        <button type="submit" aria-label="Enter the site">&rarr;</button>
-      </div>
+      <div class="pin-dots" id="pinDots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <p class="gate-err" id="gateErr" role="alert" aria-live="assertive"></p>
-    </form>
+      <div class="pin-pad" id="pinPad">
+        <button type="button" data-d="1" aria-label="1">1</button><button type="button" data-d="2" aria-label="2">2</button><button type="button" data-d="3" aria-label="3">3</button><button type="button" data-d="4" aria-label="4">4</button><button type="button" data-d="5" aria-label="5">5</button><button type="button" data-d="6" aria-label="6">6</button><button type="button" data-d="7" aria-label="7">7</button><button type="button" data-d="8" aria-label="8">8</button><button type="button" data-d="9" aria-label="9">9</button>
+        <button type="button" class="pin-hint-btn" id="pinHint" aria-label="Hint" title="Hint">Hint</button>
+        <button type="button" data-d="0" aria-label="0">0</button>
+        <button type="button" class="pin-del" id="pinDel" aria-label="Delete"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 6h10a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 18H9l-5-6zM12 9.5l5 5M17 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <p class="pin-hint" id="pinHintText" hidden>Hint: the day he proposed. Month, then day &mdash; four digits.</p>
+      <p class="gate-love"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.7a4.3 4.3 0 0 1 7.5 2.8c0 5.4-7.5 10-7.5 10z" fill="currentColor"/></svg> Made with love</p>
+    </div>
   </div>
   <script type="module">
-    const HASH = 'a5246b03e83a72386b42c62b3d945e5d153c2fcef3b9a72a4f4de5018624a700';
-    const KEY = 'bc-unlocked';
-    const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const HASH = '79d9d8f002c1c955fa0d21eeaaf2ebf03c3a878d2fdcb6e78d915b3ed81cc886';
+    const KEY = 'bc-unlocked-pin';
+    const sha = async (t) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('');
     const gate = document.getElementById('gate');
     const enter = () => { document.body.classList.remove('locked'); import('./js/app.js'); };
     let ok = false;
@@ -66,20 +70,28 @@
     if (ok) { gate.remove(); enter(); }
     else {
       gate.hidden = false;
-      document.getElementById('gateForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const input = document.getElementById('gatePw');
-        if (await sha(input.value.trim().toLowerCase()) === HASH) {
+      const card = document.getElementById('gateCard'), dots = [...document.querySelectorAll('#pinDots i')], err = document.getElementById('gateErr');
+      let pin = '', busy = false;
+      const paint = () => dots.forEach((d, i) => d.classList.toggle('on', i < pin.length));
+      const press = async (d) => {
+        if (busy || pin.length >= 4) return;
+        pin += d; err.textContent = ''; paint();
+        if (pin.length < 4) return;
+        busy = true;
+        if (await sha(pin) === HASH) {
           try { localStorage.setItem(KEY, HASH); } catch { /* remembered for this visit only */ }
-          gate.classList.add('open');
-          enter();
-          setTimeout(() => gate.remove(), 700);
+          card.classList.add('unlocked');
+          setTimeout(() => { gate.classList.add('open'); enter(); setTimeout(() => gate.remove(), 800); }, 650);
         } else {
-          input.value = '';
-          document.getElementById('gateErr').textContent = 'That is not it. Try again.';
-          gate.classList.remove('shake'); void gate.offsetWidth; gate.classList.add('shake');
+          err.textContent = 'That is not it. Try again.';
+          card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+          setTimeout(() => { pin = ''; paint(); busy = false; }, 420);
         }
       };
+      const del = () => { if (!busy) { pin = pin.slice(0, -1); paint(); } };
+      document.getElementById('pinPad').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.d) press(b.dataset.d); else if (b.id === 'pinDel') del(); });
+      document.getElementById('pinHint').onclick = () => { const t = document.getElementById('pinHintText'); t.hidden = !t.hidden; };
+      document.addEventListener('keydown', (e) => { if (!document.getElementById('gate')) return; if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') del(); });
     }
   </script>
 </body>

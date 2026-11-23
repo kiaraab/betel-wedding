@@ -175,7 +175,7 @@ function mapHTML() {
     </svg>
     ${AREAS.map((a) => `<button type="button" class="vm-label${a.space ? ' edit' : ''}" data-area="${a.id}" style="left:${a.label[0]}%;top:${a.label[1]}%;--a:${a.color || 'var(--c-on-dark)'}" title="${esc(a.place)}" aria-label="${esc(`${a.name}, ${a.place}${a.space ? ', open the plan' : ', show photos'}`)}">
       <b><i aria-hidden="true"></i>${esc(a.name)}</b><span class="vm-st" data-st="${a.id}">${esc(statusOf(a))}</span></button>`).join('')}
-    <span class="vm-approx" title="Places are best guesses from photos, not a survey">≈ Approximate</span>
+    <span class="vm-cap" aria-live="polite"></span><span class="vm-approx" title="Places are best guesses from photos, not a survey">≈ Approximate</span>
   </div>`;
 }
 
@@ -190,16 +190,37 @@ function groupHTML(a) {
   </section>`;
 }
 
+/** Other ways to see the venue: the aerial map (with outlines) plus wide scenic photos, one tap each. Ids point into PHOTOS. */
+const VIEWS = [
+  { id: 'aerial', name: 'Aerial', src: MAP_PHOTO },
+  { id: 'v-courtyard', name: 'Courtyard', photo: 'site-courtyard-dusk' },
+  { id: 'v-lawn', name: 'Ceremony lawn', photo: 'site-pergola-path' },
+  { id: 'v-ballroom', name: 'Ballroom', photo: 'ballroom' },
+  { id: 'v-vineyard', name: 'Vineyard', photo: 'site-vineyard-rows' },
+  { id: 'v-gate', name: 'Gate', photo: 'site-gate' },
+].map((v) => ({ ...v, src: v.src || PHOTOS.find((p) => p.id === v.photo)?.src })).filter((v) => v.src);
+const viewsHTML = () => `<div class="vm-views" role="tablist" aria-label="Views of the venue">${VIEWS.map((v, i) => `<button type="button" role="tab" class="vm-view${i ? '' : ' on'}" data-view="${v.id}" aria-selected="${!i}" title="${esc(v.name)}"><img src="${v.src}" alt="" loading="lazy" draggable="false"/><span>${esc(v.name)}</span></button>`).join('')}</div>`;
+
 /** Draw the map + grouped photos into `root`. `go(space)` opens a space's editor. */
 export function renderVenueMap(root, { signal } = {}) {
   root.innerHTML = `
     <div class="page-head vm-head"><h1 class="vm-title">Morais Vineyards</h1></div>
     <div class="vm-wrap">
-      <div class="vm-mapcol">${mapHTML()}</div>
+      <div class="vm-mapcol">${mapHTML()}${viewsHTML()}</div>
       <div class="vm-gallery" id="vmGallery" aria-label="Venue photos by place">${AREAS.map(groupHTML).join('')}</div>
     </div>`;
   const map = root.querySelector('#vmMap'), gal = root.querySelector('#vmGallery');
   const areaById = (id) => AREAS.find((a) => a.id === id);
+
+  /* ---- views: aerial map, or a plain wide photo of the venue ---- */
+  const baseImg = map.querySelector('.vm-photo');
+  root.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
+    const v = VIEWS.find((x) => x.id === b.dataset.view);
+    root.querySelectorAll('[data-view]').forEach((o) => { const on = o === b; o.classList.toggle('on', on); o.setAttribute('aria-selected', on); });
+    map.classList.toggle('plain', v.id !== 'aerial');
+    baseImg.src = v.src; baseImg.alt = v.id === 'aerial' ? 'Morais Vineyards from above' : v.name;
+    map.querySelector('.vm-cap').textContent = v.id === 'aerial' ? '' : v.name;
+  }, { signal }));
 
   /* ---- highlight: an area on the map <-> its photo group ---- */
   let hot = null, pinned = null, scrollT = 0;

@@ -187,7 +187,7 @@ function overview() {
             <h2>Milestones</h2>
             <div class="ov-scroll mtl-host"></div>
             <form class="mtl-add" autocomplete="off">
-              <input name="date" required placeholder="Mar 3 or 3/3" aria-label="Date (month and day)" title="Mar 3, 3/3, 0303, 3 March" class="mtl-date"/>
+              <input name="date" required placeholder="Mar 3" aria-label="Date (month and day)" title="Mar 3, 3/3, 0303, 3 March" class="mtl-date"/>
               <input name="label" required maxlength="60" placeholder="Add a milestone" aria-label="Milestone"/>
               <button class="mtl-plus" aria-label="Add milestone">+</button>
             </form>
@@ -195,7 +195,7 @@ function overview() {
           <section class="card ov-card">
             <h2>Team</h2>
             <ul class="glance ov-scroll">
-              ${state.people.map((p) => `<li><a href="#team">${esc(p.name)}</a>
+              ${state.people.map((p) => `<li><a href="#team">${p.photo ? `<img class="gl-ph" src="${p.photo}" alt=""/>` : ''}${esc(p.name)}</a>
                 <span class="dots">${rolesOf(p.id).map((r) => `<i class="dot ${statusKey(r.status)}" title="${esc(r.title)} · ${esc(r.status)}"></i>`).join('')}</span></li>`).join('')}
             </ul>
             <div class="legend"><span><i class="dot not-started"></i>To do</span><span><i class="dot in-progress"></i>In progress</span><span><i class="dot waiting-on-bride"></i>Waiting</span><span><i class="dot done"></i>Done</span></div>
@@ -246,7 +246,14 @@ let confirmDel = null;    // person id showing the inline "Remove X?"
 let editingRole = null;  // role id being edited on a team card
 let menuFor = null;       // person id whose colour menu is open
 
-const statusDots = (r) => `<button type="button" class="stbtn ${statusKey(r.status)}" data-role="${r.id}" title="Change status" aria-label="Status: ${r.status}. Click to change"><i aria-hidden="true"></i><span>${r.status}</span></button>`;
+const ST_SVG = {
+  'not-started': '<circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  'in-progress': '<circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.8a5.2 5.2 0 0 0 0 10.4z" fill="currentColor"/>',
+  'waiting-on-bride': '<path d="M8 2.6l5.6 9.8H2.4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.6v2.8M8 11v.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  done: '<path d="M3.2 8.4l3.3 3.3 6.3-6.9" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+const stIcon = (st) => `<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${ST_SVG[statusKey(st)] || ''}</svg>`;
+const statusDots = (r) => `<button type="button" class="stbtn ${statusKey(r.status)}" data-role="${r.id}" title="Change status" aria-label="Status: ${r.status}. Click to change"><i aria-hidden="true">${stIcon(r.status)}</i><span>${r.status}</span></button>`;
 
 /** Agenda blocks this person is responsible for (the Agenda page stays the source) */
 function agendaOf(pid) {
@@ -339,29 +346,34 @@ function mixColors(list) {
   return [...out, ...by.none];
 }
 
+
+/* Team filter: one bubbly menu like Guests' (status on the left, how many on the right) */
+const teamFilterMenu = () => {
+  const items = [['all', 'Everyone', state.people.length, ''], ...STATUSES.map((st) => ['st:' + statusKey(st), st, state.roles.filter((r) => r.status === st).length, stIcon(st)])];
+  const cur = items.find((x) => x[0] === teamFilter) || items[0];
+  return `<div class="gfilter tfilter" id="tFilter">
+    <button class="gf-btn ${teamFilter === 'all' ? '' : 'set'}" aria-haspopup="listbox" aria-expanded="false">${FUNNEL}<span>${esc(cur[1])}</span><b>${cur[2]}</b><i aria-hidden="true"></i></button>
+    <div class="gf-menu" role="listbox">${items.map(([k, l, n, ic]) => `<button role="option" data-tf="${k}" class="${k === teamFilter ? 'on' : ''} ${n ? '' : 'none'} ${k.startsWith('st:') ? 'st-' + k.slice(3) : ''}" aria-selected="${k === teamFilter}">${ic ? `<span class="tf-ic">${ic}</span>` : BS_CHECK}<span class="gf-l">${esc(l)}</span><span class="gf-n">${n}</span></button>`).join('')}</div>
+  </div>`;
+};
+
 function team() {
   const titles = [...new Set(state.roles.map((r) => r.title))].sort((a, b) => a.localeCompare(b));
   const people = orderedPeople().filter(matchesFilter);
   view.innerHTML = `
     <div class="page-head team-head">
-      <h1>Team</h1>
-      <div class="st-tabs" role="group" aria-label="Filter by status">
-        <button type="button" aria-pressed="${teamFilter === 'all'}" class="${teamFilter === 'all' ? 'on' : ''}" data-f="all"><span class="n"><b>${state.people.length}</b></span><span class="l">Everyone</span></button>
-        ${STATUSES.map((st) => `<button type="button" aria-pressed="${teamFilter === 'st:' + statusKey(st)}" class="${statusKey(st)}${teamFilter === 'st:' + statusKey(st) ? ' on' : ''}" data-f="st:${statusKey(st)}"><span class="n"><b>${state.roles.filter((r) => r.status === st).length}</b><i class="shp" aria-hidden="true"></i></span><span class="l">${st}</span></button>`).join('')}
-      </div>
-      <label class="tf-select"><span class="sr-only">Role</span>
-        <select id="teamFilter" data-bub aria-label="Filter by role"><option value="all">All roles</option>${titles.map((t) => `<option value="role:${esc(t)}">${esc(t)}</option>`).join('')}</select>
-      </label>
+      <h1>Team <span class="t-n">(${state.people.length})</span></h1>
+      ${teamFilterMenu()}
     </div>
     <div class="tgrid">
       ${people.map(personCard).join('')}
       ${teamFilter === 'all' ? `<form class="tcard t-add" id="addPerson" autocomplete="off"><input name="who" placeholder="+ Add someone" aria-label="New team member's name"/></form>` : ''}
     </div>
     ${people.length ? '' : `<div class="tf-none"><p>No one has a role in this view.</p><button type="button" class="tc-yes" data-f="all">Show everyone</button></div>`}`;
-  const sel = view.querySelector('#teamFilter');
-  sel.value = teamFilter.startsWith('role:') ? teamFilter : 'all';
-  sel.onchange = () => { teamFilter = sel.value; team(); };
-  view.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { teamFilter = teamFilter === b.dataset.f ? 'all' : b.dataset.f; team(); });
+  const tf = view.querySelector('#tFilter');
+  tf.querySelector('.gf-btn').onclick = () => { const o = !tf.classList.contains('open'); tf.classList.toggle('open', o); tf.querySelector('.gf-btn').setAttribute('aria-expanded', o); };
+  tf.querySelectorAll('[data-tf]').forEach((b) => b.onclick = () => { teamFilter = b.dataset.tf; team(); });
+  view.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { teamFilter = 'all'; team(); });
   bubbleSelects(view);
   const drag = wireTeamDrag(view.querySelector('.tgrid'), { save: saveTeamOrder });
   view.querySelectorAll('[data-move]').forEach((b) => b.onclick = () => { drag.move(b.closest('.tcard'), +b.dataset.move); b.focus({ preventScroll: true }); });
@@ -375,7 +387,8 @@ function team() {
     r.status = STATUSES[(STATUSES.indexOf(r.status) + 1) % STATUSES.length];
     const st = r.status;
     view.querySelectorAll(`.stbtn[data-role="${CSS.escape(rid)}"]`).forEach((o) => { o.className = 'stbtn ' + statusKey(st); o.querySelector('span').textContent = st; o.setAttribute('aria-label', `Status: ${st}. Click to change`); o.closest('.tc-role').dataset.status = statusKey(st); });
-    view.querySelectorAll('.st-tabs [data-f^="st:"]').forEach((sp, i) => { sp.querySelector('b').textContent = state.roles.filter((x) => x.status === STATUSES[i]).length; });
+    view.querySelectorAll(`.stbtn[data-role="${CSS.escape(rid)}"] i`).forEach((ic) => { ic.innerHTML = stIcon(st); });
+    view.querySelectorAll('#tFilter [data-tf^="st:"] .gf-n').forEach((sp, i) => { sp.textContent = state.roles.filter((x) => x.status === STATUSES[i]).length; });
     commit({ silent: true });
   });
   view.querySelectorAll('[data-openperson]').forEach((b) => b.onclick = () => openPerson(b.dataset.openperson));

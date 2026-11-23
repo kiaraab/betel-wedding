@@ -14,7 +14,7 @@ const TOURS = {
     ['.mtl-add', 'Add a date, like “Mar 3”.'],
   ],
   team: [
-    ['#teamFilter', 'Show by status or role.'],
+    ['#tFilter', 'Show people by status.'],
     ['.sdots', 'Tap a dot to set status.'],
     ['.tc-name', 'Tap a name for details.'],
     ['#addPerson', 'Add someone.'],
