@@ -3,6 +3,7 @@ import { WEDDING, STATUSES, MILESTONES, MOODS, INSPO } from './data.js';
 import { seatCount, RELATIONS, relationOf } from './layout.js';
 import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
+import { openCatering } from './catering.js';
 import { enableAddressLookup } from './address.js';
 import { esc, toast, daysUntil, fmtDate, confirmDialog, initTablists, initSlideInk, bubbleSelects, BS_CHECK } from './util.js';
 import { wireTeamDrag } from './team-drag.js';
@@ -622,7 +623,7 @@ function guests() {
       <button class="btn moss">Add</button>
       <button type="button" class="btn line icon-btn paste-btn" id="pasteBtn" aria-expanded="false" aria-label="Paste a list" title="Paste a list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M9 4.5h6v3H9zM15 6h2.5a1 1 0 0 1 1 1v12.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H9M8.5 12h7M8.5 15.5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
-      <div class="head-actions">${guestViewToggle()}<button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+      <div class="head-actions">${guestViewToggle()}<button class="btn line icon-btn" id="catBtn" aria-label="Catering list" title="Catering list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 21V3c-2 1.5-3 4-3 7v3h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     </div>
 
     <div id="pasteHost"></div>
@@ -654,6 +655,7 @@ function guests() {
 
   const add = (name, side = 'Both') => state.guests.push({ id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null });
   view.querySelector('#csv').onclick = () => guestsCSV();
+  view.querySelector('#catBtn').onclick = () => openCatering();
   // column picker (bubbly menu of toggles)
   const gcols = view.querySelector('#gCols'), gcBtn = gcols.querySelector('.gcols-btn');
   const gcOpen = (o) => { gcols.classList.toggle('open', o); gcBtn.setAttribute('aria-expanded', String(o)); };

@@ -57,12 +57,12 @@ export function addPlusOne(g) {
 }
 
 /* ---------- photo: small square JPEG, kept tiny for local storage ---------- */
-export function photoFromFile(file, max = 25_000) {
+export function photoFromFile(file, max = 7_000) {   // ~7 KB each, so 60 guests with photos stay well under the 900 KB shared-plan limit
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const side = Math.min(img.width, img.height);
-      let px = 160, q = 0.82, url = '';
+      let px = 128, q = 0.8, url = '';
       for (let i = 0; i < 8; i++) {
         const c = document.createElement('canvas'); c.width = c.height = px;
         c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, px, px);
