@@ -3869,3 +3869,11 @@ body[data-route="guests"] { background: #fbfaf8; }
   .seat-layout.is-plan .plan, .seat-layout.is-plan svg.plan { height: auto !important; min-height: 0 !important; max-height: none !important; }
 }
 @media (max-width: 760px) { .seat-layout .card.plan-card { padding-left: 0 !important; padding-right: 0 !important; } }
+
+/* REQ-142: phone tap targets on Seating (40px+) */
+@media (max-width: 760px) {
+  .sp-sub { min-height: 40px; display: inline-flex; align-items: center; }
+  .tool.undo, button.tool { min-height: 40px; }
+  .linkbtn { min-height: 40px; padding: 0 8px; display: inline-flex; align-items: center; }
+  .tour-link, .vm-crumb a { min-height: 40px; display: inline-flex; align-items: center; }
+}
