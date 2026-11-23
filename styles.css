@@ -3591,3 +3591,10 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
   body[data-route="guests"] .card, body[data-route="guests"] .table-wrap, table.guests .detail-row td, table.guests tr { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; transform: none !important; filter: none !important; }
   body[data-route="guests"] .card.flush { background: rgba(253, 250, 244, .94) !important; }
 }
+
+/* Seating toolbar: the save-as-picture button was a white icon on a transparent background (invisible); Undo reads as a button */
+.plan-tools #share, .plan-tools #share:hover { background: var(--c-wine, #6e1f2e); border-color: var(--c-wine, #6e1f2e); color: #fff; }
+.plan-tools #share:hover { background: #5a1822; }
+.plan-tools #share svg path { stroke: currentColor; }
+.plan-tools #hdrUndo { color: var(--c-wine, #5e1a29); }
+.plan-tools #hdrUndo:disabled { opacity: .6; }
