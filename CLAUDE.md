@@ -8,3 +8,8 @@ The dev board (`../wedding-dev-board`, `node board.mjs ...`) is how Kiara knows 
 - New bug or idea found along the way: `node board.mjs add ...` with repeatable steps for bugs.
 - Work started but not finished: leave a `note` saying where it stands. Never leave a ticket "backlog" after it shipped.
 - Also keep `RELEASE-NOTES.md` current when a batch ships (see the betel-ship skill).
+
+## Read first, write back
+- `docs/WIKI.md`: how the site works (code map, state, seating rules, CSS gotchas, testing). Read it before changing a feature.
+- `docs/DECISIONS.md`: every product decision and why. When you make or learn a decision, add a row. Do not contradict a logged decision without the owner's say.
+- Public repo: no private details in any file (emails, personal notes, keys).
