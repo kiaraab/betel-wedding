@@ -29,7 +29,7 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 
 **Feedback box**
 - Bell > Send feedback (Request or Something broke). Saved to Firestore, with an offline queue. Owner exports from the Live panel (Feedback); `wedding-dev-board/feedback-to-board.mjs` turns the export into tickets. Skill: `betel-feedback`.
-- The `feedback` Firestore rule was published by the owner on Nov 23 (see `FIRESTORE-RULES.txt`). Not yet verified with a real send from a signed-in browser.
+- The `feedback` Firestore rule was published by the owner on Nov 23 (see `FIRESTORE-RULES.txt`). Verified live in the Firebase console (Nov 23, 1:51 AM version contains the feedback rule). A real send from a signed-in browser is still untested.
 
 **Smaller**
 - Clearance: outside the Reception, dropping a table only bounces on real overlaps (no 3 ft ring around the fountain, 1 ft between standing tables). Clearer message.
