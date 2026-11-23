@@ -22,7 +22,7 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 
 **Feedback box**
 - Bell > Send feedback (Request or Something broke). Saved to Firestore, with an offline queue. Owner exports from the Live panel (Feedback); `wedding-dev-board/feedback-to-board.mjs` turns the export into tickets. Skill: `betel-feedback`.
-- Needs one Firestore rule published (see `FIRESTORE-RULES.txt`, the `feedback` line). Until then notes wait in the sender's browser.
+- The `feedback` Firestore rule was published by the owner on Nov 23 (see `FIRESTORE-RULES.txt`). Not yet verified with a real send from a signed-in browser.
 
 **Smaller**
 - Clearance: outside the Reception, dropping a table only bounces on real overlaps (no 3 ft ring around the fountain, 1 ft between standing tables). Clearer message.
@@ -45,4 +45,4 @@ Lock screen with aerial photo and heart unlock; Morais overview map (aerial with
 ---
 
 ## Still open (as of Nov 23)
-REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (needs files), REQ-114 filter highlight, REQ-120 Home Screen guide, REQ-121 3D for other places, REQ-122 tell Betel at launch, QA-24 (3D empty on first visit, could not reproduce), REQ-136 publish the feedback rule.
+REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (needs files), REQ-114 filter highlight, REQ-120 Home Screen guide, REQ-121 3D for other places, REQ-122 tell Betel at launch, QA-24 (3D empty on first visit, could not reproduce).

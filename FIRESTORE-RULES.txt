@@ -8,7 +8,7 @@ service cloud.firestore {
     match /plans/{id} { allow read, write: if editor(); }
     match /editors/{e} { allow read, write: if owner(); }
     match /secrets/{s} { allow read: if editor(); allow write: if owner(); }
-    // ADD (Nov 23 2026, not published yet): the feedback box. Editors may create a note about themselves; only the owner reads or deletes them.
+    // ADDED and published by the owner (Nov 23 2026): the feedback box. Editors may create a note about themselves; only the owner reads or deletes them.
     match /feedback/{f} { allow create: if editor() && request.resource.data.keys().hasOnly(['type', 'text', 'page', 'by', 'at']) && request.resource.data.by == mail() && request.resource.data.text is string && request.resource.data.text.size() < 2000 && request.resource.data.type in ['bug', 'request']; allow read, delete: if owner(); }
     match /requests/{e} { allow create, update: if verified() && e == mail(); allow read, delete: if owner(); }
   }

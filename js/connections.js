@@ -73,10 +73,14 @@ export function renderConnections(host) {
   cancelAnimationFrame(raf);
   state.links ||= [];
   const guests = state.guests.filter((g) => g.rsvp !== 'Declined');
-  const W = Math.max(320, host.clientWidth || 900), H = Math.min(640, Math.max(420, Math.round(W * 0.62)));
+  const hostW = Math.max(320, host.clientWidth || 900), many = guests.length > 25;
+  // ~100 people need room: the canvas grows with the list (phones scroll sideways inside the graph) and the people push each other further apart
+  const W = many ? Math.max(hostW, Math.min(1100, 320 + guests.length * 6)) : hostW;
+  const H = many ? Math.min(1100, Math.max(420, Math.round(W * 0.62), 240 + guests.length * 6.5)) : Math.min(640, Math.max(420, Math.round(W * 0.62)));
+  const REP = many ? 1900 : 1100, RANGE = many ? 260 : 220, MINGAP = many ? 34 : 26;
   host.innerHTML = `
     <div class="graph-wrap">
-      <svg class="graph" viewBox="0 0 ${W} ${H}" role="img" aria-label="Guest connections"></svg>
+      <div class="graph-scroll"><svg class="graph" viewBox="0 0 ${W} ${H}" role="img" aria-label="Guest connections"${W > hostW ? ` style="width:${W}px;max-width:none"` : ''}></svg></div>
       <div class="graph-choose" hidden></div>
       <div class="graph-suggest" hidden></div>
       <div class="graph-legend">
@@ -136,7 +140,7 @@ export function renderConnections(host) {
   let proposals = []; // suggested links, drawn dashed in the graph until accepted or skipped
   let hulls = [];
   function drawEdges() {
-    edgeLayer.innerHTML = edges().map((l) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}"/><line class="edge ${l.type}" data-a="${l.a}" data-b="${l.b}"/>`).join('')
+    edgeLayer.innerHTML = edges().map((l) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}"/><line class="edge ${l.type}" data-a="${l.a}" data-b="${l.b}"/>${l.type === 'love' ? `<path class="eheart" data-a="${l.a}" data-b="${l.b}" d="M0 4.2C-7.5-.6-6.4-7.4 0-3.6 6.4-7.4 7.5-.6 0 4.2Z"/>` : ''}`).join('')
       + proposals.map((l, i) => `<line class="edge-hit" data-a="${l.a}" data-b="${l.b}" data-prop="${i}"/><line class="edge proposed" data-a="${l.a}" data-b="${l.b}" data-pi="${i}"/>`).join('');
     drawList();
   }
@@ -150,8 +154,17 @@ export function renderConnections(host) {
     const listed = new Set([...list.querySelectorAll('[data-k]')].map((li) => li.dataset.k));
     const first = (id) => byId.get(id).g.name.split(' ')[0];
     list.innerHTML = ls.length
-      ? ls.map((l, i) => `<li data-k="${key(l.a, l.b)}" class="${listed.has(key(l.a, l.b)) ? 'old' : ''}"><span class="dot-${l.type}"></span>${esc(first(l.a))} &amp; ${esc(first(l.b))}<em>${l.type === 'together' ? 'like' : l.type}</em><button class="x" data-unlink="${i}" aria-label="Remove link">×</button></li>`).join('')
+      ? ls.map((l, i) => `<li data-k="${key(l.a, l.b)}" class="${listed.has(key(l.a, l.b)) ? 'old' : ''}"><span class="dot-${l.type}"></span>${esc(first(l.a))} &amp; ${esc(first(l.b))}<span class="seg" role="group" aria-label="Relationship">${['love', 'like', 'apart'].map((t) => `<button type="button" class="seg-${t}" data-set="${t}" data-i="${i}" aria-pressed="${(l.type === 'together' ? 'like' : l.type) === t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</span><button class="x" data-unlink="${i}" aria-label="Remove link">×</button></li>`).join('')
       : '<li class="empty">No links yet</li>';
+    list.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => {
+      const l = ls[+b.dataset.i], type = b.dataset.set;
+      if ((l.type === 'together' ? 'like' : l.type) === type) return;
+      const before = state.links.slice();
+      state.links = state.links.map((x) => (key(x.a, x.b) === key(l.a, l.b) ? { ...x, type } : x));
+      commit({ silent: true });
+      drawEdges(); render(); reheat();
+      toast(`${first(l.a)} & ${first(l.b)}: ${type}`, { undo: () => { state.links = before; commit({ silent: true }); drawEdges(); render(); reheat(); } });
+    });
     list.querySelectorAll('[data-unlink]').forEach((b) => b.onclick = () => {
       const l = ls[+b.dataset.unlink];
       removeLink(l.a, l.b);
@@ -175,8 +188,14 @@ export function renderConnections(host) {
       for (let j = i + 1; j < nodes.length; j++) {
         const b = nodes[j].p;
         let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy || 1;
-        if (d2 > 220 * 220) continue;
-        const f = (1100 / d2) * k;
+        // nobody sits on top of anybody: a minimum distance (names stay readable)
+        if (d2 < MINGAP * MINGAP) {
+          const d = Math.sqrt(d2) || 1, push = ((MINGAP - d) / 2) * Math.min(1, k + 0.4);
+          const ux = dx || dy ? dx / d : 1, uy = dx || dy ? dy / d : 0;
+          a.x += ux * push; a.y += uy * push; b.x -= ux * push; b.y -= uy * push;
+        }
+        if (d2 > RANGE * RANGE) continue;
+        const f = (REP / d2) * k;
         const d = Math.sqrt(d2); dx /= d; dy /= d;
         a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
       }
@@ -205,6 +224,10 @@ export function renderConnections(host) {
       const ps = hulls[+el.dataset.h].ids.map((id) => byId.get(id).p);
       const x0 = Math.min(...ps.map((q) => q.x)) - 26, x1 = Math.max(...ps.map((q) => q.x)) + 26, y0 = Math.min(...ps.map((q) => q.y)) - 22, y1 = Math.max(...ps.map((q) => q.y)) + 34;
       el.setAttribute('x', x0); el.setAttribute('y', y0); el.setAttribute('width', x1 - x0); el.setAttribute('height', y1 - y0);
+    });
+    edgeLayer.querySelectorAll('.eheart').forEach((el) => {
+      const a = byId.get(el.dataset.a).p, b = byId.get(el.dataset.b).p;
+      el.setAttribute('transform', `translate(${(a.x + b.x) / 2} ${(a.y + b.y) / 2})`);
     });
     edgeLayer.querySelectorAll('.edge, .edge-hit').forEach((el) => {
       const a = byId.get(el.dataset.a).p, b = byId.get(el.dataset.b).p;
