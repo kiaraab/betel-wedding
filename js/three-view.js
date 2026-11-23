@@ -228,6 +228,58 @@ function chairFrame() {
 }
 const chairCushion = () => (chairFrame(), _cushion);
 
+/** A swag of sheer chiffon hung along a sagging top edge from a to b ([x, y, z]); it billows sideways and gathers toward the ends. */
+function swagGeo(a, b, sag, drop, seed) {
+  const nu = 24, nv = 8, pos = [], uv = [], idx = [];
+  const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, nx = -dz / len, nz = dx / len;
+  for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) {
+    const u = i / nu, v = j / nv, top = a[1] + (b[1] - a[1]) * u - sag * 4 * u * (1 - u);
+    const off = Math.sin(u * 7 + seed + v * 2.2) * 0.5 * v + Math.sin(seed) * 0.35 * v;
+    const d = drop * (0.7 + 0.3 * Math.sin(u * Math.PI * 3 + seed)) * v * (1 - 0.35 * Math.sin(u * Math.PI)); // longer at the ends, gathered mid-span
+    pos.push(a[0] + dx * u + nx * off, top - d, a[2] + dz * u + nz * off); uv.push(u, v);
+  }
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const p = j * (nu + 1) + i; idx.push(p, p + 1, p + nu + 1, p + 1, p + nu + 2, p + nu + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+/** Hanging greenery (the board's sheer-greenery pins): wire + olive leaves + a few cream blooms, from anchor points [x, y, z]. 3 draw calls total. */
+function greenStrands(anchors, seed, maxDrop = 4.5) {
+  const rnd = rngOf(seed), grp = new THREE.Group(), wire = [], lm = [], fm = [], lc = [], M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), P = new THREE.Vector3(), S = new THREE.Vector3(), C = new THREE.Color();
+  const LEAF = ['#5d6a35', '#6f7a45', '#4b522b', '#7d8a4c', '#8d9a5c'];
+  anchors.forEach(([x, y, z]) => {
+    const drop = maxDrop * (0.45 + rnd() * 0.75), n = Math.max(4, Math.round(drop * 3.4)), ph = rnd() * 6;
+    wire.push(x, y, z, x, y - drop, z);
+    for (let i = 1; i <= n; i++) {
+      const u = i / n, jx = Math.sin(u * 5 + ph) * 0.16 + (rnd() - 0.5) * 0.18, jz = Math.cos(u * 4 + ph) * 0.14 + (rnd() - 0.5) * 0.18, s = 0.9 + rnd() * 0.5;
+      M.compose(P.set(x + jx, y - u * drop, z + jz), Q.setFromEuler(E.set(rnd() * 3, rnd() * 3, rnd() * 3)), S.set(0.22 * s, 0.09 * s, 0.14 * s)); lm.push(M.clone()); lc.push(C.set(LEAF[Math.floor(rnd() * LEAF.length)]).clone());
+    }
+    if (rnd() < 0.35) { M.compose(P.set(x + 0.05, y - drop * (0.55 + rnd() * 0.4), z), Q.identity(), S.set(0.2, 0.2, 0.2)); fm.push(M.clone()); }
+  });
+  const lines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(wire, 3)), new THREE.LineBasicMaterial({ color: '#4b522b' }));
+  const leaves = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ roughness: 0.9 }), lm.length);
+  lm.forEach((m, i) => { leaves.setMatrixAt(i, m); leaves.setColorAt(i, lc[i]); });
+  grp.add(lines, leaves);
+  if (fm.length) { const fl = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshStandardMaterial({ color: '#f2ead8', roughness: 0.8 }), fm.length); fm.forEach((m, i) => fl.setMatrixAt(i, m)); grp.add(fl); }
+  return grp;
+}
+
+/** Flower arch wrapped in greenery and cream/wine blooms, with a floral mound and stone urn at each foot (merged: one draw call). Faces +z, centred on x = 0, standing on y = 0. */
+function floralArch(R, seed) {
+  const rnd = rngOf(seed), parts = [], top = R + 1.2;
+  for (let k = 0; k < 70; k++) {
+    const a = (k / 69) * Math.PI, jx = (rnd() - 0.5) * 0.5, jr = (rnd() - 0.5) * 0.5, x = Math.cos(a) * (R + jr), y = 1.4 + Math.sin(a) * (top - 1.4) + jx;
+    parts.push(part('sph', k % 3 ? '#5d6a35' : '#6f7a45', [x, y, (rnd() - 0.5) * 0.7], [0.45, 0.4, 0.4]));
+    if (k % 2 === 0) { const r = 0.2 + rnd() * 0.18; parts.push(part('sph', BLOOMS[Math.floor(rnd() * BLOOMS.length)], [x + (rnd() - 0.5) * 0.4, y + 0.25, 0.4 + rnd() * 0.3], [r, r * 0.85, r])); }
+  }
+  [-1, 1].forEach((sd, s) => {
+    parts.push(part('cyl', '#cfc7b4', [sd * R, 1.0, 0], [0.55, 2.0, 0.55]), part('cyl', '#e0d8c4', [sd * R, 2.15, 0], [0.8, 0.3, 0.8])); // urn
+    parts.push(...florals(sd * R, 2.3, 0, 1.5, 1.1, seed + s * 13), ...florals(sd * (R + 1.1), 0.1, 0.5, 2.0, 1.2, seed + 40 + s)); // urn arrangement + ground mound
+  });
+  const g = mergeGeometries(parts); parts.forEach((p) => p.dispose()); return g;
+}
+
 /** Floor-length cloth for a round table: pooled hem and soft radial pleats (cached). */
 function clothGeo(r, th) {
   const key = ['c', round1(r), th].join();
@@ -296,7 +348,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const glassMats = [], lamps = [], flames = [], popIns = [];
 
   /* ---- floor + walls ---- */
-  const FLOORS = { lawn: '#8fa876', concrete: '#cfc9bd', tile: '#d9ccb6' }; // flat colors for the other spaces
+  const FLOORS = { lawn: '#74895b', concrete: '#cfc9bd', tile: '#d9ccb6' }; // flat colors for the other spaces
   let floorMat;
   if (ballroom) { const wood = woodTexture(); wood.repeat.set(w / 16, h / 16); floorMat = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.55 }); }
   else floorMat = new THREE.MeshStandardMaterial({ color: FLOORS[ROOM.floor] || '#d9ccb6', roughness: 0.9 });
@@ -636,8 +688,6 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const chairMat = look ? new THREE.MeshStandardMaterial({ color: look.chair, roughness: 0.6 }) : new THREE.MeshStandardMaterial({ color: '#4a2f1e', roughness: 0.6 }); // dark walnut cross-back chairs
   const cushionMat = new THREE.MeshStandardMaterial({ color: sp?.id === 'cocktail' ? '#2b2b2b' : '#e9dfc8', roughness: 0.95 }); // ivory linen seat pad
   const seatedMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.7 });
-  const bloomMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.8 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: mood.swatches[1], roughness: 0.8 });
   const flameMat = new THREE.MeshStandardMaterial({ color: '#ffe7b0', emissive: '#ffb347', emissiveIntensity: 0.4 });
 
   const candlePos = []; // world positions of every flame, for the glow halos
@@ -744,6 +794,66 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     if (a.preset !== 'aisle') { const tag = label(a.label, { size: 1.2, color: '#6b1f2a' }); tag.position.set(cx, 5 + up, cz); scene.add(tag); }
   });
 
+  /* ---- styling from the board: chiffon swags, hanging greenery, flower arch, mirror aisle, olive velvet drapes ---- */
+  const chiffonMats = [PAL.sage, '#efe8d4'].map((c) => new THREE.MeshStandardMaterial({ color: c, emissive: '#2a3018', emissiveIntensity: 0.3, roughness: 0.9, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+  const swag = (a, b, sag, drop, i, parent = scene) => { const m = new THREE.Mesh(swagGeo(a, b, sag, drop, i * 1.7 + 0.4), chiffonMats[i % 2]); m.renderOrder = 3; parent.add(m); return m; };
+  {
+    const pg = (fixed.decor || []).find((d) => d.kind === 'pergola');
+    if (pg) { // ceremony: sheer chiffon over the pergola, greenery hanging from the slats
+      const cols = [0, 1 / 3, 2 / 3, 1].map((f) => X(pg.x + f * pg.w)), z0 = Z(pg.y), z1 = Z(pg.y + pg.h), yb = 10.4;
+      let n = 0;
+      [z0, z1].forEach((z) => cols.slice(0, -1).forEach((x, k) => swag([x, yb, z], [cols[k + 1], yb, z], 1.6, 4.2, n++)));
+      [1, 2].forEach((k) => swag([cols[k], yb, z0], [cols[k], yb, z1], 2.2, 3.4, n++));
+      swag([cols[0], yb, z0], [cols[3], yb + 0.3, z1], 3, 3.2, n++); swag([cols[3], yb, z0], [cols[0], yb + 0.3, z1], 3, 3.2, n++);
+      const anchors = [], rnd = rngOf(5);
+      for (let x = pg.x + 1; x < pg.x + pg.w; x += 1.6) for (const fy of [0.08, 0.35, 0.65, 0.92]) if (rnd() < 0.7) anchors.push([X(x), 10.9, Z(pg.y + pg.h * fy)]);
+      scene.add(greenStrands(anchors, 21, 5));
+    }
+    const altar = ROOM.areas.find((a) => a.preset === 'altar');
+    if (altar && sp?.id === 'ceremony') { // flower arch at the altar
+      const ax = X(altar.x + altar.w / 2), az = Z(altar.y + altar.h * 0.55), R = Math.min(5.2, altar.w / 2 + 2.2);
+      const arch = new THREE.Mesh(floralArch(R, 9), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
+      arch.position.set(ax, altar.h ? 0.6 : 0, az); scene.add(arch);
+      const top = R + 1.8;
+      swag([ax - R, top, az + 0.5], [ax + R, top, az + 0.5], 1.4, 5.2, 1); swag([ax - R, top + 0.2, az - 0.3], [ax + R, top + 0.2, az - 0.3], 1.8, 6.5, 2);
+      [-1, 1].forEach((sd, k) => swag([ax + sd * R, top, az], [ax + sd * (R + 1.8), 0.9, az + 0.6], 0, 4.5, 3 + k));
+      const ga = []; for (let k = 0; k < 16; k++) { const a = (k / 15) * Math.PI; ga.push([ax + Math.cos(a) * R * 0.98, 0.6 + 1.4 + Math.sin(a) * (R - 0.2), az + 0.55]); }
+      scene.add(greenStrands(ga, 33, 3.4));
+    }
+    // mirror aisle: a polished dark strip that "reflects" the sage chiffon and the string lights (painted, so no extra render pass)
+    const aisleA = ROOM.areas.find((a) => a.preset === 'aisle');
+    if (aisleA && sp?.id === 'ceremony') {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d');
+      const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#9fae86'); gr.addColorStop(0.35, '#5f6f58'); gr.addColorStop(1, '#27322f');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
+      g.fillStyle = 'rgba(255,238,200,.85)'; for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(8 + (k % 2) * 48, 40 + k * 32, 2.2, 0, 7); g.fill(); }
+      g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(0, 0, 6, 256); g.fillRect(58, 0, 6, 256);
+      const mt = new THREE.CanvasTexture(c); mt.colorSpace = THREE.SRGBColorSpace;
+      const mir = new THREE.Mesh(new THREE.PlaneGeometry(aisleA.w * 0.8, aisleA.h), new THREE.MeshStandardMaterial({ map: mt, emissiveMap: mt, emissive: '#ffffff', emissiveIntensity: 0.28, metalness: 0.85, roughness: 0.12 }));
+      mir.rotation.x = -Math.PI / 2; mir.position.set(X(aisleA.x + aisleA.w / 2), 0.07, Z(aisleA.y + aisleA.h / 2)); mir.receiveShadow = true; scene.add(mir);
+    }
+    // reception: olive velvet drapes + chiffon swags + hanging greenery behind the head table
+    const head = ballroom && TABLES.find((t) => t.id === 'head');
+    if (head) {
+      const hx = Math.max(-w / 2 + 14, Math.min(w / 2 - 14, X(head.x))), hz = Z(head.y), wallZ = -h / 2 + 0.5, behind = head.y < 14 && !onStage(head.x, head.y);
+      const velvet = new THREE.MeshStandardMaterial({ color: PAL.olive, roughness: 1, side: THREE.DoubleSide });
+      if (behind) { // pleated velvet panels at each side of the arched doors
+        [[-21, -11], [11, 21]].forEach(([a, b]) => {
+          const pw = b - a, geo = new THREE.PlaneGeometry(pw, 17, 60, 2); const p = geo.attributes.position;
+          for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin((p.getX(i) / pw) * Math.PI * 2 * 9) * 0.4 + (1 - (p.getY(i) + 8.5) / 17) * 0.2);
+          geo.computeVertexNormals();
+          const m = new THREE.Mesh(geo, velvet); m.position.set(hx + (a + b) / 2, 9.5, wallZ + 0.5); scene.add(m);
+        });
+      }
+      const sz = behind ? wallZ + 1.6 : hz - 3, span = 10, sy = 17.5;
+      let n = 0;
+      for (let k = -1; k <= 1; k++) { swag([hx + k * span - span / 2, sy, sz], [hx + k * span + span / 2, sy, sz], 2.2, 5.5, n++); swag([hx + k * span - span / 2, sy - 0.8, sz + 0.9], [hx + k * span + span / 2, sy - 0.8, sz + 0.9], 3, 4.2, n++); }
+      const ga = [], rnd = rngOf(77);
+      for (let x = hx - 15; x <= hx + 15; x += 1.1) ga.push([x, sy - 1.0 + rnd() * 0.3, sz + 0.5]);
+      scene.add(greenStrands(ga, 55, 5));
+    }
+  }
+
   /* ---- string lights: swags of warm bulbs across the room (wire = one LineSegments, bulbs = one InstancedMesh, halos = one Points) ---- */
   let candleGlow = null; // halos appear once the tables have popped in
   const bulbMat = new THREE.MeshStandardMaterial({ color: '#fff0cf', emissive: '#ffbf66', emissiveIntensity: 0.3 });
@@ -796,7 +906,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   /* ---- light moods ---- */
   const dayGlass = new THREE.Color('#fff4d6'), duskGlass = new THREE.Color('#334063');
   let evening = 0, eveningTarget = 0;
-  const LAMP = ballroom ? 55 : 80; // candlelight, not floodlight: the evening should read dim and warm
+  const LAMP = ballroom ? 55 : 55; // candlelight, not floodlight: the evening should read dim and warm
   const applyLight = (k) => {
     hemi.intensity = 1.3 - 1.05 * k;
     hemi.color.copy(hemiSky.day).lerp(hemiSky.night, k); hemi.groundColor.copy(hemiGnd.day).lerp(hemiGnd.night, k);
