@@ -351,10 +351,10 @@ export function mountLive(btn) {
         };
       } else {
         const reqs = await listRequests().catch(() => []);
-        pop.innerHTML = `${/^(Re)?connecting/i.test(i.status) ? `<div class="live-wait">${heartLoaderHTML('Connecting', { sm: true })}</div>` : `<h3>${esc(i.status)}</h3>`}<p>${esc(i.email)}</p>
+        pop.innerHTML = `<div class="live-head"><div>${/^(Re)?connecting/i.test(i.status) ? `<div class="live-wait">${heartLoaderHTML('Connecting', { sm: true })}</div>` : `<h3>${esc(i.status)}</h3>`}<p>${esc(i.email)}</p></div><button type="button" class="live-txt" data-out>Sign out</button></div>
           ${reqs.length ? `<ul class="live-reqs">${reqs.map((r) => `<li>${esc(r)} <button class="btn" data-ok="${esc(r)}">Approve</button></li>`).join('')}</ul>` : ''}
-          ${role === 'owner' ? `<form class="live-pre" autocomplete="off"><label>Let in automatically<input type="email" required placeholder="their@email.com" aria-label="Email to approve ahead"/></label><button class="btn">Add</button></form>${listPreapproved().length ? `<ul class="live-pre-l">${listPreapproved().map((e) => `<li>${esc(e)} <button type="button" class="linklike" data-unpre="${esc(e)}" aria-label="Remove ${esc(e)}">×</button></li>`).join('')}</ul>` : ''}` : ''}
-          <button class="btn" data-out>Sign out</button>`;
+          ${role === 'owner' ? `<form class="live-pre" autocomplete="off"><label>Let in automatically<span class="live-pre-row"><input type="email" required placeholder="their@email.com" aria-label="Email to approve ahead"/><button class="btn live-plus" aria-label="Add email" title="Add">+</button></span></label></form>${listPreapproved().length ? `<ul class="live-pre-l">${listPreapproved().map((e) => `<li>${esc(e)} <button type="button" class="linklike" data-unpre="${esc(e)}" aria-label="Remove ${esc(e)}">×</button></li>`).join('')}</ul>` : ''}` : ''}
+          `;
         pop.querySelector('.live-pre')?.addEventListener('submit', async (e) => { e.preventDefault(); const inp = e.target.querySelector('input'); try { await addPreapproved(inp.value); toast(`${inp.value} will be let in automatically`); draw(); } catch { toast('That does not look like an email'); } });
         pop.querySelectorAll('[data-unpre]').forEach((b) => { b.onclick = async () => { await removePreapproved(b.dataset.unpre); draw(); }; });
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });

@@ -3622,3 +3622,14 @@ body[data-route="guests"] table.guests .couple-tag, body[data-route="guests"] ta
 body[data-route="guests"] table.guests th { font-weight: 400; letter-spacing: .14em; }
 body[data-route="guests"] .lede { font-weight: 300; }
 @media (max-width: 760px) { body[data-route="guests"] table.guests tr.row td.c-name .g-name { font-weight: 400; font-size: 15px; } }
+
+/* Live panel (signed in): Sign out sits on the email line, "+" ends the invite field */
+.live-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.live-head > div { min-width: 0; flex: 1; }
+.live-head p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.live-head .live-txt { flex: none; white-space: nowrap; padding-top: 2px; }
+.live-pre { margin: 4px 0 4px; }
+.live-pre-row { display: flex; gap: 6px; align-items: stretch; text-transform: none; letter-spacing: 0; }
+.live-pre-row input { flex: 1; min-width: 0; }
+.live-pre-row .live-plus { flex: none; width: 38px; padding: 0; font-size: 20px; line-height: 1; }
+.live-pop .live-bottom { margin-top: 6px; }
