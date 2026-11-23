@@ -207,10 +207,12 @@ function areaSVG(a) {
   return g;
 }
 
-/** Everyone who can stand in the wedding party: the team (left by default) and any guest marked Groomsman (right by default). */
+/** Who stands at the altar comes from the Relationship category on the Guests page: Bridesmaid on the left, Groomsman on the right.
+ *  A team member keeps their team id as the key, so a saved order survives. Set someone to "—" (e.g. Layout & Flow helpers) and they leave the party. */
 function partyPool() {
-  return [...state.people.map((x) => ({ id: x.id, name: x.name, side: 'b' })),
-    ...state.guests.filter((g) => g.rsvp !== 'Declined' && relationOf(g) === 'Groomsman').map((g) => ({ id: g.id, name: g.name, side: 'g' }))];
+  const ok = (g) => g.rsvp !== 'Declined' && g.party !== 'couple';
+  const pick = (rel, side) => state.guests.filter((g) => ok(g) && relationOf(g) === rel).map((g) => ({ id: g.personId || g.id, name: g.name, side }));
+  return [...pick('Bridesmaid', 'b'), ...pick('Groomsman', 'g')];
 }
 
 function fixedSVG() {
