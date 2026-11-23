@@ -3967,3 +3967,33 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .dt-edit { position: relative; display: inline-block; cursor: pointer; border-bottom: 1px dotted currentColor; }
 .dt-edit .dt-in { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0; }
 .tc-due .dt-edit { border-bottom-color: transparent; text-decoration: underline dotted; text-underline-offset: 3px; }
+
+/* Phone Guests: a header row (Name | Side | Relationship) pinned under the menu bar, and the same fixed columns in every row so everything lines up */
+@media (max-width: 760px) {
+  html body[data-route="guests"] table.guests thead { display: block !important; position: sticky; top: 54px; z-index: 4; background: #f3ede2; border-bottom: 1px solid rgba(35, 37, 28, .14); }
+  html body[data-route="guests"] table.guests thead tr { display: grid !important; grid-template-columns: minmax(0, 1fr) 66px 104px 72px; gap: 0 6px; padding: 7px 12px; align-items: center; }
+  html body[data-route="guests"] table.guests thead th { display: none !important; padding: 0 !important; border: 0 !important; font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: #7a7a6e; text-align: left; background: none; position: static; }
+  html body[data-route="guests"] table.guests thead th:first-child, html body[data-route="guests"] table.guests thead th.h-side, html body[data-route="guests"] table.guests thead th.h-relation { display: block !important; }
+  html body[data-route="guests"] table.guests thead th .col-rs { display: none; }
+  html body[data-route="guests"] table.guests tr.row { grid-template-columns: minmax(0, 1fr) 66px 104px 72px !important; }
+  html body[data-route="guests"] table.guests tr.row > td.c-household, html body[data-route="guests"] table.guests tr.row > td.c-table, html body[data-route="guests"] table.guests tr.row > td.c-plus, html body[data-route="guests"] table.guests tr.row > td.c-notes, html body[data-route="guests"] table.guests tr.row > td.c-diet, html body[data-route="guests"] table.guests tr.row > td.c-rsvp { display: none !important; }
+  html body[data-route="guests"] table.guests tr.row > td.c-side .bs-btn, html body[data-route="guests"] table.guests tr.row > td.c-relation .bs-btn { width: 100%; min-width: 0; }
+  html body[data-route="guests"] table.guests tr.row .bs-btn .bs-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  html body[data-route="guests"] table.guests tr.row > td.c-side.c-couple { grid-column: 2 / 4; justify-self: start; }
+  html body[data-route="guests"] table.guests tr.row > td.row-actions { justify-content: flex-end; }
+}
+@media (max-width: 760px) {
+  /* header sticks to the page (not the table's own scroll box) and the columns get as much room for names as possible */
+  html body[data-route="guests"] .table-wrap { overflow: visible !important; }
+  html body[data-route="guests"] table.guests thead tr { grid-template-columns: minmax(0, 1fr) 58px 94px 62px; gap: 0 4px; padding: 7px 8px; }
+  html body[data-route="guests"] table.guests tr.row { grid-template-columns: minmax(0, 1fr) 58px 94px 62px !important; gap: 0 4px !important; padding: 3px 8px !important; }
+  html body[data-route="guests"] table.guests tr.row .addr-btn, html body[data-route="guests"] table.guests tr.row button.x { width: 30px !important; min-width: 30px !important; height: 34px !important; }
+  html body[data-route="guests"] table.guests tr.row > td.row-actions { gap: 0; }
+  html body[data-route="guests"] table.guests tr.row .bs-btn { padding: 0 5px !important; font-size: 12px; }
+  html body[data-route="guests"] table.guests tr.row .bs-btn svg { display: none; }
+}
+@media (max-width: 760px) {
+  html body[data-route="guests"] section.card.flush { overflow: visible !important; }
+  html body[data-route="guests"] table.guests thead tr { padding: 7px 8px !important; grid-template-columns: minmax(0, 1fr) 58px 94px 62px !important; gap: 0 4px !important; }
+  html body[data-route="guests"] table.guests thead th:first-child { padding-left: 2px !important; }
+}

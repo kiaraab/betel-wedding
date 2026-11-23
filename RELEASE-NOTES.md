@@ -139,3 +139,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Tasks can have a due date (shown on the card and in Next up); the guest-dots legend is tidier.
 
 - Dates can be changed right where they show (Next up, task cards, milestones).
+
+- Guests on phones: a header row (Name, Side, Relationship) stays pinned while you scroll, and the columns line up.

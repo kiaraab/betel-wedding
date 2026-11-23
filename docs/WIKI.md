@@ -55,6 +55,7 @@ A static, vanilla-JS wedding planner for the couple's team. Pages: Overview, Tea
 Flat colour, square corners, no gradients, no hover motion, minimal copy, no generated art or initials. Calm and low-clutter: one obvious next step per screen, nothing resets the user's place, a visible "Saved", Undo on changes, tuck secondary things behind "More", short animations only. Phone first: one-line guest rows, one-row header with a menu button, targets about 40px (not a top priority, keep them reasonable).
 
 ## CSS gotchas
+- `position: sticky` only works if no ancestor has `overflow` set (the Guests phone header needed `.table-wrap` and `section.card.flush` set to `overflow: visible`).
 - `styles.css` was built in layers (later rules override earlier ones, many with `!important`). To change something on a phone Guests row you may need `html body[data-route="guests"] table.guests tr.row ... !important`. Check the computed style in the browser before and after; never assume.
 - The Overview cards drop blur, mask and entry animation on phones on purpose (scroll flicker on iOS).
 - The Saved check uses a CSS escape in `content`; write real characters or double-check it renders.
