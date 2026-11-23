@@ -162,6 +162,10 @@ const ICON = {
   edit: '<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>',
   photo: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><circle cx="9" cy="10.5" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5 4.5 4"/>',
   open: '<path d="M9 6l6 6-6 6"/>',
+  aerial: '<path d="M3 15.5l5-5 4 4 3-3 6 6"/><circle cx="16.5" cy="7.5" r="1.8"/><rect x="3" y="4" width="18" height="16" rx="2.5"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.3 3.8 8.5s-1.2 6.1-3.8 8.5c-2.6-2.4-3.8-5.3-3.8-8.5S9.4 5.9 12 3.5z"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>',
   more: '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
 };
@@ -181,85 +185,98 @@ function mapHTML() {
   </div>`;
 }
 
-function groupHTML(a) {
-  const ps = photosIn(a.id);
-  return `<section class="vm-grp" data-area="${a.id}" style="--a:${a.color || 'var(--c-on-dark)'}">
-    <header class="vm-gh"><h3><i aria-hidden="true"></i>${esc(a.name)} <span class="vm-n">${ps.length}</span></h3>
-      <span class="vm-place">${esc(a.place)}</span>
-      ${a.space ? `<a class="vm-open" href="#seating/${a.space}" aria-label="Open ${esc(a.name)} plan" title="Open plan">${esc(statusOf(a))}${svgIcon('open', 14)}</a>` : ''}</header>
-    ${ps.length ? `<div class="vm-grid">${ps.map((p) => `<div class="vm-cell"><button type="button" class="vm-th" data-ph="${p.id}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" alt="${esc(p.name)}" loading="lazy" decoding="async" draggable="false"/></button>
-      <button type="button" class="vm-more" data-move="${p.id}" aria-label="Move ${esc(p.name)} to another place" aria-haspopup="menu" title="Move to…">${svgIcon('more', 14)}</button></div>`).join('')}</div>` : '<p class="vm-empty">No photos yet</p>'}
-  </section>`;
-}
+/** One photo tile (shared by the area pop-up and the all-photos gallery). */
+const cellHTML = (p, { chip = false } = {}) => `<div class="vm-cell"><button type="button" class="vm-th" data-ph="${p.id}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" alt="${esc(p.name)}" loading="lazy" decoding="async" draggable="false"/>${chip ? `<span class="vm-chip">${esc(AREAS.find((a) => a.id === areaOf(p))?.name || '')}</span>` : ''}</button>
+  <button type="button" class="vm-more" data-move="${p.id}" aria-label="Move ${esc(p.name)} to another place" aria-haspopup="menu" title="Move to…">${svgIcon('more', 14)}</button></div>`;
 
-/** Two ways to see the property: the close aerial (with the outlined areas) and a zoomed-out satellite map of the whole estate. */
+/** Two ways to see the property, as icons next to the title: the close aerial (outlined areas) and a zoomed-out satellite map. */
 const OVERVIEW_SRC = 'https://www.google.com/maps?q=Morais+Vineyards,+11409+Marsh+Road,+Bealeton,+VA+22716&t=k&z=17&output=embed';
-const VIEWS = [{ id: 'aerial', name: 'Aerial' }, { id: 'overview', name: 'Overview map' }];
-const viewsHTML = () => `<div class="vm-views vm-seg" role="tablist" aria-label="Map view">${VIEWS.map((v, i) => `<button type="button" role="tab" class="vm-view${i ? '' : ' on'}" data-view="${v.id}" aria-selected="${!i}">${esc(v.name)}</button>`).join('')}</div>`;
+const VIEWS = [{ id: 'aerial', name: 'Aerial view', icon: 'aerial' }, { id: 'overview', name: 'Overview map', icon: 'globe' }];
+const viewIcons = () => `<div class="vm-viewicons" role="tablist" aria-label="Map view">${VIEWS.map((v, i) => `<button type="button" role="tab" class="vm-view${i ? '' : ' on'}" data-view="${v.id}" aria-selected="${!i}" aria-label="${v.name}" title="${v.name}">${svgIcon(v.icon, 20)}</button>`).join('')}</div>`;
 
-/** Draw the map + grouped photos into `root`. `go(space)` opens a space's editor. */
+/** A fixed, shuffled order (once per visit) so the all-photos gallery mixes places like a camera roll. */
+const shuffled = (list) => { const a = list.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/** Draw the map, the area pop-up and the all-photos gallery into `root`. */
 export function renderVenueMap(root, { signal } = {}) {
+  const editable = AREAS.filter((a) => a.space);
+  const order0 = shuffled(PHOTOS.map((p) => p.id));
+  let filter = 'all';
   root.innerHTML = `
-    <div class="page-head vm-head"><h1 class="vm-title">Morais Vineyards</h1></div>
-    <div class="vm-wrap">
-      <div class="vm-mapcol">${mapHTML()}${viewsHTML()}</div>
-      <div class="vm-gallery" id="vmGallery" aria-label="Venue photos by place">${AREAS.map(groupHTML).join('')}</div>
-    </div>`;
-  const map = root.querySelector('#vmMap'), gal = root.querySelector('#vmGallery');
+    <div class="page-head vm-head"><div class="vm-titlerow">
+      <button type="button" class="vm-title" id="vmTitle" aria-expanded="false" aria-controls="vmTabs" title="Show the areas you can plan">Morais Vineyards<span class="vm-chev" aria-hidden="true">${svgIcon('chev', 20)}</span></button>
+      <nav class="vm-tabs" id="vmTabs" aria-label="Areas you can plan seats in"><div class="vm-tabs-in">${editable.map((a) => `<a href="#seating/${a.space}" style="--a:${a.color || '#fff'}"><i aria-hidden="true"></i>${esc(a.name)}</a>`).join('')}</div></nav>
+      ${viewIcons()}
+    </div></div>
+    <div class="vm-mapcol">${mapHTML()}<aside class="vm-pop" id="vmPop" hidden aria-label="Area details"></aside></div>
+    <section class="vm-all" aria-label="All venue photos">
+      <div class="vm-filters" role="group" aria-label="Filter photos by place" id="vmFilters"></div>
+      <div class="vm-allgrid" id="vmAll"></div>
+    </section>`;
+  const map = root.querySelector('#vmMap'), pop = root.querySelector('#vmPop'), allGrid = root.querySelector('#vmAll'), filters = root.querySelector('#vmFilters');
   const areaById = (id) => AREAS.find((a) => a.id === id);
+  const byId = (id) => PHOTOS.find((p) => p.id === id);
 
-  /* ---- views: aerial map, or a plain wide photo of the venue ---- */
-  const baseImg = map.querySelector('.vm-photo');
+  /* ---- the title opens the editable areas as tabs to its right ---- */
+  const title = root.querySelector('#vmTitle'), tabs = root.querySelector('#vmTabs');
+  title.addEventListener('click', () => { const o = !tabs.classList.contains('open'); tabs.classList.toggle('open', o); title.setAttribute('aria-expanded', o); title.classList.toggle('open', o); }, { signal });
+
+  /* ---- views: aerial photo with outlines, or the satellite overview ---- */
   root.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
     const over = b.dataset.view === 'overview';
     root.querySelectorAll('[data-view]').forEach((o) => { const on = o === b; o.classList.toggle('on', on); o.setAttribute('aria-selected', on); });
     map.classList.toggle('plain', over);
+    if (over) closePop();
     let fr = map.querySelector('.vm-embed');
     if (over && !fr) { fr = document.createElement('iframe'); fr.className = 'vm-embed'; fr.title = 'Satellite map of Morais Vineyards'; fr.loading = 'lazy'; fr.referrerPolicy = 'no-referrer'; fr.src = OVERVIEW_SRC; map.append(fr); }
     if (fr) fr.hidden = !over;
     map.querySelector('.vm-cap').textContent = over ? 'Satellite overview · drag to explore' : '';
   }, { signal }));
 
-  /* ---- highlight: an area on the map <-> its photo group ---- */
-  let hot = null, pinned = null, scrollT = 0;
-  const setHot = (id, { scroll = false } = {}) => {
-    hot = id;
-    root.querySelectorAll('[data-area]').forEach((el) => el.classList.toggle('hot', el.dataset.area === id));
-    gal.classList.toggle('picking', !!id);
-    clearTimeout(scrollT);
-    if (scroll && id) scrollT = setTimeout(() => {
-      const g = gal.querySelector(`.vm-grp[data-area="${id}"]`); if (!g) return;
-      if (gal.scrollHeight > gal.clientHeight + 4) gal.scrollTo({ top: g.offsetTop - gal.offsetTop - 8, behavior: 'smooth' }); // desktop: the panel scrolls inside itself
-    }, 180);
-  };
-  const rest = () => setHot(pinned);
-  map.addEventListener('pointerover', (e) => {
-    if (e.pointerType === 'touch') return;
-    const el = e.target.closest('[data-area]');
-    if (!el) return rest();
-    if (el.dataset.area !== hot) setHot(el.dataset.area, { scroll: true });
-  }, { signal });
-  map.addEventListener('pointerleave', rest, { signal });
-  map.addEventListener('focusin', (e) => { const el = e.target.closest('[data-area]'); if (el) setHot(el.dataset.area, { scroll: true }); }, { signal });
-  map.addEventListener('focusout', rest, { signal });
-  gal.addEventListener('pointerover', (e) => { const g = e.target.closest('.vm-grp'); if (g && e.pointerType !== 'touch' && g.dataset.area !== hot) setHot(g.dataset.area); }, { signal });
-  gal.addEventListener('pointerleave', rest, { signal });
-  gal.addEventListener('focusin', (e) => { const g = e.target.closest('.vm-grp'); if (g) setHot(g.dataset.area); }, { signal });
+  /* ---- hover: a quiet highlight only ---- */
+  let hot = null, open = null;
+  const setHot = (id) => { hot = id; root.querySelectorAll('.vm-map [data-area]').forEach((el) => el.classList.toggle('hot', el.dataset.area === (open || id))); };
+  map.addEventListener('pointerover', (e) => { if (e.pointerType === 'touch') return; const el = e.target.closest('[data-area]'); setHot(el ? el.dataset.area : null); }, { signal });
+  map.addEventListener('pointerleave', () => setHot(null), { signal });
+  map.addEventListener('focusin', (e) => { const el = e.target.closest('[data-area]'); if (el) setHot(el.dataset.area); }, { signal });
+  map.addEventListener('focusout', () => setHot(null), { signal });
 
-  /* ---- click an area: open its editor, or (no editor) pin it and bring its photos up ---- */
+  /* ---- click an area: a pop-up with its photos (and, if you can plan seats there, a button to go edit) ---- */
+  function drawPop() {
+    const a = areaById(open); if (!a) return;
+    const ps = photosIn(a.id);
+    pop.style.setProperty('--a', a.color || '#fff');
+    pop.innerHTML = `<header class="vp-head"><div><h2><i aria-hidden="true"></i>${esc(a.name)}</h2><p>${esc(a.place)} · ${esc(statusOf(a))}</p></div><button type="button" class="vp-x" data-closepop aria-label="Close">${svgIcon('close', 16)}</button></header>
+      ${a.space ? `<a class="btn moss sm vp-edit" href="#seating/${a.space}">${svgIcon('edit', 14)} Edit seats</a>` : ''}
+      ${ps.length ? `<div class="vp-grid">${ps.map((p) => cellHTML(p)).join('')}</div>` : '<p class="vm-empty">No photos yet</p>'}`;
+    wireCells(pop);
+  }
+  function openPop(id) {
+    open = id; setHot(null);
+    const a = areaById(id);
+    pop.classList.toggle('left', a.label[0] > 52);   // sit on the side away from the area
+    pop.hidden = false; drawPop();
+    requestAnimationFrame(() => pop.classList.add('on'));
+    pop.querySelector('.vp-x')?.focus({ preventScroll: true });
+  }
+  function closePop() { if (!open) return; const was = open; open = null; pop.classList.remove('on'); pop.hidden = true; setHot(null); map.querySelector(`.vm-label[data-area="${was}"]`)?.focus({ preventScroll: true }); }
   map.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-area]'); if (!el) return;
-    const a = areaById(el.dataset.area);
-    if (a.space) { location.hash = `#seating/${a.space}`; return; }
-    pinned = pinned === a.id ? null : a.id; setHot(pinned);
-    const g = gal.querySelector(`.vm-grp[data-area="${a.id}"]`);
-    if (pinned && g) { if (gal.scrollHeight > gal.clientHeight + 4) gal.scrollTo({ top: g.offsetTop - gal.offsetTop - 8, behavior: 'smooth' }); else g.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    const el = e.target.closest('[data-area]');
+    if (!el) { closePop(); return; }
+    open === el.dataset.area ? closePop() : openPop(el.dataset.area);
   }, { signal });
-  // a tap on a group heading (phones: no hover) shows where it is on the map
-  gal.addEventListener('click', (e) => {
-    const h = e.target.closest('.vm-gh'); if (!h || e.target.closest('a')) return;
-    const id = h.parentElement.dataset.area; pinned = pinned === id ? null : id; setHot(pinned);
-  }, { signal });
+  pop.addEventListener('click', (e) => { if (e.target.closest('[data-closepop]')) closePop(); });
+
+  /* ---- all photos, shuffled, filter by place ---- */
+  const drawAll = () => {
+    const counts = Object.fromEntries(AREAS.map((a) => [a.id, photosIn(a.id).length]));
+    filters.innerHTML = `<button type="button" class="vm-f${filter === 'all' ? ' on' : ''}" data-f="all" aria-pressed="${filter === 'all'}">All <b>${PHOTOS.length}</b></button>${AREAS.filter((a) => counts[a.id]).map((a) => `<button type="button" class="vm-f${filter === a.id ? ' on' : ''}" data-f="${a.id}" aria-pressed="${filter === a.id}" style="--a:${a.color || '#fff'}"><i aria-hidden="true"></i>${esc(a.name)} <b>${counts[a.id]}</b></button>`).join('')}`;
+    const list = order0.map(byId).filter((p) => p && (filter === 'all' || areaOf(p) === filter));
+    allGrid.innerHTML = list.map((p) => cellHTML(p, { chip: filter === 'all' })).join('');
+    wireCells(allGrid);
+    AREAS.forEach((a) => { const sEl = map.querySelector(`[data-st="${a.id}"]`); if (sEl) sEl.textContent = statusOf(a); });
+  };
+  filters.addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; filter = b.dataset.f; drawAll(); filters.querySelector(`[data-f="${filter}"]`)?.focus({ preventScroll: true }); }, { signal });
 
   /* ---- lightbox ---- */
   const lb = document.createElement('div');
@@ -268,15 +285,11 @@ export function renderVenueMap(root, { signal } = {}) {
   lb.innerHTML = '<img class="vm-lb-img" alt=""/><span class="lb-name"></span><button class="lb-nav prev" aria-label="Previous">‹</button><button class="lb-nav next" aria-label="Next">›</button><button class="lb-x" aria-label="Close">×</button>';
   root.append(lb);
   const lbImg = lb.querySelector('.vm-lb-img'), lbName = lb.querySelector('.lb-name');
-  let at = null, from = null;
-  const order = () => [...gal.querySelectorAll('.vm-th')].map((b) => b.dataset.ph);
-  const show = (id) => {
-    at = id; const p = PHOTOS.find((x) => x.id === id), a = areaById(areaOf(p));
-    lbImg.src = p.src; lbImg.alt = p.name; lbName.textContent = `${p.name} · ${a.name}`;
-  };
-  const openLb = (id, btn) => { from = btn; show(id); lb.hidden = false; requestAnimationFrame(() => lb.classList.add('on')); lb.querySelector('.lb-x').focus({ preventScroll: true }); };
+  let at = null, from = null, lbList = [];
+  const show = (id) => { at = id; const p = byId(id), a = areaById(areaOf(p)); lbImg.src = p.src; lbImg.alt = p.name; lbName.textContent = `${p.name} · ${a.name}`; };
+  const openLb = (id, btn) => { from = btn; lbList = [...btn.closest('.vp-grid, .vm-allgrid').querySelectorAll('.vm-th')].map((b) => b.dataset.ph); show(id); lb.hidden = false; requestAnimationFrame(() => lb.classList.add('on')); lb.querySelector('.lb-x').focus({ preventScroll: true }); };
   const closeLb = () => { if (lb.hidden) return; lb.classList.remove('on'); lb.hidden = true; from?.isConnected && from.focus({ preventScroll: true }); };
-  const step = (d) => { const ids = order(); show(ids[(ids.indexOf(at) + d + ids.length) % ids.length]); };
+  const step = (d) => { show(lbList[(lbList.indexOf(at) + d + lbList.length) % lbList.length]); };
   lb.addEventListener('click', (e) => {
     if (e.target.closest('.lb-nav')) return step(e.target.closest('.prev') ? -1 : 1);
     if (e.target === lbImg) return;
@@ -287,19 +300,19 @@ export function renderVenueMap(root, { signal } = {}) {
   let menu = null;
   const closeMenu = (focus) => { if (!menu) return; const b = menu._btn; menu.remove(); menu = null; b?.setAttribute('aria-expanded', 'false'); if (focus) b?.focus(); };
   const retag = (pid, to) => {
-    const p = PHOTOS.find((x) => x.id === pid), was = areaOf(p);
+    const p = byId(pid), was = areaOf(p);
     if (to === was) return;
     const set = (id) => {
       state.photoTags = { ...(state.photoTags || {}) };
       if (id === p.at) delete state.photoTags[pid]; else state.photoTags[pid] = id;
-      commit({ silent: true }); refreshGallery();
+      commit({ silent: true }); drawAll(); if (open) drawPop();
     };
     set(to);
     toast(`Moved to ${areaById(to).name}`, { undo: () => set(was) });
   };
   const openMenu = (btn) => {
     closeMenu();
-    const pid = btn.dataset.move, cur = areaOf(PHOTOS.find((x) => x.id === pid));
+    const pid = btn.dataset.move, cur = areaOf(byId(pid));
     menu = document.createElement('div');
     menu.className = 'vm-menu'; menu.setAttribute('role', 'menu'); menu._btn = btn;
     menu.innerHTML = `<p class="vm-menu-h">Move to</p>${AREAS.map((a) => `<button type="button" role="menuitemradio" aria-checked="${a.id === cur}" data-to="${a.id}" style="--a:${a.color || 'var(--c-on-dark)'}"><i aria-hidden="true"></i>${esc(a.name)}${a.id === cur ? svgIcon('check', 14) : ''}</button>`).join('')}`;
@@ -318,22 +331,14 @@ export function renderVenueMap(root, { signal } = {}) {
     });
     (menu.querySelector('[aria-checked="true"]') || menu.querySelector('[data-to]')).focus({ preventScroll: true });
   };
-
-  const wireGallery = () => {
-    gal.querySelectorAll('.vm-th').forEach((b) => b.onclick = () => openLb(b.dataset.ph, b));
-    gal.querySelectorAll('[data-move]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); if (menu?._btn === b) closeMenu(); else openMenu(b); });
-  };
-  function refreshGallery() { // counts + groups update in place (no page redraw)
-    const y = gal.scrollTop;
-    gal.innerHTML = AREAS.map(groupHTML).join('');
-    gal.scrollTop = y;
-    AREAS.forEach((a) => { const s = map.querySelector(`[data-st="${a.id}"]`); if (s) s.textContent = statusOf(a); });
-    wireGallery(); setHot(hot);
+  function wireCells(host) {
+    host.querySelectorAll('.vm-th').forEach((b) => b.onclick = () => openLb(b.dataset.ph, b));
+    host.querySelectorAll('[data-move]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); if (menu?._btn === b) closeMenu(); else openMenu(b); });
   }
-  wireGallery();
+  drawAll();
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { if (menu) { e.stopPropagation(); closeMenu(true); } else if (!lb.hidden) closeLb(); else if (pinned) { pinned = null; setHot(null); } }
+    if (e.key === 'Escape') { if (menu) { e.stopPropagation(); closeMenu(true); } else if (!lb.hidden) closeLb(); else if (open) closePop(); }
     if (!lb.hidden && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) step(e.key === 'ArrowLeft' ? -1 : 1);
   }, { signal });
   document.addEventListener('pointerdown', (e) => { if (menu && !menu.contains(e.target) && !e.target.closest('[data-move]')) closeMenu(); }, { signal });
