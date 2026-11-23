@@ -3877,3 +3877,11 @@ body[data-route="guests"] { background: #fbfaf8; }
   .linkbtn { min-height: 40px; padding: 0 8px; display: inline-flex; align-items: center; }
   .tour-link, .vm-crumb a { min-height: 40px; display: inline-flex; align-items: center; }
 }
+
+/* REQ-142: phone table sheet sits above the fixed footer; 40px steppers and seat remove buttons */
+@media (max-width: 760px) {
+  .pop { bottom: 40px; max-height: calc(100vh - 140px); }
+  .pop button { min-height: 40px; }
+  .pop .seat-list .x { min-height: 40px; min-width: 40px; }
+  .pop-title { min-height: 40px; }
+}
