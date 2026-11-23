@@ -54,7 +54,7 @@ function parts(s) {
   return out;
 }
 
-function snapshot(s) {
+function snapshot(s, o = {}) {
   const h = load();
   const p = parts(s), refs = {};
   Object.entries(p).forEach(([k, j]) => { const id = hash(j); h.pool[id] ??= j; refs[k] = id; });
@@ -62,12 +62,13 @@ function snapshot(s) {
   const same = last && Object.keys(refs).length === Object.keys(last.parts).length && Object.entries(refs).every(([k, id]) => last.parts[k] === id);
   if (same) return;
   const now = Date.now();
-  const prev = last && now - last.at < WINDOW ? h.v[h.v.length - 2] : last; // what this version changed, vs the one before
+  const fold = !o.fresh && last && now - last.at < WINDOW;
+  const prev = fold ? h.v[h.v.length - 2] : last; // what this version changed, vs the one before
   const changed = [...new Set(Object.keys(refs).filter((k) => !prev || prev.parts[k] !== refs[k]).map((k) => LABEL[k] || 'Plan'))];
   const entry = { at: now, parts: refs, what: changed.slice(0, 3) };
-  const by = author();
+  const by = o.by || author();
   if (by) entry.by = by;
-  if (last && now - last.at < WINDOW) {
+  if (fold) {
     entry.what = [...new Set([...(last.what || []), ...entry.what])].slice(0, 3);
     if (last.name) entry.name = last.name;
     if (!by && last.by) entry.by = last.by;
@@ -245,6 +246,9 @@ function openPanel() {
   render();
   (scroll.querySelector('.hg-cur') || scrim.querySelector('[data-close]')).focus();
 }
+
+/** Changes adopted from another editor get their own version, credited to them (the next local save will not fold into it). */
+export const recordAdopted = (who) => snapshot(state, { by: who, fresh: true });
 
 export function initHistory() {
   import('./sync.js').then((m) => { syncInfo = m.info; }).catch(() => { /* offline or blocked: versions just have no author */ });
