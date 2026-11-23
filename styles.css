@@ -1,6 +1,22 @@
 /* Betel & Carter — styles.css
    Order: tokens (this block, the ONLY :root) → base + page rules (older layers) → "design system" layer at the end.
    New work: use the tokens and the design-system classes; see STYLE-GUIDE.md. Do not add another :root block. */
+/* TABLE OF CONTENTS (search for the quoted header text; the sheet is layered, later layers override earlier ones)
+   1. "--- tokens ---"            the only :root block: colour roles, status colours, type, radii, spacing
+   2. Base layer                  "top bar", "buttons & inputs", "layout", "overview", "team", "seating", "guests",
+                                  "mood", "toast", "responsive", "QA fixes"
+   3. Feature layers (REQ-nn)     one block per ticket, in ticket order: milestone/overview rows, table popover,
+                                  guest relation + filter menu, person card (REQ-29), paste a list (REQ-28),
+                                  address & details (REQ-55/56), connections graph (REQ-57), seating panels (REQ-31..61)
+   4. Round layers                "ui round 6/7/8", "seating round 6/7/8", "glass round", "round 10 seating/shell",
+                                  "round 11a..11k" (guest grid, map, gate, team header, venue switcher)
+   5. "--- design system ---"     canonical look of shared controls, masthead glass, page backdrops, motion,
+                                  heart loader, agenda
+   6. Phones                      "mobile round", "phones: ..." (guest rows, seating, map, tap targets)
+   7. Tail                        bell/feedback dialogs, live panel, map gallery, edit-seats button
+   Rule of thumb when editing: find the LAST rule that sets a property (search the selector), change it there,
+   and avoid adding another override block. Cleanup history: REQ-150 (dead selectors, overridden duplicates and
+   same-selector rules merged; see git log for details). */
 
 /* --- tokens --- */
 :root {
@@ -547,7 +563,6 @@ main { max-width: 1280px; margin: 0 auto; padding: 34px 32px 64px; }
 .graph { display: block; width: 100%; height: auto; user-select: none; }
 .graph .edge { stroke-linecap: round; }
 .graph .edge.together { stroke: var(--moss-300); }
-@keyframes nodeIn { from { opacity: 0; } }
 .graph .node circle { stroke: #fffdf8; stroke-width: 3; transition: stroke .15s, stroke-width .15s; filter: drop-shadow(0 3px 5px rgba(31,38,26,.25)); }
 .graph .node:hover circle { stroke: var(--gold-2); }
 .graph .node.picked circle { stroke: var(--gold-2); stroke-width: 5; }
@@ -649,7 +664,6 @@ table.guests td.rel-td .select[data-v=""] { color: var(--ink-faint); }
 main.enter .ov-side > * { animation: rise .45s var(--ease) backwards; }
 main.enter .ov-side > .stats { animation-delay: .06s; }
 main.enter .ov-side > .ov-cards { animation-delay: .12s; }
-@keyframes photoIn { from { opacity: 0; transform: translateY(10px) scale(.985); } }
 
 /* timeline */
 .mtl-host { position: relative; }
@@ -994,7 +1008,6 @@ table.guests tr.row:hover td.c-meal .input::placeholder, table.guests td.c-meal 
 .addr-btn { position: relative; display: inline-grid; place-items: center; color: var(--moss-700); transition: border-color .15s, background-color .15s, color .15s, transform .15s var(--ease); }
 .addr-btn.warn { border-style: solid; }
 .addr-btn.warn::after { content: ""; position: absolute; border-radius: 50%; }
-@keyframes dotPulse { 50% { transform: scale(.75); opacity: .7; } }
 .addr-btn.open { color: var(--ivory); }
 .addr-btn:active { }
 @media (max-width: 760px) { .need-addr { font-size: 10.5px; padding: 1px 7px; } }
@@ -2997,7 +3010,6 @@ table.guests th:hover .col-rs::after, .col-rs.on::after { opacity: 1; }
 .gate-card.unlocked .pin-dots i:nth-child(2) { animation-delay: .07s; } .gate-card.unlocked .pin-dots i:nth-child(3) { animation-delay: .14s; } .gate-card.unlocked .pin-dots i:nth-child(4) { animation-delay: .21s; }
 .gate-card.unlocked { opacity: 0; transform: translateY(-18px) scale(.98); }
 .gate.open { opacity: 0; transform: scale(1.04); transition: opacity .7s var(--ease), transform .8s var(--ease); }
-@keyframes pin-pop { 0% { transform: scale(1); } 45% { transform: scale(1.6); } 100% { transform: scale(1); } }
 @media (max-height: 700px) { .gate-card { padding-top: 26px; } .pin-pad { gap: 10px 20px; grid-template-columns: repeat(3, 58px); } .gate-card .pin-pad button { width: 58px; height: 58px; } }
 @media (prefers-reduced-motion: reduce) { .gate-card.unlocked, .gate.open { transition: opacity .2s; transform: none; } .pin-dots i { animation: none !important; } }
 
