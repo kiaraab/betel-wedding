@@ -3501,3 +3501,31 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .live-pre .btn { justify-self: start; }
 .live-pre-l { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 2px; font-size: 13px; }
 .live-pre-l .linklike { font-size: 15px; padding: 0 4px; }
+
+/* --- mobile round: calmer, bigger touch targets, map you can pan, tabs in one row --- */
+@media (max-width: 760px) {
+  /* space tabs: one scrollable row */
+  .spaces { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .spaces::-webkit-scrollbar { display: none; }
+  .spaces .sp-row { flex-wrap: nowrap; gap: 20px; }
+  .spaces .sp-sub, .spaces button { white-space: nowrap; flex: none; font-size: 22px; }
+  /* the venue map is wider than the screen: drag sideways to look around */
+  .vm-mapcol { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .vm-mapcol::-webkit-scrollbar { display: none; }
+  .vm-map { width: 175%; min-width: 175%; aspect-ratio: 4 / 3; }
+  .vm-map .vm-photo { object-fit: cover; }
+  .vm-label { font-size: 12px; padding: 4px 9px 5px; }
+  .vm-pop { position: sticky; left: 0; width: calc(100vw - 32px); }
+  .vm-legend { position: sticky; left: 0; width: calc(100vw - 32px); }
+  /* help bubble: smaller, out of the way */
+  .guide-q { width: 36px !important; height: 36px !important; opacity: .92; }
+}
+@media (pointer: coarse) {
+  #liveBtn { min-width: 48px; min-height: 44px; }
+  .tcard .tc-btn, .tcard .x, .tcard .stbtn, .tcard [data-menu], .tcard .tc-grip { min-width: 40px; min-height: 40px; }
+  table.guests .more, table.guests .x { min-width: 40px; min-height: 40px; }
+  .vm-more { min-width: 36px; min-height: 36px; }
+  .gf-btn, .gcols-btn, .ag-tb, .ag-ib { min-height: 42px; }
+  .vm-f { min-height: 38px; }
+  .gate-card .pin-pad button { min-height: 64px; }
+}

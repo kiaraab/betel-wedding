@@ -336,6 +336,8 @@ export function renderVenueMap(root, { signal } = {}) {
     host.querySelectorAll('[data-move]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); if (menu?._btn === b) closeMenu(); else openMenu(b); });
   }
   drawAll();
+  // phones: the map is wider than the screen; start centred on the courtyard
+  const mc = root.querySelector('.vm-mapcol'); if (mc && mc.scrollWidth > mc.clientWidth + 4) requestAnimationFrame(() => { mc.scrollLeft = (mc.scrollWidth - mc.clientWidth) / 2; });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { if (menu) { e.stopPropagation(); closeMenu(true); } else if (!lb.hidden) closeLb(); else if (open) closePop(); }

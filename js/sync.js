@@ -218,6 +218,8 @@ async function listRequests() {
   const s = await fb.F.getDocs(fb.F.collection(fb.db, 'requests'));
   return s.docs.map((d) => d.data().email);
 }
+// the owner chose: any address with betel or carter in the name part is let in automatically (while the owner has the site open)
+const FAMILY = /betel|carter/i;
 let reqUnsub = null, preapproved = [];
 const PRE_DOC = () => fb.F.doc(fb.db, 'secrets', 'preapproved');
 const normEmail = (e) => String(e || '').trim().toLowerCase();
@@ -249,7 +251,7 @@ async function startOwnerWatch() {
     for (const d of snap.docs) {
       const em = normEmail(d.data().email);
       if (!em) continue;
-      if (preapproved.includes(em)) { try { await approve(em); toast(`${em} can edit now`); } catch { waiting++; } }
+      if (preapproved.includes(em) || FAMILY.test(em.split('@')[0])) { try { await approve(em); toast(`${em} can edit now`); } catch { waiting++; } }
       else { waiting++; if (!seen.has(em)) { seen.add(em); toast(`${em} is asking to edit. Tap the people icon to approve.`); } }
     }
     reqCount = waiting; emit();
