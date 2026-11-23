@@ -3784,3 +3784,6 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .vm-map.filtering .vm-area:not(.hot) .vm-poly { fill-opacity: .03; stroke-opacity: .3; }
 .vm-map.filtering .vm-label:not(.hot) { opacity: .35; }
 .vm-map.filtering .vm-area.hot .vm-poly { fill-opacity: .5; stroke-width: 3; }
+
+/* Map: the area pop-up no longer repeats the photos (one gallery below) */
+.vp-see { margin-top: 8px; width: 100%; }

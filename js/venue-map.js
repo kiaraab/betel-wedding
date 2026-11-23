@@ -249,8 +249,7 @@ export function renderVenueMap(root, { signal } = {}) {
     pop.style.setProperty('--a', a.color || '#fff');
     pop.innerHTML = `<header class="vp-head"><div><h2><i aria-hidden="true"></i>${esc(a.name)}</h2><p>${esc(a.place)} · ${esc(statusOf(a))}</p></div><button type="button" class="vp-x" data-closepop aria-label="Close">${svgIcon('close', 16)}</button></header>
       ${a.space ? `<a class="btn moss sm vp-edit" href="#seating/${a.space}">${svgIcon('edit', 14)} Edit seats</a>` : ''}
-      ${ps.length ? `<div class="vp-grid">${ps.map((p) => cellHTML(p)).join('')}</div>` : '<p class="vm-empty">No photos yet</p>'}`;
-    wireCells(pop);
+      ${ps.length ? `<button type="button" class="btn line sm vp-see" data-seephotos>See ${ps.length} photo${ps.length === 1 ? '' : 's'} below</button>` : '<p class="vm-empty">No photos yet</p>'}`;
   }
   function openPop(id) {
     open = id; setHot(null);
@@ -264,30 +263,41 @@ export function renderVenueMap(root, { signal } = {}) {
   map.addEventListener('click', (e) => {
     const el = e.target.closest('[data-area]');
     if (!el) { closePop(); return; }
-    open === el.dataset.area ? closePop() : openPop(el.dataset.area);
+    if (open === el.dataset.area) { closePop(); return; }
+    openPop(el.dataset.area);
+    if (photosIn(el.dataset.area).length) selectFilter(el.dataset.area, { fromMap: true }); // the gallery below follows the area you picked
   }, { signal });
-  pop.addEventListener('click', (e) => { if (e.target.closest('[data-closepop]')) closePop(); });
+  pop.addEventListener('click', (e) => {
+    if (e.target.closest('[data-closepop]')) closePop();
+    if (e.target.closest('[data-seephotos]')) { closePop(); filters.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
 
   /* ---- all photos, shuffled, filter by place ---- */
   const PAGE = () => (matchMedia('(max-width: 760px)').matches ? 12 : 24);
-  let shown = PAGE(); // photos on screen; "Show more" adds a page (99 at once made the phone page 6,700 px tall)
+  let expanded = false; // the gallery starts as one page of photos; "See all" shows every photo for the current place (99 at once made the phone page 6,700 px tall)
   const drawAll = () => {
     const counts = Object.fromEntries(AREAS.map((a) => [a.id, photosIn(a.id).length]));
     filters.innerHTML = `<button type="button" class="vm-f${filter === 'all' ? ' on' : ''}" data-f="all" aria-pressed="${filter === 'all'}">All <b>${PHOTOS.length}</b></button>${AREAS.filter((a) => counts[a.id]).map((a) => `<button type="button" class="vm-f${filter === a.id ? ' on' : ''}" data-f="${a.id}" aria-pressed="${filter === a.id}" style="--a:${a.color || '#fff'}"><i aria-hidden="true"></i>${esc(a.name)} <b>${counts[a.id]}</b></button>`).join('')}`;
     const list = order0.map(byId).filter((p) => p && (filter === 'all' || areaOf(p) === filter));
-    allGrid.innerHTML = list.slice(0, shown).map((p) => cellHTML(p, { chip: filter === 'all' })).join('') + (list.length > shown ? `<button type="button" class="vm-showmore" data-more>Show more · ${list.length - shown}</button>` : '');
+    const shown = expanded ? list.length : PAGE();
+    allGrid.innerHTML = list.slice(0, shown).map((p) => cellHTML(p, { chip: filter === 'all' })).join('') + (list.length > PAGE() ? `<button type="button" class="vm-showmore" data-more>${expanded ? 'Show fewer' : `See all ${list.length}`}</button>` : '');
     wireCells(allGrid);
     AREAS.forEach((a) => { const sEl = map.querySelector(`[data-st="${a.id}"]`); if (sEl) sEl.textContent = statusOf(a); });
   };
-  allGrid.addEventListener('click', (e) => { if (!e.target.closest('[data-more]')) return; shown += PAGE(); drawAll(); }, { signal });
-  filters.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-f]'); if (!b) return;
-    filter = b.dataset.f; shown = PAGE(); drawAll(); setHot(null);
+  allGrid.addEventListener('click', (e) => { if (!e.target.closest('[data-more]')) return; expanded = !expanded; drawAll(); if (!expanded) filters.scrollIntoView({ block: 'start' }); }, { signal });
+  function selectFilter(id, { fromMap = false } = {}) {
+    filter = id; expanded = false; drawAll(); setHot(null);
     // the map shows which part of the property this filter is about: the rest dims, that area lights up, and a phone pans to it
     map.classList.toggle('filtering', filter !== 'all');
     const a = AREAS.find((x) => x.id === filter), mc = root.querySelector('.vm-mapcol');
-    if (a && mc && mc.scrollWidth > mc.clientWidth + 4) mc.scrollTo({ left: Math.max(0, (a.label[0] / 100) * mc.scrollWidth - mc.clientWidth / 2), behavior: 'smooth' });
-    if (a) map.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (!fromMap) {
+      if (a && mc && mc.scrollWidth > mc.clientWidth + 4) mc.scrollTo({ left: Math.max(0, (a.label[0] / 100) * mc.scrollWidth - mc.clientWidth / 2), behavior: 'smooth' });
+      if (a) map.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+  filters.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    selectFilter(b.dataset.f);
     filters.querySelector(`[data-f="${filter}"]`)?.focus({ preventScroll: true });
   }, { signal });
 
