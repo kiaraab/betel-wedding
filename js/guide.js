@@ -24,8 +24,7 @@ const TOURS = {
     ['#addPerson', 'Add someone.'],
   ],
   guests: [
-    ['#gForm', 'Type a name and press Add. Pick a side once you start typing.'],
-    ['#pasteBtn', 'Paste a whole list, or a photo of one.'],
+    ['#addPlus', 'Tap + to add one person, or paste a whole list (or a photo of one).'],
     ['.gf-btn', 'Filter the list.'],
     ['.gcols-btn', 'Choose which columns to show. Drag a column’s edge to resize it.'],
     ['.addr-btn', 'Tap ⋮ for details. A dot on it means no seat yet.'],

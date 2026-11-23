@@ -541,6 +541,7 @@ function guestsCSV() {
 
 /* One filter menu: status, side, relation, table */
 const going = (g) => g.rsvp !== 'Declined';
+let addOpen = false; // the Add (+) panel on Guests stays open across redraws so several people can be added in a row
 const GUEST_FILTERS = [
   [['all', 'Everyone', () => true],
    ...(FEATURES.rsvp ? [['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !isSeated(g))]] : []),
@@ -628,14 +629,18 @@ function guests() {
         <h1>Guests</h1>
         <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()}${FEATURES.rsvp ? ` · ${c((g) => g.party === 'couple' || g.rsvp === 'Yes')} yes` : ''}</p>
       </div>
-      <form class="guest-add" id="gForm">
-      <input class="input" name="name" placeholder="Add guests" aria-label="Guest name" required/>
-      <select class="select" name="side" data-bub aria-label="Side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
-      <button class="btn moss">Add</button>
-      <button type="button" class="btn line icon-btn paste-btn" id="pasteBtn" aria-expanded="false" aria-label="Paste a list" title="Paste a list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M9 4.5h6v3H9zM15 6h2.5a1 1 0 0 1 1 1v12.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H9M8.5 12h7M8.5 15.5h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    </form>
-      <div class="head-actions">${guestViewToggle()}<button class="btn line icon-btn" id="catBtn" aria-label="Catering list" title="Catering list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 21V3c-2 1.5-3 4-3 7v3h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+      <div class="head-actions"><button type="button" class="btn moss add-plus" id="addPlus" aria-expanded="false" aria-controls="addPanel"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>${guestViewToggle()}<button class="btn line icon-btn" id="catBtn" aria-label="Catering list" title="Catering list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 21V3c-2 1.5-3 4-3 7v3h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     </div>
+
+    <section class="add-panel" id="addPanel" hidden aria-label="Add guests">
+      <div class="viewseg add-seg" role="tablist" aria-label="What to add"><button type="button" role="tab" id="addOne" class="on" aria-selected="true">One person</button><button type="button" role="tab" id="pasteBtn" aria-selected="false" aria-expanded="false">A list</button></div>
+      <form class="guest-add" id="gForm">
+        <input class="input" name="name" placeholder="Name" aria-label="Guest name" autocomplete="off" required/>
+        <select class="select" name="side" data-bub aria-label="Side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
+        <label class="add-cater"><input type="checkbox" name="cater" checked/> On the catering list</label>
+        <button class="btn moss">Add</button>
+      </form>
+    </section>
 
     <div id="pasteHost"></div>
 
@@ -664,7 +669,7 @@ function guests() {
       : `<p class="muted" style="margin:0;padding:20px">${guestFilter === 'unseated' && !q ? 'Everyone has a seat.' : `No guests${guestFilter === 'all' && !q ? ' yet' : ' match'}.`}</p>`}
     </section>`;
 
-  const add = (name, side = 'Both') => state.guests.push({ id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null });
+  const add = (name, side = 'Both') => { const g = { id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null }; state.guests.push(g); return g; };
   view.querySelector('#csv').onclick = () => guestsCSV();
   view.querySelector('#catBtn').onclick = () => openCatering();
   // column picker (bubbly menu of toggles)
@@ -701,7 +706,9 @@ function guests() {
   const pasteHost = view.querySelector('#pasteHost');
   const drawPaste = () => {
     mountPaste(pasteHost, { defaultSide: gForm.side.value });
-    const b = view.querySelector('#pasteBtn'); b.classList.toggle('on', pasteIsOpen()); b.setAttribute('aria-expanded', pasteIsOpen());
+    const b = view.querySelector('#pasteBtn'); b.classList.toggle('on', pasteIsOpen()); b.setAttribute('aria-expanded', pasteIsOpen()); b.setAttribute('aria-selected', pasteIsOpen());
+    const one = view.querySelector('#addOne'); one.classList.toggle('on', !pasteIsOpen()); one.setAttribute('aria-selected', !pasteIsOpen());
+    view.querySelector('#addPanel').classList.toggle('mode-list', pasteIsOpen());
   };
   gForm.name.addEventListener('paste', (e) => {
     const text = e.clipboardData.getData('text');
@@ -709,18 +716,20 @@ function guests() {
     e.preventDefault();
     openPaste(text); drawPaste();
   });
-  view.querySelector('#pasteBtn').onclick = () => {
-    if (pasteIsOpen()) pasteHost.querySelector('[data-paste-cancel]')?.click();
-    else { openPaste(gForm.name.value.trim()); gForm.name.value = ''; }
-    drawPaste();
-  };
+  view.querySelector('#pasteBtn').onclick = () => { if (!pasteIsOpen()) { openPaste(gForm.name.value.trim()); gForm.name.value = ''; } drawPaste(); };
+  view.querySelector('#addOne').onclick = () => { if (pasteIsOpen()) pasteHost.querySelector('[data-paste-cancel]')?.click(); setTimeout(() => { drawPaste(); gForm.name.focus(); }); };
+  // one + opens the add panel: one person or a list
+  const addPanel = view.querySelector('#addPanel'), addPlus = view.querySelector('#addPlus');
+  const setPanel = (o) => { addOpen = o; addPanel.hidden = !o; addPlus.setAttribute('aria-expanded', String(o)); addPlus.classList.toggle('on', o); if (o && !pasteIsOpen()) gForm.name.focus(); };
+  addPlus.onclick = () => setPanel(addPanel.hidden);
+  setPanel(addOpen || pasteIsOpen());
   pasteHost.addEventListener('click', (e) => { if (e.target.closest('[data-paste-cancel]')) setTimeout(drawPaste); });
   drawPaste();
   gForm.onsubmit = (e) => {
     e.preventDefault();
     const n = gForm.name.value.trim();
     if (!n) return;
-    add(n, gForm.side.value); commit();
+    const g = add(n, gForm.side.value); if (!gForm.cater.checked) g.meal = false; commit();
     view.querySelector('#gForm [name=name]').focus();
   };
   const wireFilter = () => {

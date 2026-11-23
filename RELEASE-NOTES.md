@@ -125,3 +125,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Measurements are feet only. The reception default has no dance floor (add one from More); an untouched default layout updates itself and keeps everyone seated.
 
 - Guests on phones: one compact line per guest (about 16 per screen); household, table and notes are in each guest's menu.
+
+- Guests: one + button opens Add (one person or a list) with a tick for the catering list; it stays open for adding several people.

@@ -3873,3 +3873,29 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
   html body[data-route="guests"] table.guests tr.row .bs-btn { min-height: 0 !important; height: 32px !important; }
   html body[data-route="guests"] table.guests tr.row > td.c-side, html body[data-route="guests"] table.guests tr.row > td.c-relation { height: auto !important; min-height: 0 !important; }
 }
+
+/* Guests: one + opens the add panel (one person or a list) */
+.head-actions .add-plus { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; }
+.head-actions .add-plus.on { background: #4a1520; }
+.add-panel { margin: 0 0 14px; padding: 12px 14px; background: #fbf8f1; color: #23251c; border-left: 4px solid var(--c-wine, #6e1f2e); display: grid; gap: 10px; }
+.add-panel[hidden] { display: none; }
+.add-seg { display: inline-flex; width: fit-content; border: 1px solid rgba(35, 37, 28, .22); }
+.add-seg button { min-height: 36px; padding: 0 14px; border: 0; background: transparent; color: inherit; font: 500 14px var(--sans); cursor: pointer; }
+.add-seg button.on { background: var(--c-wine, #6e1f2e); color: #fff; }
+.add-panel .guest-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; }
+.add-panel .guest-add .input { grid-column: 1 / -1; }
+.add-panel .guest-add .select, .add-panel .guest-add .bs-btn { min-height: 40px; }
+.add-cater { display: inline-flex; align-items: center; gap: 8px; font: 400 14px var(--sans); color: #5f6152; }
+.add-cater input { width: 18px; height: 18px; accent-color: var(--c-wine, #6e1f2e); }
+.add-panel .guest-add > .btn { min-height: 40px; padding: 0 18px; justify-self: end; }
+.add-panel.mode-list .guest-add { display: none; }
+@media (max-width: 760px) { .add-panel .guest-add { grid-template-columns: auto minmax(0, 1fr) auto; } .add-panel .guest-add .input { grid-column: 1 / -1; } .add-cater { grid-column: 1 / -1; } .add-panel .guest-add > .btn { grid-column: 3; } }
+.add-panel .guest-add .bs-btn { display: inline-flex !important; opacity: 1 !important; visibility: visible !important; width: auto; }
+@media (max-width: 760px) {
+  .head-actions .add-plus { min-width: 44px; padding: 0 10px; }
+  .head-actions .add-plus span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .add-panel .guest-add { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .add-panel .guest-add .input { grid-column: 1 / -1; }
+  .add-cater { grid-column: auto; font-size: 13.5px; }
+  .add-panel .guest-add > .btn { grid-column: 3; }
+}
