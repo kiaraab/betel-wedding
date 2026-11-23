@@ -81,3 +81,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Venue photos: flat place tabs joined to the map; tapping a place on the map filters the photos and shows its details and Edit seats.
 
 - 3D: evening look from Betel's Pinterest: string lights, chocolate and olive tables with tall candles, new chairs, chiffon and greenery at the ceremony, mirror aisle.
+
+- Seating map: a "Plan seats" bar under the map is always visible; the place you tap is highlighted.
