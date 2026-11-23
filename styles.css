@@ -1240,8 +1240,8 @@ tr:hover .addr-btn.warn::after, .addr-btn.warn:hover::after { animation-iteratio
 .people.packed { overflow-x: clip; }
 
 /* ---- ceremony wedding party + space tools (REQ-40/41) ---- */
-.plan .party-dot circle { fill: var(--pd-b, var(--moss-800, #3a4a2c)); stroke: #fff; stroke-width: .18; }
-.plan .party-dot.g circle { fill: var(--pd-g, var(--wine, #6b1f2a)); }
+.plan .party-dot circle { fill: var(--moss-800, #3a4a2c); stroke: #fff; stroke-width: .18; }
+.plan .party-dot.g circle { fill: var(--wine, #6b1f2a); }
 .plan .party-dot text { fill: #fff; font-size: 1.05px; font-weight: 600; text-anchor: middle; font-variant-numeric: tabular-nums; pointer-events: none; }
 .plan .party-dot .pd-in { animation: dotPop .45s cubic-bezier(.3, 1.5, .5, 1) backwards; }
 @keyframes dotPop { from { opacity: 0; transform: scale(.2); } }
@@ -3918,4 +3918,3 @@ body[data-route="guests"] { background: #fbfaf8; }
 .lk-chip:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
 @media (pointer: coarse), (max-width: 760px) { .lk-chip { min-height: 44px; } }
 .look-card h3 { margin: 0 0 12px; }
-.lk-sw { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0, 0, 0, .25); }

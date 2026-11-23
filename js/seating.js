@@ -5,7 +5,8 @@ import { esc, toast, heartLoaderHTML } from './util.js';
 import { photosForSpace, photoById } from './venue-map.js';
 import { spaceToolsHTML, wireSpaceTools, partySVG, suggestHangout } from './spaces.js';
 import { renderVenueMap, MAP_PHOTO } from './venue-map.js';
-import { lookHTML, syncLook, withPick, resolveStyle, groupsFor, partyColor } from './style-options.js';
+import { lookHTML, syncLook, withPick, resolveStyle, groupsFor } from './style-options.js';
+import { hexOfPerson } from './team-colors.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const M = 3; // margin around the room (ft)
@@ -246,7 +247,7 @@ function fixedSVG() {
     else if (d.kind === 'tree') s += `<circle class="dc-tree" cx="${mx}" cy="${my}" r="${d.w / 2}"/>${d.label ? `<text class="fixed-label" x="${mx}" y="${my + .5}">${esc(d.label)}</text>` : ''}`;
     else if (d.kind === 'bar') s += `<rect class="dc-bar" x="${d.x}" y="${d.y}" width="${d.w}" height="${d.h}" rx="1.1"/><text class="fixed-label" x="${mx}" y="${d.y + d.h + 1.6}">Bar</text>`;
   });
-  if (kindOf() === 'ceremony') s += partySVG(SP().room, partyPool(), enterAnim, partySel); // wedding party dots
+  if (kindOf() === 'ceremony') s += partySVG(SP().room, partyPool(), enterAnim, partySel, (id) => hexOfPerson(state.people, id)); // wedding party dots
   // Walls with openings cut in
   s += `<rect class="wall" x="0" y="0" width="${w}" height="${h}"/>`;
   fixed.openings.forEach((o) => {
@@ -1286,15 +1287,12 @@ export function renderSeating(root) {
   }
 
   // Look pickers (reception sidebar tab, ceremony / hangout side panels): one pick saves, then the 3D scene rebuilds (it eases in again). In the plan view it just saves.
-  // the plan's party dots take the chosen bridesmaid / groomsmen colours (CSS vars; none = the usual dot colours)
-  const tintParty = () => ['b', 'g'].forEach((s) => { const c = partyColor(state.style, s); if (c) root.style.setProperty(`--pd-${s}`, c); else root.style.removeProperty(`--pd-${s}`); });
-  tintParty();
   root.querySelectorAll('.look-pick').forEach((pick) => pick.addEventListener('click', (e) => {
     const b = e.target.closest('.lk-chip');
     if (!b) return;
     state.style = withPick(state.style, b.dataset.lk, b.dataset.v);
     commit({ silent: true });
-    syncLook(root, state.style); tintParty();
+    syncLook(root, state.style);
     if (mode === '3d' && threeInst && open3d) { threeInst.dispose(); threeInst = null; open3d(); }
   }));
 

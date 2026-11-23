@@ -206,9 +206,9 @@ export function garland(shape, size, y) {
 export function ceilingDecor(kind, ctx) {
   const { w, h, Z, WALL_H, greenStrands } = ctx, g = new THREE.Group();
   if (kind === 'drape') { // sheer sage chiffon radiating from a rosette over each half of the room
-    const mat = new THREE.MeshStandardMaterial({ color: '#a9b38a', emissive: '#2a3018', emissiveIntensity: 0.3, roughness: 0.9, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
+    const mat = new THREE.MeshStandardMaterial({ color: '#8f9d6c', emissive: '#2f3a1c', emissiveIntensity: 0.45, roughness: 0.9, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false });
     [0.27, 0.73].forEach((f) => {
-      const cz = Z(h * f), hw = w / 2 - 1.2, hh = h * 0.25 - 0.6, y0 = WALL_H - 0.5, y1 = 17.1, NA = 96, NR = 9, pos = [], idx = [];
+      const cz = Z(h * f), hw = w / 2 - 1.2, hh = h * 0.25 - 0.6, y0 = WALL_H - 0.5, y1 = 16.7, NA = 96, NR = 9, pos = [], idx = [];
       for (let j = 0; j <= NR; j++) for (let i = 0; i <= NA; i++) {
         const th = (i / NA) * Math.PI * 2, dx = Math.cos(th), dz = Math.sin(th), t = Math.min(hw / (Math.abs(dx) || 1e-6), hh / (Math.abs(dz) || 1e-6)), u = j / NR;
         pos.push(dx * t * u, y0 - (y0 - y1) * Math.pow(u, 1.15) + Math.sin(th * 28) * 0.26 * u, cz + dz * t * u);
@@ -219,7 +219,7 @@ export function ceilingDecor(kind, ctx) {
       const rose = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.2, 0.5, 20), new THREE.MeshStandardMaterial({ color: C.ivory, roughness: 0.8 })); rose.position.set(0, y0 - 0.1, cz); g.add(rose);
     });
   } else if (kind === 'greenery') { // a cloud of greenery over the whole room with strands hanging below
-    const rnd = rngOf(61), N = 150, cloud = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ roughness: 0.95 }), N), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S = new THREE.Vector3(), anchors = [];
+    const rnd = rngOf(61), N = 210, cloud = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ roughness: 0.95, emissive: '#3a4a22', emissiveIntensity: 0.55 }), N), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S = new THREE.Vector3(), anchors = [];
     for (let i = 0; i < N; i++) {
       const r = 1.0 + rnd() * 0.9, x = (rnd() - 0.5) * (w - 6), z = (rnd() - 0.5) * (h - 6), y = WALL_H - 1.3 + rnd() * 0.8;
       M.compose(P.set(x, y, z), Q.identity(), S.set(r * 1.2, r * 0.55, r * 1.2)); cloud.setMatrixAt(i, M); cloud.setColorAt(i, _c.set(pick(rnd, GREENS)));

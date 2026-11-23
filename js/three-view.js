@@ -6,7 +6,8 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { seatCount, tableR, rectDims, chairPositions, findFreeSpot } from './layout.js';
 import { partyDots } from './spaces.js';
-import { resolveStyle, partyColor } from './style-options.js';
+import { resolveStyle } from './style-options.js';
+import { hexOfPerson } from './team-colors.js';
 import * as LOOK from './three-style.js';
 
 const WALL_H = 20;     // ESTIMATE ~20 ft to the coffers (photo: arched doors ~10 ft = half the wall below the crown); not published. Balcony slab ~11 ft
@@ -677,7 +678,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     // the wedding party stands either side of the altar (same positions as the plan's numbered dots)
     if (ROOM.party) {
       partyDots(ROOM, pool).forEach((d, i) => {
-        const g = new THREE.Group(), mat = std(partyColor(style, d.side === 'b' ? 'b' : 'g') || (d.side === 'b' ? mood.swatches[3] : mood.swatches[1]));
+        const g = new THREE.Group(), mat = std(hexOfPerson(state.people, d.id) || (d.side === 'b' ? mood.swatches[3] : mood.swatches[1])); // a team member's dress = their Team card colour
         const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.8, 3.6, 14), mat); body.position.y = 2.4; body.castShadow = true;
         const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), std('#e8d5bf')); head.position.y = 4.8;
         g.add(body, head); g.position.set(X(d.x), 0, Z(d.y)); g.scale.setScalar(0.001);
@@ -700,7 +701,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   // Look: table dressing (reception only). Olive satin on every table, or white linen with a leafy garland.
   const lookTable = ballroom ? STY.table : 'choc';
   if (lookTable === 'olive') { const satin = new THREE.MeshStandardMaterial({ color: '#5f6b33', map: foldTex, roughness: 0.32, metalness: 0.08 }); LINENS.fill(satin); }
-  else if (lookTable === 'linen') LINENS.fill(linen('#f1ebdd', 0.92));
+  else if (lookTable === 'linen') LINENS.fill(new THREE.MeshStandardMaterial({ color: '#faf5ea', roughness: 0.95, emissive: '#e9dfc6', emissiveIntensity: 0.25 }));
   const runnerOfLook = (ci) => (lookTable === 'olive' ? '#c9cfae' : lookTable === 'linen' ? '#a8b38a' : runnerOf(ci));
   const lk = ballroom ? { centers: STY.centers, candles: STY.candles, garland: lookTable === 'linen' } : LK_DEFAULT;
   const topMat = look && sp.id === 'tasting' ? new THREE.MeshStandardMaterial({ color: look.top, roughness: 0.7 }) : null; // null = pick a linen per table
