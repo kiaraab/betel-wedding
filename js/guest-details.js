@@ -3,6 +3,7 @@
 import { state, commit, uid } from './store.js';
 import { togetherGroups, seatCount, RELATIONS, relationOf } from './layout.js';
 import { esc, toast } from './util.js';
+import { FEATURES } from './features.js';
 
 export const DIETS = ['Gluten free', 'Vegetarian', 'Vegan', 'Dairy free', 'Nut allergy', 'Shellfish allergy', 'Halal', 'Kosher', 'Pescatarian', 'Limit alcohol'];
 const key = (a, b) => [a, b].sort().join('|');
@@ -112,15 +113,15 @@ export function detailsHTML(g, { extra = false } = {}) {
   const custom = [...new Set(state.guests.flatMap(dietList))].filter((d) => !DIETS.includes(d));
   const unnamedPlus = g.plusOne && !g.plusOneId;
   return `
-    <div class="gd" data-gid="${g.id}">
+    <div class="gd${FEATURES.address ? '' : ' gd-noaddr'}" data-gid="${g.id}">
       <div class="gd-photo">
         ${g.photo ? `<img src="${g.photo}" alt=""/><button class="linklike" data-photo-del>Remove</button>` : '<button class="gd-photo-add" data-photo-add>Add photo</button>'}
         <input type="file" accept="image/*" hidden data-photo-file/>
       </div>
-      <div class="gd-addr">
+      ${FEATURES.address ? `<div class="gd-addr">
         ${field(g, 'street', 'Street', 'c4')}${field(g, 'street2', 'Apt / suite', 'c2')}
         ${field(g, 'city', 'City', 'c3')}${field(g, 'state', 'State', 'c1')}${field(g, 'zip', 'ZIP', 'c2')}
-      </div>
+      </div>` : ''}
       <div class="gd-rel">
         ${extra ? `${g.party === 'couple' ? '' : `<label class="gd-f"><span>Relation</span><select class="select" data-k="relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`}
         <label class="gd-f"><span>Table</span><select class="select" data-tbl><option value="">—</option>${state.tables.map((t) => `<option value="${t.id}" ${t.id === g.tableId ? 'selected' : ''}>${esc(t.id === 'head' ? 'Sweetheart' : t.name)}</option>`).join('')}</select></label>` : ''}

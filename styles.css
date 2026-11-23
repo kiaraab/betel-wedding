@@ -3815,3 +3815,6 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .dots-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font: 400 13px var(--sans); color: var(--ink-soft, #5a4348); }
 .dots-key li { display: inline-flex; align-items: center; gap: 7px; }
 .dotstat .dots, .dotstat .dots-key { animation: none; }
+
+/* address fields hidden (js/features.js): no empty address column in the details grid */
+.gd.gd-noaddr, .pp .gd.gd-noaddr { grid-template-columns: 76px minmax(0, 1fr); grid-template-areas: "photo rel" "notes notes"; }

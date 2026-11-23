@@ -4,6 +4,7 @@ import { state, commit } from './store.js';
 import { RELATIONS, relationOf } from './layout.js';
 import { esc, trapFocus } from './util.js';
 import { detailsHTML, wireDetails } from './guest-details.js';
+import { FEATURES } from './features.js';
 
 const STATUS = ['Not invited yet', 'Invited', 'Yes', 'Maybe', 'Declined'];
 const SIDES = ['Betel', 'Carter', 'Both'];
@@ -64,13 +65,13 @@ export function openPerson(idOrPerson) {
       </header>
       ${g ? `
       <div class="pp-body">
-        <div class="pp-row">
-          <label class="pp-f"><span>Status</span><select class="pp-in rsvp" data-k="rsvp" data-v="${esc(g.rsvp)}">${STATUS.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+        ${FEATURES.rsvp || !couple ? `<div class="pp-row">
+          ${FEATURES.rsvp ? `<label class="pp-f"><span>Status</span><select class="pp-in rsvp" data-k="rsvp" data-v="${esc(g.rsvp)}">${STATUS.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></label>` : ''}
           ${couple ? '' : `<label class="pp-f"><span>Relation</span><select class="pp-in" data-k="relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`}
-        </div>
+        </div>` : ''}
         <div class="pp-f"><span>Side</span><div class="pp-seg" role="radiogroup" aria-label="Side">${SIDES.map((s) => `<button type="button" role="radio" data-side="${s}" aria-checked="${s === g.side}" class="${s === g.side ? 'on' : ''}">${s === 'Both' ? 'Shared' : s}</button>`).join('')}</div></div>
         ${roles.length ? `<div class="pp-f"><span>Role</span><div class="pp-roles">${roles.map((r) => `<em>${esc(r)}</em>`).join('')}</div></div>` : ''}
-        <div class="pp-sec">Details ${g.street ? '' : '<b class="need-addr">Need address</b>'}</div>
+        <div class="pp-sec">Details ${FEATURES.address && !g.street ? '<b class="need-addr">Need address</b>' : ''}</div>
         ${detailsHTML(g)}
         <div class="pp-table">
           <span>${table ? esc(tableName(table)) : 'Not seated yet'}</span>
