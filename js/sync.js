@@ -385,7 +385,20 @@ export function mountLive(btn) {
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });
       }
       pop.insertAdjacentHTML('beforeend', '<div class="live-bottom live-icons"><button type="button" class="live-ic" data-fbk aria-label="Send feedback" title="Send feedback"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v5M9.5 10.5h5"/></svg></button><button type="button" class="live-ic" data-hist aria-label="Revision history" title="Revision history"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button><button type="button" class="live-ic" data-reset aria-label="Start over" title="Start over"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4.5h4.5"/></svg></button>' + (role === 'owner' ? '<button type="button" class="live-ic" data-fbx aria-label="Feedback received" title="Feedback received"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13l2.5-7h11L20 13v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/></svg></button>' : '') + '</div>');
-      pop.querySelector('[data-fbx]')?.addEventListener('click', async () => { try { const list = await listFeedback(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' })); a.download = 'betel-feedback.json'; a.click(); URL.revokeObjectURL(a.href); toast(`${list.length} feedback saved to a file`); } catch { toast('Could not read feedback (is the rule published?)'); } });
+      pop.querySelector('[data-fbx]')?.addEventListener('click', async () => {
+        const open = pop.querySelector('.live-fb');
+        if (open) { open.remove(); return; }
+        const box = document.createElement('div'); box.className = 'live-fb';
+        pop.querySelector('.live-bottom').before(box);
+        try {
+          const list = (await listFeedback()).slice().sort((x, y) => String(y.at).localeCompare(String(x.at)));
+          const day = (t) => { try { return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); } catch { return ''; } };
+          box.innerHTML = list.length
+            ? `<ul>${list.map((f) => `<li><b>${f.type === 'bug' ? 'Bug' : 'Idea'}</b> <span>${esc(day(f.at))} · ${esc(String(f.by || '').split('@')[0])}</span><p>${esc(f.text)}</p></li>`).join('')}</ul><button type="button" class="live-txt" data-fbcopy>Copy for the board</button>`
+            : '<p class="muted small">No feedback yet</p>';
+          box.querySelector('[data-fbcopy]')?.addEventListener('click', async () => { try { await navigator.clipboard.writeText(JSON.stringify(list, null, 2)); toast('Copied'); } catch { toast('Could not copy'); } });
+        } catch { box.innerHTML = '<p class="muted small">Could not read feedback</p>'; }
+      });
       pop.querySelector('[data-fbk]').onclick = () => { close(false); import('./feedback.js').then((m) => m.openFeedback()); };
       pop.querySelector('[data-hist]').onclick = () => { close(false); document.getElementById('historyBtn')?.click(); };
       pop.querySelector('[data-reset]').onclick = () => { close(false); document.getElementById('resetBtn')?.click(); };
