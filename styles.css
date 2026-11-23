@@ -3391,3 +3391,12 @@ body.seat-on .spaces button.on { font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .vm-tabs, .vm-chev, .vm-pop { transition: none; } }
 .vp-grid .vm-cell, .vm-allgrid .vm-cell { width: auto; min-width: 0; flex: initial; }
 .vp-grid .vm-th, .vm-allgrid .vm-th { width: 100%; }
+/* softer resting area outlines (hover/open stay a touch stronger) */
+.vm-halo { stroke: rgba(42, 21, 25, .22); stroke-width: 3; }
+.vm-poly { fill-opacity: .09; stroke-width: 1.4; stroke-opacity: .8; }
+.vm-area.edit .vm-poly { stroke-width: 1.8; fill-opacity: .12; stroke-opacity: .9; }
+.vm-area:not(.edit) .vm-poly, .vm-area.out .vm-poly { fill-opacity: .05; stroke-opacity: .65; }
+.vm-area.hot .vm-poly { fill-opacity: .22; stroke-width: 2.2; stroke-opacity: 1; }
+.vm-area.hot .vm-halo { stroke-width: 3.5; }
+.vm-label.edit { background: rgba(110, 31, 46, .66); }
+.vm-label:not(.edit) { background: rgba(42, 21, 25, .34); }
