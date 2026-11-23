@@ -3491,3 +3491,13 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
   body.printing-cat .cat-body { overflow: visible; }
   body.printing-cat .cat-foot, body.printing-cat .cat-x { display: none; }
 }
+
+/* access requests: a small count on the people icon, and the pre-approve form in the panel */
+#liveBtn { position: relative; }
+#liveBtn:not([data-req="0"])[data-req]::after { content: attr(data-req); position: absolute; right: 2px; top: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #f0a9bd; color: #3a1018; font: 600 10px/16px var(--sans); text-align: center; }
+.live-pre { display: grid; gap: 4px; margin: 10px 0 4px; }
+.live-pre label { display: grid; gap: 2px; font: 500 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.live-pre input { font: 400 14px var(--sans); text-transform: none; letter-spacing: 0; }
+.live-pre .btn { justify-self: start; }
+.live-pre-l { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 2px; font-size: 13px; }
+.live-pre-l .linklike { font-size: 15px; padding: 0 4px; }

@@ -40,7 +40,8 @@ const watchers = new Set();
 const store = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* storage blocked */ } };
 const fetchKey = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 export const onSyncChange = (fn) => { watchers.add(fn); return () => watchers.delete(fn); };
-export const info = () => ({ role, status, failed, email: user?.email || '', live: role === 'editor' || role === 'owner' });
+let reqCount = 0;       // people waiting for the owner's approval (owner only)
+export const info = () => ({ role, status, failed, email: user?.email || '', live: role === 'editor' || role === 'owner', reqs: reqCount });
 const emit = () => watchers.forEach((fn) => { try { fn(info()); } catch { /* a watcher must not break sync */ } });
 
 async function load() {
@@ -163,12 +164,13 @@ async function onUser(u) {
   unsub?.(); unsub = null;
   listening = false; denied = false; retryN = 0; clearTimeout(retryTimer); clearTimeout(pushRetry);
   failed = false;
+  reqUnsub?.(); reqUnsub = null; reqCount = 0;
   if (!u) { role = 'out'; status = 'Offline'; emit(); return; }
   status = 'Connecting…'; emit();
   try {
     role = await withTimeout(checkRole(), 15000);
-    if (isEditor()) await withTimeout(startLive(), 20000);
-    else { status = 'Needs approval'; emit(); }
+    if (isEditor()) { await withTimeout(startLive(), 20000); startOwnerWatch(); }
+    else { status = 'Asked for access. Kiara will approve you.'; emit(); requestAccess().catch(() => { status = 'Needs approval'; emit(); }); }
   } catch (e) {
     const code = e?.code || e?.message || 'unknown';
     console.warn('[sync] could not connect:', code, e);
@@ -216,6 +218,46 @@ async function listRequests() {
   const s = await fb.F.getDocs(fb.F.collection(fb.db, 'requests'));
   return s.docs.map((d) => d.data().email);
 }
+let reqUnsub = null, preapproved = [];
+const PRE_DOC = () => fb.F.doc(fb.db, 'secrets', 'preapproved');
+const normEmail = (e) => String(e || '').trim().toLowerCase();
+export const listPreapproved = () => preapproved.slice();
+async function loadPreapproved() {
+  try { const d = await fb.F.getDoc(PRE_DOC()); preapproved = d.exists() ? (d.data().emails || []).map(normEmail) : []; } catch { preapproved = []; }
+}
+export async function addPreapproved(email) {
+  email = normEmail(email);
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('bad email');
+  if (!preapproved.includes(email)) preapproved = [...preapproved, email];
+  await fb.F.setDoc(PRE_DOC(), { emails: preapproved });
+  try { await approve(email); } catch { /* no request yet: they are approved the moment they ask */ }
+  watchRequests?.();
+}
+export async function removePreapproved(email) {
+  preapproved = preapproved.filter((e) => e !== normEmail(email));
+  await fb.F.setDoc(PRE_DOC(), { emails: preapproved });
+}
+let watchRequests = null;
+/** Owner only: new access requests show on the people icon, and emails you pre-approved are let in automatically (while the site is open on your device). */
+async function startOwnerWatch() {
+  if (role !== 'owner' || !fb) return;
+  reqUnsub?.();
+  await loadPreapproved();
+  const seen = new Set();
+  const handle = async (snap) => {
+    let waiting = 0;
+    for (const d of snap.docs) {
+      const em = normEmail(d.data().email);
+      if (!em) continue;
+      if (preapproved.includes(em)) { try { await approve(em); toast(`${em} can edit now`); } catch { waiting++; } }
+      else { waiting++; if (!seen.has(em)) { seen.add(em); toast(`${em} is asking to edit. Tap the people icon to approve.`); } }
+    }
+    reqCount = waiting; emit();
+  };
+  const sub = () => { reqUnsub?.(); reqUnsub = fb.F.onSnapshot(fb.F.collection(fb.db, 'requests'), handle, () => { /* not allowed or offline: the panel still lists requests on open */ }); };
+  watchRequests = sub; sub();
+}
+
 async function approve(email) {
   await fb.F.setDoc(fb.F.doc(fb.db, 'editors', email), { email });
   await fb.F.deleteDoc(fb.F.doc(fb.db, 'requests', email));
@@ -224,7 +266,7 @@ async function approve(email) {
 /* ---------- Live panel: glass popover opened from the footer button ---------- */
 export function mountLive(btn) {
   const dot = btn.querySelector('.live-dot');
-  const paint = () => { const i = info(); btn.title = `Edit together · ${i.status}`; btn.setAttribute('aria-label', `Edit together, ${i.live ? 'live' : i.role === 'pending' ? 'waiting for approval' : 'offline'}`); dot?.setAttribute('data-s', i.live ? 'on' : i.role === 'pending' ? 'wait' : 'off'); };
+  const paint = () => { const i = info(); btn.title = `Edit together · ${i.status}`; btn.setAttribute('aria-label', `Edit together, ${i.live ? 'live' : i.role === 'pending' ? 'waiting for approval' : 'offline'}`); dot?.setAttribute('data-s', i.live ? 'on' : i.role === 'pending' ? 'wait' : 'off'); btn.dataset.req = String(i.reqs || 0); };
   onSyncChange(paint); paint();
   btn.setAttribute('aria-haspopup', 'dialog');
   btn.setAttribute('aria-expanded', 'false');
@@ -287,7 +329,10 @@ export function mountLive(btn) {
         const reqs = await listRequests().catch(() => []);
         pop.innerHTML = `${/^(Re)?connecting/i.test(i.status) ? `<div class="live-wait">${heartLoaderHTML('Connecting', { sm: true })}</div>` : `<h3>${esc(i.status)}</h3>`}<p>${esc(i.email)}</p>
           ${reqs.length ? `<ul class="live-reqs">${reqs.map((r) => `<li>${esc(r)} <button class="btn" data-ok="${esc(r)}">Approve</button></li>`).join('')}</ul>` : ''}
+          ${role === 'owner' ? `<form class="live-pre" autocomplete="off"><label>Let in automatically<input type="email" required placeholder="their@email.com" aria-label="Email to approve ahead"/></label><button class="btn">Add</button></form>${listPreapproved().length ? `<ul class="live-pre-l">${listPreapproved().map((e) => `<li>${esc(e)} <button type="button" class="linklike" data-unpre="${esc(e)}" aria-label="Remove ${esc(e)}">×</button></li>`).join('')}</ul>` : ''}` : ''}
           <button class="btn" data-out>Sign out</button>`;
+        pop.querySelector('.live-pre')?.addEventListener('submit', async (e) => { e.preventDefault(); const inp = e.target.querySelector('input'); try { await addPreapproved(inp.value); toast(`${inp.value} will be let in automatically`); draw(); } catch { toast('That does not look like an email'); } });
+        pop.querySelectorAll('[data-unpre]').forEach((b) => { b.onclick = async () => { await removePreapproved(b.dataset.unpre); draw(); }; });
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });
       }
       pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-reset>Start over</button></div>');
