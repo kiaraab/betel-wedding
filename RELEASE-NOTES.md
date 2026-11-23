@@ -67,3 +67,7 @@ Lock screen with aerial photo and heart unlock; Morais overview map (aerial with
 
 ## Still open (as of Nov 23)
 REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (needs files), REQ-114 filter highlight, REQ-120 Home Screen guide, REQ-121 3D for other places, REQ-122 tell Betel at launch, QA-24 (3D empty on first visit, could not reproduce).
+
+- Household is now a dropdown (pick one or add new), so names stay consistent.
+
+- Household is now a dropdown (pick one or add new), so names stay consistent.
