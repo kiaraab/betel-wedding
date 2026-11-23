@@ -2,6 +2,8 @@
 // Loaded on demand (three.js comes from a CDN via the import map in index.html).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { seatCount, tableR, rectDims, chairPositions } from './layout.js';
 import { partyDots } from './spaces.js';
 
@@ -93,6 +95,204 @@ function archShape(w, h) { // rectangle with a round top, base at y=0
   return s;
 }
 
+/* Palette read straight off Betel's board (assets/inspo): wine, olive/sage, chocolate, ivory, candlelight. */
+const PAL = { wine: '#5a1624', wineLt: '#7d2c38', blush: '#d9a3a8', olive: '#6b7340', oliveDk: '#4b522b', sage: '#a9b38a', choc: '#4d2e1d', ivory: '#f2ead8', candle: '#ffcf8a' };
+
+/** Soft round glow (canvas radial fade) used for candle / bulb halos. */
+function glowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, 'rgba(255,214,150,1)'); r.addColorStop(0.25, 'rgba(255,190,110,.45)'); r.addColorStop(1, 'rgba(255,170,80,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/** Sky for the open spaces: zenith at the top, horizon band, then ground colour below (used on the upper hemisphere only). */
+function skyTexture(stops) {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128);
+  stops.forEach(([o, col]) => gr.addColorStop(o, col));
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  g.fillStyle = stops[stops.length - 1][1]; g.fillRect(0, 128, 4, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/** Soft vertical folds (greyscale, tiles sideways): multiplies a cloth colour so velvet / satin falls in pleats. */
+function linenTexture() {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, 128, 64);
+  for (let x = 0; x < 128; x++) {
+    const v = Math.sin((x / 128) * Math.PI * 2 * 5) * 0.5 + Math.sin((x / 128) * Math.PI * 2 * 11 + 1) * 0.3;
+    g.fillStyle = v > 0 ? `rgba(255,255,255,${v * 0.28})` : `rgba(0,0,0,${-v * 0.32})`; g.fillRect(x, 0, 1, 64);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(3, 1);
+  return t;
+}
+
+/* ---- merged, vertex-coloured decor pieces (one draw call per table): runner, plates, candles, low florals ---- */
+const U = { box: new THREE.BoxGeometry(1, 1, 1), cyl: new THREE.CylinderGeometry(1, 1, 1, 10), sph: new THREE.SphereGeometry(1, 7, 5), cone: new THREE.ConeGeometry(1, 1, 6) };
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
+/** A unit primitive, scaled / rotated / moved and painted a single colour. */
+function part(kind, color, [x, y, z], [sx, sy, sz], [rx = 0, ry = 0, rz = 0] = []) {
+  const g = U[kind].clone();
+  g.applyMatrix4(_m.compose(_p.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.set(sx, sy, sz)));
+  _c.set(color);
+  const n = g.attributes.position.count, col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
+const rngOf = (seed) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const BLOOMS = [PAL.wine, PAL.wine, PAL.wine, PAL.wineLt, '#8c2a3a', PAL.blush, PAL.ivory, PAL.ivory, '#b9c08a'];
+/** A low, loose mound of blooms and greenery (the board: hydrangea, roses, trailing leaves) centred at (cx, y, cz). */
+function florals(cx, y, cz, R, H, seed) {
+  const rnd = rngOf(seed), out = [];
+  for (let k = 0; k < 14; k++) {
+    const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * R, r = 0.2 + rnd() * 0.22;
+    out.push(part('sph', BLOOMS[Math.floor(rnd() * BLOOMS.length)], [cx + Math.cos(a) * d, y + H * (1 - d / R) + r * 0.6, cz + Math.sin(a) * d], [r, r * 0.85, r]));
+  }
+  for (let k = 0; k < 7; k++) { // leaves fanning outward and trailing over the cloth
+    const a = (k / 7) * Math.PI * 2 + rnd(), d = R * 0.85;
+    out.push(part('cone', k % 2 ? PAL.oliveDk : '#7d8a4c', [cx + Math.cos(a) * d, y + 0.28, cz + Math.sin(a) * d], [0.14, 1.0, 0.14], [Math.sin(a) * 1.25, 0, -Math.cos(a) * 1.25]));
+  }
+  return out;
+}
+/** Pillar candles (ivory) on a small brass foot; flame tips are returned separately so they can glow. */
+function candles(list, y, parts, tips) {
+  list.forEach(([x, z, hh]) => {
+    parts.push(part('cyl', PAL.ivory, [x, y + hh / 2, z], [0.09, hh, 0.09]), part('cyl', '#b08d57', [x, y + 0.04, z], [0.3, 0.08, 0.3]));
+    tips.push(part('sph', '#fff', [x, y + hh + 0.14, z], [0.07, 0.14, 0.07])); // all flames share the emissive flame material
+  });
+}
+const round1 = (n) => Math.round(n * 10) / 10;
+const _decorCache = new Map();
+/** Round table decor: cross runner, place settings (olive charger + ivory plate), candle trio, floral mound. Cached per size. */
+function roundDecor(r, seats, small, runnerColor, th, seed) {
+  const key = ['r', round1(r), seats, small, runnerColor, th, seed].join();
+  if (_decorCache.has(key)) return _decorCache.get(key);
+  const parts = [], tips = [], y = th;
+  if (!small) {
+    for (const a of [0, Math.PI / 2]) parts.push(part('box', runnerColor, [0, y + 0.03, 0], [2 * r + 0.7, 0.05, 1.05], [0, a, 0]));
+    for (let k = 0; k < 4; k++) { const a = (k * Math.PI) / 2; parts.push(part('box', runnerColor, [Math.cos(a) * (r + 0.33), y - 0.55, Math.sin(a) * (r + 0.33)], [0.05, 1.2, 1.05], [0, -a + Math.PI / 2, 0])); }
+    for (let i = 0; i < seats; i++) {
+      const a = (i / seats) * Math.PI * 2 - Math.PI / 2, d = r - 1.0;
+      parts.push(part('cyl', PAL.oliveDk, [Math.cos(a) * d, y + 0.04, Math.sin(a) * d], [0.62, 0.05, 0.62]), part('cyl', PAL.ivory, [Math.cos(a) * d, y + 0.08, Math.sin(a) * d], [0.46, 0.05, 0.46]));
+    }
+  }
+  const k = small ? 0.55 : 1;
+  parts.push(...florals(0, y, 0, 0.95 * k, 0.5 * k, seed));
+  candles(small ? [[0.5, 0.3, 0.7]] : [[0.95, 0.35, 1.9], [-0.85, 0.55, 2.3], [0.1, -1.0, 2.0]], y, parts, tips);
+  const out = { decor: mergeGeometries(parts), tips: mergeGeometries(tips), tipAt: small ? [[0.5, y + 0.84, 0.3]] : [[0.95, y + 2.04, 0.35], [-0.85, y + 2.44, 0.55], [0.1, y + 2.14, -1.0]] };
+  parts.forEach((g) => g.dispose()); tips.forEach((g) => g.dispose());
+  _decorCache.set(key, out); return out;
+}
+/** Long (rect) table decor: a run of floral mounds with candle clusters between them, a long runner with hanging ends, a plate per seat. */
+function longDecor(L, D, seatsTop, runnerColor, th) {
+  const key = ['l', round1(L), round1(D), seatsTop, runnerColor, th].join();
+  if (_decorCache.has(key)) return _decorCache.get(key);
+  const parts = [], tips = [], tipAt = [], y = th;
+  parts.push(part('box', runnerColor, [0, y + 0.03, 0], [L + 1.2, 0.05, Math.min(1.5, D * 0.5)]));
+  [-1, 1].forEach((sd) => parts.push(part('box', runnerColor, [sd * (L / 2 + 0.6), y - 0.7, 0], [0.05, 1.5, Math.min(1.5, D * 0.5)])));
+  const n = Math.max(2, Math.round(L / 4.2));
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1) - 0.5) * (L - 1.6);
+    parts.push(...florals(x, y, 0, 1.0, 0.55, 11 + i * 5));
+    if (i < n - 1) { const cx = x + (L - 1.6) / (n - 1) / 2; candles([[cx - 0.2, 0.2, 2.2], [cx + 0.2, -0.25, 1.7]], y, parts, tips); tipAt.push([cx - 0.2, y + 2.34, 0.2], [cx + 0.2, y + 1.84, -0.25]); }
+  }
+  if (seatsTop) for (let i = 0; i < seatsTop; i++) {
+    const x = (i / seatsTop - 0.5) * (L - 1.2) + (L - 1.2) / seatsTop / 2;
+    parts.push(part('cyl', PAL.oliveDk, [x, y + 0.04, D / 2 - 0.9], [0.62, 0.05, 0.62]), part('cyl', PAL.ivory, [x, y + 0.08, D / 2 - 0.9], [0.46, 0.05, 0.46]));
+  }
+  const out = { decor: mergeGeometries(parts), tips: tips.length ? mergeGeometries(tips) : null, tipAt };
+  parts.forEach((g) => g.dispose()); tips.forEach((g) => g.dispose());
+  _decorCache.set(key, out); return out;
+}
+/** Cross-back chair frame (turned legs, raked back posts, top rail, X splat), merged into one geometry. Seat height 1.5 ft, back at +z. */
+let _chairFrame = null, _cushion = null;
+function chairFrame() {
+  if (_chairFrame) return _chairFrame;
+  const b = (sx, sy, sz, x, y, z, rz = 0, rx = 0) => new THREE.BoxGeometry(sx, sy, sz).applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, rz)), new THREE.Vector3(1, 1, 1)));
+  const parts = [
+    b(0.11, 1.45, 0.11, -0.55, 0.72, -0.55), b(0.11, 1.45, 0.11, 0.55, 0.72, -0.55),        // front legs
+    b(0.11, 1.5, 0.11, -0.55, 0.75, 0.55, 0, -0.07), b(0.11, 1.5, 0.11, 0.55, 0.75, 0.55, 0, -0.07), // rear legs, raked
+    b(0.11, 1.9, 0.11, -0.55, 2.4, 0.66, 0, 0.07), b(0.11, 1.9, 0.11, 0.55, 2.4, 0.66, 0, 0.07),     // back posts
+    b(1.2, 0.12, 0.1, 0, 1.38, -0.55), b(1.2, 0.12, 0.1, 0, 1.38, 0.55), b(0.1, 0.12, 1.1, -0.55, 1.38, 0), b(0.1, 0.12, 1.1, 0.55, 1.38, 0), // seat rails
+    b(1.2, 0.2, 0.1, 0, 3.3, 0.7), b(1.15, 0.1, 0.08, 0, 2.05, 0.64),                        // top rail, low rail
+    b(0.07, 1.5, 0.06, 0, 2.7, 0.67, 0.55), b(0.07, 1.5, 0.06, 0, 2.7, 0.67, -0.55),        // crossed splat
+  ];
+  _chairFrame = mergeGeometries(parts); parts.forEach((g) => g.dispose());
+  _cushion = new RoundedBoxGeometry(1.25, 0.24, 1.2, 2, 0.08).translate(0, 1.58, 0.0);
+  return _chairFrame;
+}
+const chairCushion = () => (chairFrame(), _cushion);
+
+/** A swag of sheer chiffon hung along a sagging top edge from a to b ([x, y, z]); it billows sideways and gathers toward the ends. */
+function swagGeo(a, b, sag, drop, seed) {
+  const nu = 24, nv = 8, pos = [], uv = [], idx = [];
+  const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz) || 1, nx = -dz / len, nz = dx / len;
+  for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) {
+    const u = i / nu, v = j / nv, top = a[1] + (b[1] - a[1]) * u - sag * 4 * u * (1 - u);
+    const off = Math.sin(u * 7 + seed + v * 2.2) * 0.5 * v + Math.sin(seed) * 0.35 * v;
+    const d = drop * (0.7 + 0.3 * Math.sin(u * Math.PI * 3 + seed)) * v * (1 - 0.35 * Math.sin(u * Math.PI)); // longer at the ends, gathered mid-span
+    pos.push(a[0] + dx * u + nx * off, top - d, a[2] + dz * u + nz * off); uv.push(u, v);
+  }
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const p = j * (nu + 1) + i; idx.push(p, p + 1, p + nu + 1, p + 1, p + nu + 2, p + nu + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+/** Hanging greenery (the board's sheer-greenery pins): wire + olive leaves + a few cream blooms, from anchor points [x, y, z]. 3 draw calls total. */
+function greenStrands(anchors, seed, maxDrop = 4.5) {
+  const rnd = rngOf(seed), grp = new THREE.Group(), wire = [], lm = [], fm = [], lc = [], M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), P = new THREE.Vector3(), S = new THREE.Vector3(), C = new THREE.Color();
+  const LEAF = ['#5d6a35', '#6f7a45', '#4b522b', '#7d8a4c', '#8d9a5c'];
+  anchors.forEach(([x, y, z]) => {
+    const drop = maxDrop * (0.45 + rnd() * 0.75), n = Math.max(4, Math.round(drop * 3.4)), ph = rnd() * 6;
+    wire.push(x, y, z, x, y - drop, z);
+    for (let i = 1; i <= n; i++) {
+      const u = i / n, jx = Math.sin(u * 5 + ph) * 0.16 + (rnd() - 0.5) * 0.18, jz = Math.cos(u * 4 + ph) * 0.14 + (rnd() - 0.5) * 0.18, s = 0.9 + rnd() * 0.5;
+      M.compose(P.set(x + jx, y - u * drop, z + jz), Q.setFromEuler(E.set(rnd() * 3, rnd() * 3, rnd() * 3)), S.set(0.22 * s, 0.09 * s, 0.14 * s)); lm.push(M.clone()); lc.push(C.set(LEAF[Math.floor(rnd() * LEAF.length)]).clone());
+    }
+    if (rnd() < 0.35) { M.compose(P.set(x + 0.05, y - drop * (0.55 + rnd() * 0.4), z), Q.identity(), S.set(0.2, 0.2, 0.2)); fm.push(M.clone()); }
+  });
+  const lines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(wire, 3)), new THREE.LineBasicMaterial({ color: '#4b522b' }));
+  const leaves = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ roughness: 0.9 }), lm.length);
+  lm.forEach((m, i) => { leaves.setMatrixAt(i, m); leaves.setColorAt(i, lc[i]); });
+  grp.add(lines, leaves);
+  if (fm.length) { const fl = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshStandardMaterial({ color: '#f2ead8', roughness: 0.8 }), fm.length); fm.forEach((m, i) => fl.setMatrixAt(i, m)); grp.add(fl); }
+  return grp;
+}
+
+/** Flower arch wrapped in greenery and cream/wine blooms, with a floral mound and stone urn at each foot (merged: one draw call). Faces +z, centred on x = 0, standing on y = 0. */
+function floralArch(R, seed) {
+  const rnd = rngOf(seed), parts = [], top = R + 1.2;
+  for (let k = 0; k < 70; k++) {
+    const a = (k / 69) * Math.PI, jx = (rnd() - 0.5) * 0.5, jr = (rnd() - 0.5) * 0.5, x = Math.cos(a) * (R + jr), y = 1.4 + Math.sin(a) * (top - 1.4) + jx;
+    parts.push(part('sph', k % 3 ? '#5d6a35' : '#6f7a45', [x, y, (rnd() - 0.5) * 0.7], [0.45, 0.4, 0.4]));
+    if (k % 2 === 0) { const r = 0.2 + rnd() * 0.18; parts.push(part('sph', BLOOMS[Math.floor(rnd() * BLOOMS.length)], [x + (rnd() - 0.5) * 0.4, y + 0.25, 0.4 + rnd() * 0.3], [r, r * 0.85, r])); }
+  }
+  [-1, 1].forEach((sd, s) => {
+    parts.push(part('cyl', '#cfc7b4', [sd * R, 1.0, 0], [0.55, 2.0, 0.55]), part('cyl', '#e0d8c4', [sd * R, 2.15, 0], [0.8, 0.3, 0.8])); // urn
+    parts.push(...florals(sd * R, 2.3, 0, 1.5, 1.1, seed + s * 13), ...florals(sd * (R + 1.1), 0.1, 0.5, 2.0, 1.2, seed + 40 + s)); // urn arrangement + ground mound
+  });
+  const g = mergeGeometries(parts); parts.forEach((p) => p.dispose()); return g;
+}
+
+/** Floor-length cloth for a round table: pooled hem and soft radial pleats (cached). */
+function clothGeo(r, th) {
+  const key = ['c', round1(r), th].join();
+  if (_decorCache.has(key)) return _decorCache.get(key);
+  const pts = [[r + 0.65, 0], [r + 0.5, 0.1], [r + 0.34, 0.55], [r + 0.22, th * 0.55], [r + 0.1, th - 0.18], [r + 0.04, th - 0.04], [r - 0.05, th], [0.01, th]].map(([x, y]) => new THREE.Vector2(x, y));
+  const g = new THREE.LatheGeometry(pts, 40), pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), y = pos.getY(i), f = 1 + 0.035 * Math.sin(Math.atan2(z, x) * 14) * Math.max(0, 1 - y / th) * (Math.hypot(x, z) > r * 0.9 ? 1 : 0);
+    pos.setXYZ(i, x * f, y, z * f);
+  }
+  g.computeVertexNormals(); _decorCache.set(key, g); return g;
+}
+
 /** `sp` = { room, tables } of another space (ceremony / hangout / tasting room); omit it for the ballroom reception. `countAt(t)` = guests seated at a table, `pool` = the ceremony's wedding party pool. */
 export async function mount(host, state, mood, { onSeat, unseated = () => [], sp = null, countAt = null, pool = [] } = {}) {
   host.innerHTML = '';
@@ -116,7 +316,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   host.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const dayBg = new THREE.Color('#e9e2d2'), nightBg = new THREE.Color('#15180f');
+  const dayBg = new THREE.Color('#e9e2d2'), nightBg = new THREE.Color('#1a1310');
   scene.background = dayBg.clone();
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 600);
@@ -128,6 +328,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   /* ---- light ---- */
   const hemi = new THREE.HemisphereLight('#fff7e6', '#7a6748', 1.3);
   scene.add(hemi);
+  const hemiSky = { day: new THREE.Color('#fff7e6'), night: new THREE.Color('#ffc58a') }, hemiGnd = { day: new THREE.Color('#7a6748'), night: new THREE.Color('#2a1a14') };
   const sun = new THREE.DirectionalLight('#ffe9c4', 1.6);
   sun.position.set(-20, 40, -h); sun.castShadow = true;
   const coarse = matchMedia('(pointer: coarse)').matches;
@@ -135,6 +336,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   Object.assign(sun.shadow.camera, { left: -w, right: w, top: h, bottom: -h, near: 1, far: 200 });
   sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3; // softer edges, no extra pass
   scene.add(sun);
+  const moon = new THREE.DirectionalLight('#9fb0e0', 0); // a faint cool fill for the evening, so the lawn and trees are not pitch black
+  moon.position.set(30, 50, 40); scene.add(moon);
 
   /* ---- shared materials (the ballroom block below and the other spaces both light these) ---- */
   const ceilingG = new THREE.Group();
@@ -145,13 +348,50 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const glassMats = [], lamps = [], flames = [], popIns = [];
 
   /* ---- floor + walls ---- */
-  const FLOORS = { lawn: '#8fa876', concrete: '#cfc9bd', tile: '#d9ccb6' }; // flat colors for the other spaces
+  const FLOORS = { lawn: '#74895b', concrete: '#cfc9bd', tile: '#d9ccb6' }; // flat colors for the other spaces
   let floorMat;
   if (ballroom) { const wood = woodTexture(); wood.repeat.set(w / 16, h / 16); floorMat = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.55 }); }
   else floorMat = new THREE.MeshStandardMaterial({ color: FLOORS[ROOM.floor] || '#d9ccb6', roughness: 0.9 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, h), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
   scene.add(floor);
+
+  /* ---- backdrop for the open spaces (lawn, courtyard): a dusk sky, layered hills and a ring of trees, like the villa photos on the board.
+         Hills and trees are instanced, so the whole backdrop is a handful of draw calls. ---- */
+  const skyDomes = [];
+  if (!closed) {
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(420, 32), new THREE.MeshStandardMaterial({ color: ROOM.floor === 'lawn' ? '#6f8a58' : '#9b9588', roughness: 1 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.06; ground.receiveShadow = true; scene.add(ground);
+    const domeGeo = new THREE.SphereGeometry(400, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    [skyTexture([[0, '#7fb0d6'], [0.7, '#cfe2e6'], [1, '#f3e8c9']]), skyTexture([[0, '#1b2038'], [0.55, '#5d3b52'], [1, '#f0a066']])].forEach((tex, i) => {
+      const m = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, depthWrite: false, fog: false, transparent: true, opacity: i ? 0 : 1 }));
+      m.renderOrder = -2 + i; scene.add(m); skyDomes.push(m);
+    });
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S = new THREE.Vector3(), C = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
+    const R0 = Math.max(w, h) * 0.5;
+    // two ranks of low hills (far = hazy sage, near = deeper olive)
+    const hills = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ roughness: 1 }), 22);
+    for (let i = 0; i < 22; i++) {
+      const far = i < 12, a = (far ? i / 12 : (i - 12) / 10) * Math.PI * 2 + rnd() * 0.4, R = far ? 230 + rnd() * 30 : 140 + R0 * 0.4 + rnd() * 25;
+      P.set(Math.cos(a) * R, -2, Math.sin(a) * R); S.set(far ? 70 + rnd() * 40 : 40 + rnd() * 25, far ? 22 + rnd() * 16 : 10 + rnd() * 8, far ? 60 : 45);
+      Q.setFromAxisAngle(UP, -a); M.compose(P, Q, S); hills.setMatrixAt(i, M);
+      hills.setColorAt(i, C.set(far ? '#7f8c63' : '#566a3f').offsetHSL(0, 0, (rnd() - 0.5) * 0.05));
+    }
+    scene.add(hills);
+    // trees ringed outside the room: round canopies + a few cypress, each on a trunk
+    const NT = 34, trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.4, 0.6, 1, 6), new THREE.MeshStandardMaterial({ color: '#4a3524', roughness: 1 }), NT);
+    const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ roughness: 1 }), NT);
+    Q.identity();
+    for (let i = 0; i < NT; i++) {
+      const a = rnd() * Math.PI * 2, ex = w / 2 + 14 + rnd() * 55, ez = h / 2 + 14 + rnd() * 55, px = Math.cos(a) * ex, pz = Math.sin(a) * ez;
+      const cyp = i % 5 === 0, ht = cyp ? 20 + rnd() * 8 : 9 + rnd() * 6, cr = cyp ? 2.2 : 5 + rnd() * 3.5;
+      P.set(px, ht * 0.15, pz); S.set(1, ht * 0.3, 1); M.compose(P, Q, S); trunks.setMatrixAt(i, M);
+      P.set(px, ht * 0.3 + (cyp ? ht * 0.35 : cr * 0.7), pz); S.set(cr, cyp ? ht * 0.5 : cr * 0.85, cr); M.compose(P, Q, S); crowns.setMatrixAt(i, M);
+      crowns.setColorAt(i, C.set(cyp ? '#2f4128' : '#4f6a3a').offsetHSL((rnd() - 0.5) * 0.04, 0, (rnd() - 0.5) * 0.08));
+    }
+    scene.add(trunks, crowns);
+  }
 
   if (ballroom) {
   // Shimmery gold-taupe walls (a touch of metalness catches the light)
@@ -437,29 +677,29 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const cloth = new THREE.MeshStandardMaterial({ color: '#f5efe2', roughness: 0.85 });
   const SPACE_LOOK = { ceremony: { chair: '#f4f1ea', top: '#f5efe2' }, cocktail: { chair: '#2b2b2b', top: '#2b2b2b' }, tasting: { chair: '#7a5638', top: '#7a5638' } };
   const look = SPACE_LOOK[sp?.id] || null;
-  const topMat = look ? new THREE.MeshStandardMaterial({ color: look.top, roughness: 0.7 }) : cloth;
-  const chairMat = look ? new THREE.MeshStandardMaterial({ color: look.chair, roughness: 0.6 }) : new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.55, roughness: 0.35 });
+  // Linens in the board's palette (chocolate satin, wine velvet, olive velvet), with soft folds; each table gets the next colour in turn, the head table is olive velvet.
+  const foldTex = linenTexture();
+  const linen = (c, rough = 0.78) => new THREE.MeshStandardMaterial({ color: c, map: foldTex, roughness: rough });
+  const LINENS = [linen(PAL.choc, 0.55), linen(PAL.wine, 0.85), linen(PAL.olive, 0.85)];
+  const runnerOf = (cloth) => (cloth === 0 ? '#6f7a45' : cloth === 1 ? '#c9c3a3' : PAL.wine); // moss runner on chocolate, ivory-sage on wine, wine on olive
+  const clothIdx = (t, i) => (t.id === 'head' ? 2 : i % 3 === 2 ? 1 : 0); // mostly chocolate, a wine one now and then
+  const topMat = look && sp.id === 'tasting' ? new THREE.MeshStandardMaterial({ color: look.top, roughness: 0.7 }) : null; // null = pick a linen per table
+  const decorMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 });
+  const chairMat = look ? new THREE.MeshStandardMaterial({ color: look.chair, roughness: 0.6 }) : new THREE.MeshStandardMaterial({ color: '#4a2f1e', roughness: 0.6 }); // dark walnut cross-back chairs
+  const cushionMat = new THREE.MeshStandardMaterial({ color: sp?.id === 'cocktail' ? '#2b2b2b' : '#e9dfc8', roughness: 0.95 }); // ivory linen seat pad
   const seatedMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.7 });
-  const bloomMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.8 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: mood.swatches[1], roughness: 0.8 });
   const flameMat = new THREE.MeshStandardMaterial({ color: '#ffe7b0', emissive: '#ffb347', emissiveIntensity: 0.4 });
 
+  const candlePos = []; // world positions of every flame, for the glow halos
   const chairMeshes = []; // for tap-to-seat
   const tableInfo = new Map(); // tableId -> { group, tag, n, total }
   const chair = (x, z, faceX, faceZ, seated) => {
-    const c = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.14, 1.3), seated ? seatedMat : chairMat);
-    seat.position.y = 1.5;
-    const back = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.7, 0.12), chairMat);
-    back.position.set(0, 2.4, 0.62);
-    for (const [lx, lz] of [[-.55, -.55], [.55, -.55], [-.55, .55], [.55, .55]]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5), chairMat);
-      leg.position.set(lx, 0.75, lz); c.add(leg);
-    }
-    c.add(seat, back);
+    const c = new THREE.Group(); // two draw calls per chair, both on shared geometry: the wooden frame and the cushion (the cushion changes colour when someone sits)
+    const seat = new THREE.Mesh(chairCushion(), seated ? seatedMat : cushionMat);
+    c.add(new THREE.Mesh(chairFrame(), chairMat), seat);
     c.position.set(x, 0, z);
     c.rotation.y = Math.atan2(x - faceX, z - faceZ);
-    c.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+    c.children[0].castShadow = true; // the frame only: fewer shadow draws
     c.userData.seat = seat;
     return c;
   };
@@ -469,26 +709,32 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     const n = countAt ? countAt(t) : state.guests.filter((x) => x.tableId === t.id).length;
     const isRow = t.shape === 'row', th = t.high ? 3.6 : 2.5;
     const rot = ((t.rot || 0) * Math.PI) / 180;
-    let top;
+    let top, dec = null, rectGeo = null;
+    const ci = clothIdx(t, i), tmat = topMat || LINENS[ci], rc = runnerOf(ci);
+    const small = !!t.high;
     if (isRow) { // ceremony row: chairs only
       top = new THREE.Object3D();
     } else if (t.shape === 'round') {
       const r = tableR(t);
-      top = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.3, th, 40), topMat);
+      top = new THREE.Mesh(clothGeo(r, th), tmat);
+      if (!topMat) dec = roundDecor(r, t.arc ? 0 : t.seats, small, rc, th, 3 + i * 7);
     } else {
       const { L, D } = rectDims(t);
-      top = new THREE.Mesh(new THREE.BoxGeometry(L, 2.5, D), topMat);
+      const key = ['b', round1(L), round1(D), th].join();
+      if (!_decorCache.has(key)) { const a = new THREE.BoxGeometry(L, th, D).translate(0, th / 2, 0), b = new THREE.BoxGeometry(L + 0.5, 0.4, D + 0.5).translate(0, 0.2, 0); _decorCache.set(key, mergeGeometries([a, b])); a.dispose(); b.dispose(); }
+      top = new THREE.Mesh(_decorCache.get(key), tmat);
+      if (!topMat) dec = longDecor(L, D, 0, rc, th);
     }
-    top.position.y = th / 2; top.castShadow = top.receiveShadow = true;
+    top.position.y = 0; top.castShadow = top.receiveShadow = true;
     g.add(top);
-    // centerpiece: blooms + a candle (ballroom only)
-    if (ballroom) [[0, 0, .45, bloomMat], [.5, .2, .3, leafMat], [-.45, .25, .28, leafMat]].forEach(([dx, dz, r, m]) => {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), m); b.position.set(dx, 2.5 + r * 0.8, dz); g.add(b);
-    });
-    if (ballroom) {
-      const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2), new THREE.MeshStandardMaterial({ color: '#fbf6ea' }));
-      candle.position.set(0, 3.1, -0.6); g.add(candle);
-      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), flameMat); flame.position.set(0, 3.8, -0.6); g.add(flame); flames.push(flame);
+    // low florals, candle trio, runner and place settings: one merged mesh + one flame mesh per table
+    if (dec) {
+      const deco = new THREE.Group();
+      deco.add(new THREE.Mesh(dec.decor, decorMat));
+      if (dec.tips) deco.add(new THREE.Mesh(dec.tips, flameMat));
+      if (t.shape !== 'round') deco.rotation.y = -rot;
+      g.add(deco);
+      g.userData.candles = dec.tipAt.map(([x, y, z]) => new THREE.Vector3(x, y, z).applyEuler(deco.rotation));
     }
     chairPositions(t).forEach(([cx, cz], k) => {
       const px = cx * Math.cos(rot) - cz * Math.sin(rot), pz = cx * Math.sin(rot) + cz * Math.cos(rot);
@@ -499,6 +745,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     });
     if (t.shape !== 'round' && !isRow) top.rotation.y = -rot;
     g.position.set(X(t.x), onStage(t.x, t.y) ? PLATFORM : 0, Z(t.y));
+    (g.userData.candles || []).forEach((v) => candlePos.push(v.x + g.position.x, v.y + g.position.y + 0.25, v.z + g.position.z));
     const tag = isRow ? null : label(t.id === 'head' ? t.name : `${/^\d+$/.test(t.name) ? t.name.padStart(2, '0') : t.name} · ${n}/${seatCount(t)}`, { size: 1.2 });
     if (tag) { tag.position.set(0, t.high ? 7 : 6, 0); g.add(tag); }
     tableInfo.set(t.id, { group: g, tag, n, total: seatCount(t), table: t });
@@ -547,6 +794,104 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     if (a.preset !== 'aisle') { const tag = label(a.label, { size: 1.2, color: '#6b1f2a' }); tag.position.set(cx, 5 + up, cz); scene.add(tag); }
   });
 
+  /* ---- styling from the board: chiffon swags, hanging greenery, flower arch, mirror aisle, olive velvet drapes ---- */
+  const chiffonMats = [PAL.sage, '#efe8d4'].map((c) => new THREE.MeshStandardMaterial({ color: c, emissive: '#2a3018', emissiveIntensity: 0.3, roughness: 0.9, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+  const swag = (a, b, sag, drop, i, parent = scene) => { const m = new THREE.Mesh(swagGeo(a, b, sag, drop, i * 1.7 + 0.4), chiffonMats[i % 2]); m.renderOrder = 3; parent.add(m); return m; };
+  {
+    const pg = (fixed.decor || []).find((d) => d.kind === 'pergola');
+    if (pg) { // ceremony: sheer chiffon over the pergola, greenery hanging from the slats
+      const cols = [0, 1 / 3, 2 / 3, 1].map((f) => X(pg.x + f * pg.w)), z0 = Z(pg.y), z1 = Z(pg.y + pg.h), yb = 10.4;
+      let n = 0;
+      [z0, z1].forEach((z) => cols.slice(0, -1).forEach((x, k) => swag([x, yb, z], [cols[k + 1], yb, z], 1.6, 4.2, n++)));
+      [1, 2].forEach((k) => swag([cols[k], yb, z0], [cols[k], yb, z1], 2.2, 3.4, n++));
+      swag([cols[0], yb, z0], [cols[3], yb + 0.3, z1], 3, 3.2, n++); swag([cols[3], yb, z0], [cols[0], yb + 0.3, z1], 3, 3.2, n++);
+      const anchors = [], rnd = rngOf(5);
+      for (let x = pg.x + 1; x < pg.x + pg.w; x += 1.6) for (const fy of [0.08, 0.35, 0.65, 0.92]) if (rnd() < 0.7) anchors.push([X(x), 10.9, Z(pg.y + pg.h * fy)]);
+      scene.add(greenStrands(anchors, 21, 5));
+    }
+    const altar = ROOM.areas.find((a) => a.preset === 'altar');
+    if (altar && sp?.id === 'ceremony') { // flower arch at the altar
+      const ax = X(altar.x + altar.w / 2), az = Z(altar.y + altar.h * 0.55), R = Math.min(5.2, altar.w / 2 + 2.2);
+      const arch = new THREE.Mesh(floralArch(R, 9), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
+      arch.position.set(ax, altar.h ? 0.6 : 0, az); scene.add(arch);
+      const top = R + 1.8;
+      swag([ax - R, top, az + 0.5], [ax + R, top, az + 0.5], 1.4, 5.2, 1); swag([ax - R, top + 0.2, az - 0.3], [ax + R, top + 0.2, az - 0.3], 1.8, 6.5, 2);
+      [-1, 1].forEach((sd, k) => swag([ax + sd * R, top, az], [ax + sd * (R + 1.8), 0.9, az + 0.6], 0, 4.5, 3 + k));
+      const ga = []; for (let k = 0; k < 16; k++) { const a = (k / 15) * Math.PI; ga.push([ax + Math.cos(a) * R * 0.98, 0.6 + 1.4 + Math.sin(a) * (R - 0.2), az + 0.55]); }
+      scene.add(greenStrands(ga, 33, 3.4));
+    }
+    // mirror aisle: a polished dark strip that "reflects" the sage chiffon and the string lights (painted, so no extra render pass)
+    const aisleA = ROOM.areas.find((a) => a.preset === 'aisle');
+    if (aisleA && sp?.id === 'ceremony') {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d');
+      const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#9fae86'); gr.addColorStop(0.35, '#5f6f58'); gr.addColorStop(1, '#27322f');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
+      g.fillStyle = 'rgba(255,238,200,.85)'; for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(8 + (k % 2) * 48, 40 + k * 32, 2.2, 0, 7); g.fill(); }
+      g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(0, 0, 6, 256); g.fillRect(58, 0, 6, 256);
+      const mt = new THREE.CanvasTexture(c); mt.colorSpace = THREE.SRGBColorSpace;
+      const mir = new THREE.Mesh(new THREE.PlaneGeometry(aisleA.w * 0.8, aisleA.h), new THREE.MeshStandardMaterial({ map: mt, emissiveMap: mt, emissive: '#ffffff', emissiveIntensity: 0.28, metalness: 0.85, roughness: 0.12 }));
+      mir.rotation.x = -Math.PI / 2; mir.position.set(X(aisleA.x + aisleA.w / 2), 0.07, Z(aisleA.y + aisleA.h / 2)); mir.receiveShadow = true; scene.add(mir);
+    }
+    // reception: olive velvet drapes + chiffon swags + hanging greenery behind the head table
+    const head = ballroom && TABLES.find((t) => t.id === 'head');
+    if (head) {
+      const hx = Math.max(-w / 2 + 14, Math.min(w / 2 - 14, X(head.x))), hz = Z(head.y), wallZ = -h / 2 + 0.5, behind = head.y < 14 && !onStage(head.x, head.y);
+      const velvet = new THREE.MeshStandardMaterial({ color: PAL.olive, roughness: 1, side: THREE.DoubleSide });
+      if (behind) { // pleated velvet panels at each side of the arched doors
+        [[-21, -11], [11, 21]].forEach(([a, b]) => {
+          const pw = b - a, geo = new THREE.PlaneGeometry(pw, 17, 60, 2); const p = geo.attributes.position;
+          for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin((p.getX(i) / pw) * Math.PI * 2 * 9) * 0.4 + (1 - (p.getY(i) + 8.5) / 17) * 0.2);
+          geo.computeVertexNormals();
+          const m = new THREE.Mesh(geo, velvet); m.position.set(hx + (a + b) / 2, 9.5, wallZ + 0.5); scene.add(m);
+        });
+      }
+      const sz = behind ? wallZ + 1.6 : hz - 3, span = 10, sy = 17.5;
+      let n = 0;
+      for (let k = -1; k <= 1; k++) { swag([hx + k * span - span / 2, sy, sz], [hx + k * span + span / 2, sy, sz], 2.2, 5.5, n++); swag([hx + k * span - span / 2, sy - 0.8, sz + 0.9], [hx + k * span + span / 2, sy - 0.8, sz + 0.9], 3, 4.2, n++); }
+      const ga = [], rnd = rngOf(77);
+      for (let x = hx - 15; x <= hx + 15; x += 1.1) ga.push([x, sy - 1.0 + rnd() * 0.3, sz + 0.5]);
+      scene.add(greenStrands(ga, 55, 5));
+    }
+  }
+
+  /* ---- string lights: swags of warm bulbs across the room (wire = one LineSegments, bulbs = one InstancedMesh, halos = one Points) ---- */
+  let candleGlow = null; // halos appear once the tables have popped in
+  const bulbMat = new THREE.MeshStandardMaterial({ color: '#fff0cf', emissive: '#ffbf66', emissiveIntensity: 0.3 });
+  const glowTex = glowTexture();
+  const bulbHalo = new THREE.PointsMaterial({ map: glowTex, size: 2.4, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: '#ffc98a' });
+  const candleHalo = new THREE.PointsMaterial({ map: glowTex, size: 1.9, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: '#ffc27a' });
+  {
+    const topY = ballroom ? 16 : closed ? WH - 1.3 : 13.5, sag = ballroom ? 2.6 : 1.7;
+    const strands = []; // [x1, y1, z1, x2, y2, z2]
+    const rows = ballroom ? [22, 42, 62] : closed ? [h * 0.3, h * 0.6] : [Math.max(26, h * 0.4), Math.max(42, h * 0.62), h - 6];
+    rows.forEach((y) => strands.push([-w / 2 + 0.6, topY, Z(y), w / 2 - 0.6, topY, Z(y)]));
+    (fixed.decor || []).filter((d) => d.kind === 'pergola').forEach((d) => [d.y + 0.5, d.y + d.h - 0.5].forEach((y) => strands.push([X(d.x), 10, Z(y), X(d.x + d.w), 10, Z(y)])));
+    const wire = [], bulbs = [], halos = [];
+    strands.forEach(([x1, y1, z1, x2, y2, z2]) => {
+      const len = Math.hypot(x2 - x1, z2 - z1), n = Math.max(4, Math.round(len / 2.4)), dip = y1 === 10 ? 0.9 : sag;
+      let prev = null;
+      for (let i = 0; i <= n; i++) {
+        const u = i / n, p = [x1 + (x2 - x1) * u, y1 + (y2 - y1) * u - dip * 4 * u * (1 - u), z1 + (z2 - z1) * u];
+        if (prev) wire.push(...prev, ...p);
+        if (i > 0 && i < n) { bulbs.push(p); halos.push(...p); }
+        prev = p;
+      }
+    });
+    const lines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(wire, 3)), new THREE.LineBasicMaterial({ color: '#2b2118' }));
+    const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 6, 5), bulbMat, bulbs.length), m4 = new THREE.Matrix4();
+    bulbs.forEach((p, i) => { m4.makeTranslation(...p); inst.setMatrixAt(i, m4); });
+    const pts = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(halos, 3)), bulbHalo);
+    (closed ? ceilingG : scene).add(lines, inst); scene.add(pts);
+    if (candlePos.length) { candleGlow = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(candlePos, 3)), candleHalo); scene.add(candleGlow); }
+    if (!closed) { // slim poles at both ends of each open-air strand
+      const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.22, topY + 0.4, 6), new THREE.MeshStandardMaterial({ color: '#3a2a1e', roughness: 0.9 }), rows.length * 2);
+      let k = 0; rows.forEach((y) => [-w / 2 + 0.6, w / 2 - 0.6].forEach((x) => { m4.makeTranslation(x, (topY + 0.4) / 2 - 0.1, Z(y)); poles.setMatrixAt(k++, m4); }));
+      scene.add(poles);
+    }
+    // two warm lamps stand in for the whole string for the shared light budget (the ballroom already has its chandelier lamps)
+    if (!ballroom) [0.35, 0.7].forEach((f) => { const pl = new THREE.PointLight('#ffc27a', 0, 60, 1.3); pl.position.set(0, 10, Z(h * f)); scene.add(pl); lamps.push(pl); });
+  }
+
   /* ---- size ---- */
   let refitHome = () => {}; // set below, once the home view exists: re-frames it when the picture changes shape
   const resize = () => {
@@ -561,10 +906,15 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   /* ---- light moods ---- */
   const dayGlass = new THREE.Color('#fff4d6'), duskGlass = new THREE.Color('#334063');
   let evening = 0, eveningTarget = 0;
+  const LAMP = ballroom ? 55 : 55; // candlelight, not floodlight: the evening should read dim and warm
   const applyLight = (k) => {
-    hemi.intensity = 1.3 - 1.12 * k;
-    sun.intensity = 1.6 * (1 - k);
-    lamps.forEach((l) => { l.intensity = 150 * k; });
+    hemi.intensity = 1.3 - 1.05 * k;
+    hemi.color.copy(hemiSky.day).lerp(hemiSky.night, k); hemi.groundColor.copy(hemiGnd.day).lerp(hemiGnd.night, k);
+    sun.intensity = 1.6 * (1 - k); moon.intensity = closed ? 0 : 0.5 * k;
+    bulbMat.emissiveIntensity = 0.3 + 2.8 * k; bulbHalo.opacity = 0.85 * k; candleHalo.opacity = 0.9 * k;
+    bulbHalo.visible = k > 0.01;
+    if (skyDomes.length) { skyDomes[1].material.opacity = k; skyDomes[1].visible = k > 0.01; }
+    lamps.forEach((l) => { l.intensity = LAMP * k; });
     glowMat.emissiveIntensity = 0.6 + 2.4 * k;
     flameMat.emissiveIntensity = 0.4 + 3.2 * k;
     danceMat.emissiveIntensity = 0.05 + 0.5 * k;
@@ -690,7 +1040,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     prompt.who.value = ''; prompt.who.focus();
   }
   function closePrompt(keep) {
-    if (promptChair && !keep && !promptChair.userData.taken) promptChair.userData.seat.material = chairMat;
+    if (promptChair && !keep && !promptChair.userData.taken) promptChair.userData.seat.material = cushionMat;
     promptChair = null; prompt.hidden = true;
   }
   prompt.onsubmit = (e) => {
@@ -734,6 +1084,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
       controls.target.lerpVectors(tour.fromT, tour.look.getPointAt(k), b);
       if (tour.t >= 1) { tour = null; controls.enabled = true; }
     }
+    if (candleGlow) candleGlow.visible = evening > 0.01 && (performance.now() - mountedAt) > 1800;
     popIns.forEach((p) => {
       const k = Math.min(1, Math.max(0, ((performance.now() - mountedAt) / 1000 - p.delay) / 0.45));
       const s = k === 0 ? 0.001 : 1 + Math.sin(k * Math.PI) * 0.08 * (1 - k) - (1 - ease(k)) * 0.999;
@@ -752,8 +1103,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
       applyLight(evening); lit = evening; // only while the mood is changing
     }
     if (evening > 0) {
-      flames.forEach((f, i) => { f.scale.y = 1 + Math.sin(clock * 9 + i) * 0.15 * evening; });
-      lamps.forEach((l, i) => { l.intensity = 150 * evening * (1 + Math.sin(clock * 3 + i * 2) * 0.02); });
+      flameMat.emissiveIntensity = (0.4 + 3.2 * evening) * (1 + Math.sin(clock * 9) * 0.1 + Math.sin(clock * 23) * 0.04);
+      lamps.forEach((l, i) => { l.intensity = LAMP * evening * (1 + Math.sin(clock * 3 + i * 2) * 0.02); });
     }
     if (walking && !flight) {
       const speed = 14 * dt, fwd = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0), side = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
