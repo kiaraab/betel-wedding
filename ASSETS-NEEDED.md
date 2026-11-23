@@ -15,3 +15,6 @@ Send as **SVG or transparent PNG** (or photo). Drop in `assets/`.
 Until an asset arrives its slot stays plain/empty — no stand-in artwork.
 
 | 8 | Courtyard photo (a clear, landscape shot of the garden courtyard / ceremony spot) | Background of the Ceremony plan (currently a frame from the tour video `assets/venue/courtyard.jpg`) | needed |
+
+## Task icons (lace / ribbon style, top-left of each task card)
+Export the lace and ribbon elements from the Canva board as transparent PNG or SVG (one file per icon, about 200px square, single colour or white). Drop them in `assets/icons/tasks/`. A slot on the task card is added once they exist. Nothing is generated.

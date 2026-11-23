@@ -298,7 +298,7 @@ function personCard(p) {
     <article class="tcard c-${colorOf(p)}" data-pid="${p.id}">
       <header class="tc-head">
         <button class="tc-name" data-openperson="${p.id}">${esc(p.name)}</button>
-        ${p.tag ? `<span class="tc-tag">${esc(p.tag)}</span>` : ''}
+        ${p.tag ? `<span class="tc-tag" title="Their title in the wedding (for example Maid of honor)">${esc(p.tag)}</span>` : ''}
         <span class="tc-tools">
           <button class="tc-btn tc-grip" type="button" aria-label="Move ${esc(p.name)}'s card. Drag, or use the arrow keys" title="Drag to rearrange (or Alt + arrow keys)">${GRIP_ICON}</button>
           <button class="tc-btn" data-menu="${p.id}" aria-label="Card colour and position" aria-expanded="${menuFor === p.id}">⋯</button>
@@ -383,17 +383,18 @@ const teamFilterMenu = () => {
   </div>`;
 };
 
+let teamView = (() => { try { return localStorage.getItem('bc-team-view') || 'cards'; } catch { return 'cards'; } })(); // cards | compact | list
 function team() {
   const titles = [...new Set(state.roles.map((r) => r.title))].sort((a, b) => a.localeCompare(b));
   const people = orderedPeople().filter(matchesFilter);
   view.innerHTML = `
     <div class="page-head team-head">
       <h1>Team <span class="t-n">(${state.people.length})</span></h1>
-      ${teamFilterMenu()}
+      <div class="team-head-r"><div class="viewseg team-views" role="tablist" aria-label="How to show the team">${[['cards', 'Cards'], ['compact', 'Compact'], ['list', 'List']].map(([k, l]) => `<button type="button" role="tab" data-tv="${k}" aria-selected="${teamView === k}" class="${teamView === k ? 'on' : ''}">${l}</button>`).join('')}</div>${teamFilterMenu()}</div>
     </div>
-    <div class="tgrid">
+    <div class="tgrid tv-${teamView}">
       ${people.map(personCard).join('')}
-      ${teamFilter === 'all' ? `<form class="tcard t-add" id="addPerson" autocomplete="off"><input name="who" placeholder="+ Add someone" aria-label="New team member's name"/></form>` : ''}
+      ${teamFilter === 'all' ? `<form class="tcard t-add" id="addPerson" autocomplete="off"><span class="ta-h">Add someone from your guest list</span><input name="who" list="teamPick" placeholder="Pick a guest" aria-label="Guest to add to the team" required/><datalist id="teamPick">${state.guests.filter((g) => !g.personId && g.party !== 'couple').map((g) => `<option value="${esc(g.name)}"></option>`).join('')}</datalist><input name="task" placeholder="Their first task" aria-label="Their first task" required maxlength="80"/><button class="tc-yes">Add to team</button></form>` : ''}
     </div>
     ${people.length ? '' : `<div class="tf-none"><p>No one has a role in this view.</p><button type="button" class="tc-yes" data-f="all">Show everyone</button></div>`}`;
   const tf = view.querySelector('#tFilter');
@@ -482,18 +483,22 @@ function team() {
       state.roles = state.roles.filter((r) => { r.people = r.people.filter((x) => x !== p.id); return r.people.length; });
     }, toast);
   });
-  // Add someone: name + Enter → a new (neutral) card and a guest
+  // Add someone: pick a guest, give them a first task: that saves them to the team (the guest stays one person across Guests and Team)
   view.querySelector('#addPerson')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const name = e.target.elements.who.value.trim();
-    if (!name) return;
-    state.people.push({ id: uid(), name, tag: '', color: 'none', links: [], updates: [] });
-    if (Array.isArray(state.teamOrder)) state.teamOrder.push(state.people.at(-1).id);
-    ensureAutoGuests();
+    const name = e.target.elements.who.value.trim(), task = e.target.elements.task.value.trim();
+    const g = state.guests.find((x) => x.name.trim().toLowerCase() === name.toLowerCase() && !x.personId && x.party !== 'couple');
+    if (!g) { toast('Pick someone from your guest list (add new people on Guests first)'); return; }
+    if (!task) { toast('Give them a first task'); return; }
+    const p = { id: uid(), name: g.name, tag: '', color: 'none', links: [], updates: [] };
+    state.people.push(p);
+    g.personId = p.id; g.party = 'team'; state.autoGuests[p.id] = true;
+    if (Array.isArray(state.teamOrder)) state.teamOrder.push(p.id);
+    state.roles.push({ id: uid(), title: task, people: [p.id], status: 'Not started', details: [], links: [] });
     commit();
-    toast(`${name} added`);
-    view.querySelector('#addPerson input')?.focus();
+    toast(`${g.name} is on the team`);
   });
+  view.querySelectorAll('[data-tv]').forEach((b) => b.onclick = () => { teamView = b.dataset.tv; try { localStorage.setItem('bc-team-view', teamView); } catch { /* not remembered */ } team(); });
   if (confirmDel) view.querySelector('.tc-no')?.focus();
   if (menuFor) view.querySelector('.tc-menu .on')?.focus();
 }
@@ -649,7 +654,7 @@ function guests() {
         <h1>Guests</h1>
         <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()}${FEATURES.rsvp ? ` · ${c((g) => g.party === 'couple' || g.rsvp === 'Yes')} yes` : ''}</p>
       </div>
-      <div class="head-actions"><button type="button" class="btn moss add-plus" id="addPlus" aria-expanded="false" aria-controls="addPanel"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>${guestViewToggle()}<button class="btn line icon-btn" id="catBtn" aria-label="Catering list" title="Catering list"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 21V3c-2 1.5-3 4-3 7v3h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+      <div class="head-actions"><button type="button" class="btn moss add-plus" id="addPlus" aria-expanded="false" aria-controls="addPanel"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>${guestViewToggle()}<button class="btn line icon-btn" id="csv" aria-label="Export CSV" title="Export CSV"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     </div>
 
     <section class="add-panel" id="addPanel" hidden aria-label="Add guests">
@@ -660,6 +665,7 @@ function guests() {
         <label class="add-cater"><input type="checkbox" name="cater" checked/> On the catering list</label>
         <button class="btn moss">Add</button>
       </form>
+      <button type="button" class="add-catlist" id="catBtn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2.5 5-2.5 8h2.5v10"/></svg>Open the catering list</button>
     </section>
 
     <div id="pasteHost"></div>
@@ -691,7 +697,7 @@ function guests() {
 
   const add = (name, side = 'Both') => { const g = { id: uid(), name, side, rsvp: 'Not invited yet', diet: '', tableId: null }; state.guests.push(g); return g; };
   view.querySelector('#csv').onclick = () => guestsCSV();
-  view.querySelector('#catBtn').onclick = () => openCatering();
+  view.querySelector('#catBtn').onclick = () => openCatering(); // lives in the + panel (it opens the list, it does not add anyone)
   // column picker (bubbly menu of toggles)
   const gcols = view.querySelector('#gCols'), gcBtn = gcols.querySelector('.gcols-btn');
   const gcOpen = (o) => { gcols.classList.toggle('open', o); gcBtn.setAttribute('aria-expanded', String(o)); };
@@ -967,3 +973,12 @@ document.addEventListener('change', (e) => {
   else return;
   commit(); toast('Date updated');
 });
+
+// slow background drift while scrolling (skipped for reduced motion)
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  let pyTick = false;
+  addEventListener('scroll', () => {
+    if (pyTick) return; pyTick = true;
+    requestAnimationFrame(() => { pyTick = false; document.body.style.setProperty('--py', Math.max(-50, -scrollY * 0.06) + 'px'); });
+  }, { passive: true });
+}
