@@ -8,6 +8,7 @@
  *    if there is none yet, this browser's plan becomes the shared one. So whoever holds the real plan signs in first.
  *  - After that every save is pushed (debounced); remote changes are merged part by part (store.mergeRemote).
  */
+import { recordAdopted } from './history.js';
 import { onSave, mergeRemote, snapshot, state, commit, ensureAutoGuests } from './store.js';
 import { addedHere } from './sync-merge.js';
 import { esc, toast, promptDialog, heartLoaderHTML } from './util.js';
@@ -34,6 +35,7 @@ let role = 'out';       // out | pending (signed in, not approved) | editor | ow
 let status = 'Offline';
 let failed = false;     // the last connect attempt failed (the Live panel offers Retry)
 let unsub = null, pushTimer = null, lastPushed = '', applying = false;
+let lastRev = 0;       // the plan's revision number as of my last read or write; a save only goes through if nobody else wrote since (else merge first)
 let listening = false;  // the snapshot listener is attached and healthy; pushes pause while it is not
 let held = false;       // edits made while not Live: after reconnecting they are pushed instead of being replaced by the remote copy
 let retryTimer = null, retryN = 0, denied = false, pushRetry = null;
@@ -81,7 +83,9 @@ function take(d) {
   try {
     applying = true;
     lastPushed = d.data;
+    lastRev = d.rev || 0;
     mergeRemote(JSON.parse(d.data));
+    if (d.who && d.who !== user?.email && d.by !== CLIENT) recordAdopted(d.who);
   } catch { /* corrupt remote copy: ignore */ } finally { applying = false; }
 }
 
@@ -161,8 +165,18 @@ async function push(force = false) {
   if (!force && data === lastPushed) return;
   if (data.length > MAX_BYTES) { status = 'Too big to sync'; emit(); toast('The plan is too large to sync (probably photos). Remove a few photos.'); return; }
   try {
-    await fb.F.setDoc(planRef(), { data, by: CLIENT, who: user.email, at: fb.F.serverTimestamp() });
-    lastPushed = data; held = false;
+    // one transaction: if someone else saved since I last looked, merge their changes in first, then write on top (retried by Firestore on a clash)
+    let out = data, rev = 0;
+    await fb.F.runTransaction(fb.db, async (tx) => {
+      const cur = await tx.get(planRef());
+      const d = cur.exists() ? cur.data() : null;
+      const curRev = d?.rev || 0;
+      out = data;
+      if (d && curRev > lastRev && d.by !== CLIENT) { take(d); out = JSON.stringify(snapshot()); }
+      rev = curRev + 1;
+      tx.set(planRef(), { data: out, rev, by: CLIENT, who: user.email, at: fb.F.serverTimestamp() });
+    });
+    lastRev = rev; lastPushed = out; held = false;
     status = 'Live';
   } catch (e) {
     console.warn('[sync] save failed', e?.code || e?.message || e);
