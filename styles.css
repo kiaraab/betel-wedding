@@ -3713,3 +3713,32 @@ body[data-route="guests"] .lede { font-weight: 300; }
 @media (max-width: 760px) {
   .vm-map.plain { width: 100%; min-width: 100%; aspect-ratio: 4 / 5; }
 }
+
+/* Guests on desktop: a Notion-style grid for ~100 guests. Light grey header row, thin cell borders, borderless cells you edit in place, compact rows, sticky header. */
+@media (min-width: 761px) {
+  body[data-route="guests"] .card.flush { background: #fff; border: 1px solid #e7e4df; border-radius: 3px; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: visible; }
+  body[data-route="guests"] .table-wrap { overflow-x: clip; overflow-y: visible; background: transparent; }
+  body[data-route="guests"] table.guests { border-collapse: collapse; border-spacing: 0; background: #fff; }
+  body[data-route="guests"] table.guests th, body[data-route="guests"] table.guests td { border: 1px solid #e9e6e1 !important; }
+  body[data-route="guests"] table.guests thead th { position: sticky; top: var(--top-h, 60px); z-index: 4; background: #f7f5f1; font: 500 12.5px/1.2 var(--sans); letter-spacing: 0; text-transform: none; color: #6f6962; padding: 9px 10px; text-align: left; }
+  body[data-route="guests"] table.guests tr.row td { padding: 0 !important; height: 36px; vertical-align: middle; background: #fff; }
+  body[data-route="guests"] table.guests tr.row:hover td { background: #fbfaf8; }
+  /* cells: no boxes or underlines, edit in place; the focus ring sits inside the cell */
+  body[data-route="guests"] table.guests td .input, body[data-route="guests"] table.guests td .g-name { height: 36px; border: 0 !important; background: transparent !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 10px; width: 100%; font-size: 14px; color: #37332e; }
+  body[data-route="guests"] table.guests td .bs-btn { height: 36px; min-height: 36px; border: 0 !important; background: transparent !important; border-radius: 0 !important; padding: 0 10px; width: 100%; justify-content: flex-start; font-size: 13.5px; }
+  body[data-route="guests"] table.guests td .input:focus, body[data-route="guests"] table.guests td .bs-btn:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e) !important; outline-offset: -2px !important; background: #fff !important; }
+  body[data-route="guests"] table.guests td .bs-btn .bs-chev { margin-left: auto; opacity: .35; }
+  body[data-route="guests"] table.guests td .c-txt { padding: 0 10px; line-height: 36px; }
+  body[data-route="guests"] table.guests td.c-couple { padding: 0 10px !important; }
+  body[data-route="guests"] table.guests td.row-actions { white-space: nowrap; padding: 0 4px !important; }
+  body[data-route="guests"] table.guests td.row-actions .more, body[data-route="guests"] table.guests td.row-actions .x { height: 28px; }
+  body[data-route="guests"] table.guests .detail-row td { background: #fcfbf9 !important; padding: 14px 16px 18px !important; }
+}
+
+/* Guests header on phones: the headcount column takes the free width and the Add guests field spans the full row (the header is a 2-column grid) */
+@media (max-width: 760px) {
+  body[data-route="guests"] .page-head { grid-template-columns: minmax(0, 1fr) auto; }
+  body[data-route="guests"] .page-head .guest-add { grid-column: 1 / -1; width: 100%; max-width: none; flex-wrap: wrap; }
+  body[data-route="guests"] .page-head .guest-add .input { flex: 1 1 100%; min-width: 0; }
+  body[data-route="guests"] .lede { font-size: 13px; }
+}
