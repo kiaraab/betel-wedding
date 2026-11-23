@@ -119,3 +119,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Overview dots start with two dark red hearts for Betel and Carter.
 
 - RSVP and address tracking are hidden (RSVPify handles those); the data is kept and one switch (js/features.js) brings them back.
+
+- The what-got-easier guide is now a moving tour: it walks you to each new feature.

@@ -66,14 +66,14 @@ export function initGuide(getRoute) {
   document.body.append(btn);
   refreshGuide();
   if (!read(SEEN_WELCOME)) setTimeout(welcome, 500);
-  else if (!read(SEEN_UPDATE)) setTimeout(updateGuide, 900);
+  else if (!read(SEEN_UPDATE)) setTimeout(startUpdateTour, 1200);
 }
 
 /** Call after each page render: the "?" breathes gently until that page's tour has been seen. */
 export function refreshGuide() {
   if (!btn) return;
   btn.classList.toggle('new', !read(seenKey(routeNow())));
-  if (tour) endTour();
+  if (tour && !tour.multi) endTour();
 }
 
 function welcome() {
@@ -100,40 +100,35 @@ function welcome() {
   scrim.querySelector('[data-w="go"]').focus();
 }
 
-/** One-time "what got easier" guide: one thing per step, skippable any time (built for an ADHD brain: no wall of text). */
+/** One-time "what got easier" tour: the same moving ring + tip as the page tours, but it walks across pages to the real features. */
 const UPDATE_STEPS = [
-  ['Next up', 'The Overview now starts with the one to three things worth doing next. Tap one to go there.', '#overview'],
-  ['It saves. You can undo.', 'A small check in the footer shows when your changes are saved. Changed your mind? Tap Undo on the message.', null],
-  ['Pick your look', 'Seating, then Reception, then Look. Choose table linens, candles, ceiling and more. The 3D view changes as you pick, and each space has its own looks.', '#seating/reception'],
-  ['One switch for 3D and Plan', 'On every space, 3D and Plan sit first in the toolbar. Same place, same switch.', '#seating/ceremony'],
-  ['Bell and people icon', 'The bell shows what is new. The people icon is where you sign in and send feedback.', null],
+  { route: 'overview', sel: '.nextup', text: 'Next up: the one to three things worth doing now. Tap one to go there.' },
+  { route: 'overview', sel: '.dotstat', text: 'Your guests in one picture. The two hearts are you. Filled dots are seated, rings are added but not seated, faint ones are still to add.' },
+  { route: 'overview', sel: '.foot-l', text: 'A check appears here whenever your changes save. Made a mistake? Tap Undo on the message.' },
+  { route: 'overview', sel: '#navToggle', text: 'Menu: every page is one tap away.' },
+  { route: 'seating/reception', sel: '.view-fixed', text: '3D and Plan sit in the same spot on every space.' },
+  { route: 'seating/reception', sel: '.vs-tabs [data-vs="look"]', text: 'Look: pick table linens, candles, ceiling and more. The 3D changes as you pick.' },
+  { route: 'seating/ceremony', sel: '.look-pick', text: 'Each space has its own looks. Ceremony: canopy, aisle, backdrop and arch flowers.' },
+  { route: 'seating/ceremony', sel: '.venue-strip .vstrip-head', text: 'Venue photos fold away to keep things calm. Tap this bar to open or close them.' },
+  { route: 'overview', sel: '#bellBtn', text: 'The bell shows what is new.' },
+  { route: 'overview', sel: '#liveBtn', text: 'The people icon: sign in, send feedback, see history.' },
 ];
-function updateGuide() {
-  if (document.querySelector('.welcome-scrim')) return;
-  let i = 0;
-  const scrim = document.createElement('div');
-  scrim.className = 'welcome-scrim';
-  scrim.innerHTML = '<section class="welcome ug" role="dialog" aria-modal="true" aria-labelledby="ugT"><p class="welcome-k" id="ugT"></p><p class="welcome-p ug-p"></p><div class="ug-dots" aria-hidden="true"></div><div class="welcome-b"><button class="btn line sm" data-u="skip">Skip</button><button class="btn line sm" data-u="go" hidden></button><button class="btn moss sm" data-u="next"></button></div></section>';
-  document.body.append(scrim);
-  const dlg = scrim.querySelector('.welcome'), release = trapFocus(dlg);
-  const $ = (q) => scrim.querySelector(q);
-  const close = () => { write(SEEN_UPDATE); release(); scrim.classList.add('out'); setTimeout(() => scrim.remove(), 260); };
-  const draw = () => {
-    const [t, p, go] = UPDATE_STEPS[i];
-    $('#ugT').textContent = `${i + 1} of ${UPDATE_STEPS.length} · ${t}`;
-    $('.ug-p').textContent = p;
-    $('.ug-dots').innerHTML = UPDATE_STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
-    const g = $('[data-u="go"]'); g.hidden = !go; g.textContent = 'Show me'; g.dataset.to = go || '';
-    $('[data-u="next"]').textContent = i === UPDATE_STEPS.length - 1 ? 'Done' : 'Next';
-    $('[data-u="skip"]').hidden = i === UPDATE_STEPS.length - 1;
-  };
-  $('[data-u="next"]').onclick = () => { if (i >= UPDATE_STEPS.length - 1) close(); else { i++; draw(); } };
-  $('[data-u="skip"]').onclick = close;
-  $('[data-u="go"]').onclick = (e) => { const to = e.currentTarget.dataset.to; close(); if (to) location.hash = to; };
-  scrim.addEventListener('click', (e) => { if (e.target === scrim) close(); });
-  scrim.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  draw();
-  $('[data-u="next"]').focus();
+const waitFor = (sel, ms = 3500) => new Promise((res) => {
+  const t0 = performance.now();
+  const look = () => { const el = [...document.querySelectorAll(sel)].find((e) => e.getClientRects().length); if (el) res(el); else if (performance.now() - t0 > ms) res(null); else setTimeout(look, 120); };
+  look();
+});
+function startUpdateTour() {
+  if (tour || document.querySelector('.welcome-scrim')) return;
+  write(SEEN_UPDATE); // once per device, even if she skips
+  const ring = document.createElement('div'); ring.className = 'tour-ring';
+  const tip = document.createElement('div'); tip.className = 'tour-tip'; tip.setAttribute('role', 'dialog'); tip.setAttribute('aria-live', 'polite');
+  const catcher = document.createElement('div'); catcher.className = 'tour-catch';
+  document.body.append(catcher, ring, tip);
+  tour = { steps: UPDATE_STEPS.map((s) => ({ ...s, el: null })), i: 0, ring, tip, catcher, route: 'update', multi: true };
+  catcher.onclick = () => endTour(false);
+  addEventListener('resize', place); addEventListener('scroll', place, true); addEventListener('keydown', onKey);
+  go(0);
 }
 
 export function startTour(route) {
@@ -164,10 +159,21 @@ function onKey(e) {
   else if (e.key === 'ArrowLeft') go(tour.i - 1);
 }
 
-function go(i) {
+async function go(i) {
   if (!tour) return;
   if (i >= tour.steps.length) return endTour(true);
-  tour.i = Math.max(0, i);
+  const t = tour, idx = Math.max(0, i);
+  const step = t.steps[idx];
+  if (t.multi) {
+    t.tip.classList.add('out'); t.ring.classList.add('out');
+    const here = location.hash.replace(/^#/, '') || 'overview';
+    if (step.route && here !== step.route) { location.hash = '#' + step.route; await new Promise((r) => setTimeout(r, 450)); }
+    step.el = await waitFor(step.sel);
+    if (tour !== t) return;
+    t.tip.classList.remove('out'); t.ring.classList.remove('out');
+    if (!step.el) { t.steps.splice(idx, 1); return go(idx); } // not on screen here (e.g. no menu button on desktop): skip
+  }
+  tour.i = idx;
   const { el, text } = tour.steps[tour.i];
   const n = tour.steps.length;
   tour.tip.innerHTML = `
