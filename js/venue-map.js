@@ -140,6 +140,16 @@ export const PHOTOS = [
   { id: 'knot-116', src: 'assets/venue/knot/116_fef86ceb.jpg', name: 'Vineyard and building', at: 'grounds', guess: true },
   { id: 'knot-162', src: 'assets/venue/knot/162_d36c3135.jpg', name: 'Vineyard, bridal party', at: 'grounds', guess: true },
   { id: 'knot-168', src: 'assets/venue/knot/168_155b6038.jpg', name: 'LOVE sign and building', at: 'grounds' },
+  // Kiara's visit photos (Nov 2026), people-free ones only. Tags marked guess are inferred from what is visible.
+  { id: 'visit-hydrangeas', src: 'assets/venue/visit/visit-hydrangeas.jpg', name: 'Hydrangea bed and magnolia', at: 'grounds' },
+  { id: 'visit-tasting-wide', src: 'assets/venue/visit/visit-tasting-wide.jpg', name: 'Tasting room, tables and fireplace', at: 'tasting' },
+  { id: 'visit-tasting-tables', src: 'assets/venue/visit/visit-tasting-tables.jpg', name: 'Tasting room, round tables', at: 'tasting' },
+  { id: 'visit-courtyard-facade', src: 'assets/venue/visit/visit-courtyard-facade.jpg', name: 'Courtyard facade', at: 'cocktail' },
+  { id: 'visit-courtyard-tree', src: 'assets/venue/visit/visit-courtyard-tree.jpg', name: 'Courtyard tree and door', at: 'cocktail' },
+  { id: 'visit-vine-wall', src: 'assets/venue/visit/visit-vine-wall.jpg', name: 'Vine wall and bench', at: 'cocktail' },
+  { id: 'visit-foyer', src: 'assets/venue/visit/visit-foyer.jpg', name: 'Foyer and staircase', at: 'reception', guess: true },
+  { id: 'visit-cellar', src: 'assets/venue/visit/visit-cellar.jpg', name: 'Wine cellar', at: 'tasting', guess: true },
+  { id: 'visit-bridge', src: 'assets/venue/visit/visit-bridge.jpg', name: 'Garden bridge', at: 'grounds', guess: true },
 ].filter((p) => !/knot\/0(0[89]|1[012])_/.test(p.src)); // #008-#012 are not Morais: never shown
 
 const areaOf = (p) => { const t = state.photoTags?.[p.id]; return AREAS.some((a) => a.id === t) ? t : p.at; };

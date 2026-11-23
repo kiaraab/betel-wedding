@@ -173,3 +173,18 @@ All 169 photos from the venue's The Knot listing (`betel-wedding-research/knot/`
 | 167 | 167_d9d1a203.jpg | dropped: group portrait, place barely visible |
 | 168 | 168_155b6038.jpg | grounds - new |
 | 169 | 169_7072f9a3.jpg | dropped: split photo, both halves covered by #042 / #125 |
+
+## Visit photos (Nov 2026, Kiara)
+`assets/venue/visit/`, resized to 1600 px, no EXIF. Only people-free shots (the repo is public). Seven more with people in frame were held back until the owner says they may be used.
+
+| File | Place | Note |
+|---|---|---|
+| visit-hydrangeas | grounds | |
+| visit-tasting-wide | tasting | |
+| visit-tasting-tables | tasting | |
+| visit-courtyard-facade | cocktail (Hangout spot) | |
+| visit-courtyard-tree | cocktail | |
+| visit-vine-wall | cocktail | |
+| visit-foyer | reception | guess: foyer with the curved staircase |
+| visit-cellar | tasting | guess: cellar under the tasting room |
+| visit-bridge | grounds | guess |
