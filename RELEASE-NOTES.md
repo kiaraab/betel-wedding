@@ -15,6 +15,13 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 ---
 
 ## Unreleased (on main, not tagged yet)
+- **Seating and floor plan on phones (mobile pass):**
+  - 3D: the home view now pulls back to fit the room's width on a tall narrow screen (it only showed the middle of the room), and the toolbar fits inside the picture (it was clipped on the left).
+  - **Tables always appear in 3D (old QA-24):** tables pop in on real time. Before, a per-frame-capped clock left them invisible on slow or throttled renders.
+  - Floor plan: the plan uses the full card width and its height follows the room (Ceremony, Hangout and Tasting had a 600 px box with empty bands above and below); the toolbar stays inside the card.
+  - Seat guests: natural height, 46 px rows and bigger "Seat at…" buttons instead of a tiny scroll box.
+  - Reception editor: the plan comes first, the settings panel below.
+  - Not done: the table popover (tap a table), the Look tab, and bigger tap targets for tables on the small plan were not reviewed. Checked at 375 px in a desktop preview, not on a real phone.
 - **Reception editor on phones (REQ-113):** the plan and its toolbar now come first and the settings panel (Layout / Seat guests / Look) is below it. Before, the panel took the whole first screen and the plan started 740 px down. Ceremony and Hangout spot already put the plan first. Checked at 375 px, not on a real phone.
 - **Guests on phones are roomier (REQ-140, from the feedback box):** each guest is two lines now: the name (bigger) with the details and remove buttons on top, and Side, RSVP (with its word) and Relationship in three even boxes below with full text instead of "Brides…". The header labels sit over the three boxes. (The feedback box note was read as "too dark" at first; the real point was "cramped on mobile". The brighter page background from that first reading stays: a plain off-white page with a flat grid. To undo it: `git revert -m 1 0203eca`.)
 - **Two editors at once (REQ-103):** if Betel edits one guest while Carter edits another (or each adds a guest), both changes now survive. Guests, tables, roles, Agenda, team and milestones merge item by item; if both change the same item, the person who is saving wins. Tests: `tests/merge-items.test.mjs`. Still not covered: the save to Firestore is still a whole-plan write, so two saves in the same instant can race; and Revision history does not record other people's changes.
