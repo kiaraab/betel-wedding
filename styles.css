@@ -3696,3 +3696,15 @@ body[data-route="guests"] .lede { font-weight: 300; }
   .ag-colhead { top: var(--top-h, 60px); }
   .ab { touch-action: pan-y; }
 }
+
+/* Ceremony rows (pergola and indoor bay): chairs were pale-on-cream and hard to see. Wine outline, blush fill; taken seats solid wine. */
+.plan .tbl:has(.row-hit) .chair { fill: #ecd6db; stroke: var(--c-wine, #6e1f2e); stroke-width: .24; }
+.plan .tbl:has(.row-hit) .chair.filled { fill: var(--c-wine, #6e1f2e); stroke: #fffdf6; stroke-width: .2; }
+
+/* Agenda card under Plan tools (Ceremony, Hangout spot) */
+#spAgenda { margin-top: 12px; }
+.agw { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.agw li { display: grid; gap: 1px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.agw li:last-child { border-bottom: 0; }
+.agw b { font-weight: 500; font-size: 12px; letter-spacing: .04em; color: var(--wine, #6e1f2e); }
+.agw span { color: var(--ink-soft); }

@@ -26,6 +26,30 @@ export function ensureParty(room, pool) {
   holders.forEach((k) => { if (!seen.has(k)) { seen.add(k); p.order.g.push(k); } });
   return p;
 }
+/** "Extra groomsmen" are real guests (relation Groomsman, Carter's side) so they show on the Guests page; rename them there. */
+const isGroomsman = (g) => relationOf(g) === 'Groomsman';
+function addGroomsman(state) {
+  const taken = new Set(state.guests.map((g) => g.name));
+  let n = state.guests.filter(isGroomsman).length + 1;
+  while (taken.has(`Groomsman ${n}`)) n++;
+  state.guests.push({ id: Math.random().toString(36).slice(2, 12), name: `Groomsman ${n}`, side: 'Carter', rsvp: 'Not invited yet', diet: '', tableId: null, relation: 'Groomsman' });
+}
+/** Takes off the most recent placeholder ("Groomsman 3"); a groomsman you named is removed on the Guests page. */
+function removeGroomsman(state) {
+  for (let i = state.guests.length - 1; i >= 0; i--) {
+    const g = state.guests[i];
+    if (isGroomsman(g) && /^Groomsman \d+$/.test(g.name)) { state.guests.splice(i, 1); return true; }
+  }
+  return false;
+}
+/** Older plans kept anonymous placeholders in room.party.grooms: turn them into guests once. */
+export function convertPlaceholders(room, state) {
+  const n = room.party?.grooms | 0;
+  if (n <= 0) return false;
+  for (let i = 0; i < n; i++) addGroomsman(state);
+  room.party.grooms = 0;
+  return true;
+}
 const partyName = (pool, key) => pool.find((x) => x.id === key)?.name || (/^g\d+$/.test(key) ? `Groomsman ${key.slice(1)}` : '');
 export const partyDots = (room, pool) => {
   const p = ensureParty(room, pool), cx = room.cx ?? room.w / 2;
@@ -141,7 +165,8 @@ const stepHTML = (key, label, v, min, max, note = '') => `<div class="stepper"><
 function partyHTML(room, pool, selKey) {
   const d = partyDots(room, pool), p = room.party;
   const chips = (side) => d.filter((x) => x.side === side).map((x) => `<li class="pchip ${side}${selKey === x.id ? ' sel' : ''}" data-id="${esc(x.id)}"><i>${x.n}</i><span>${esc(x.label)}</span></li>`).join('');
-  return `${stepHTML('grooms', 'Extra groomsmen', p.grooms, 0, 10)}
+  const nG = pool.filter((x) => x.side === 'g').length;
+  return `${stepHTML('grooms', 'Groomsmen', nG, 0, 20, 'on the Guests page')}
     <p class="muted small" style="margin:8px 0 4px">Drag names to reorder or across · 1 stands nearest the altar</p>
     <div class="party-cols"><div><b class="muted small">Left · ${p.order.b.length}</b><ol class="plist" data-side="b">${chips('b')}</ol></div><div><b class="muted small">Right · ${p.order.g.length}</b><ol class="plist" data-side="g">${chips('g')}</ol></div></div>`;
 }
@@ -151,6 +176,14 @@ function rowsHTML(tables) {
   tables.filter((t) => t.shape === 'row').forEach((t) => { const m = /^(\d+)([LR])/i.exec(t.name || ''); const n = m ? +m[1] : t.name; (rows.get(n) || rows.set(n, {}).get(n))[m ? m[2].toUpperCase() : t.id] = t; });
   const half = (t, label) => t ? `<span class="rowhalf"><i>${label}</i><button type="button" data-rstep="${esc(t.id)}" data-d="-1" ${t.seats <= 1 ? 'disabled' : ''} aria-label="Fewer chairs, row ${esc(t.name)}">−</button><b>${t.seats}</b><button type="button" data-rstep="${esc(t.id)}" data-d="1" ${t.seats >= 16 ? 'disabled' : ''} aria-label="More chairs, row ${esc(t.name)}">+</button></span>` : '<span class="rowhalf"></span>';
   return `<details class="rowsbox"><summary>Chairs per row · ${rows.size}</summary>${[...rows].map(([n, r]) => `<div class="rowstep"><span>Row ${esc(n)}</span>${half(r.L, 'L')}${half(r.R, 'R')}</div>`).join('')}</details>`;
+}
+/** A small card under Plan tools: where this place sits in the Agenda (hidden when nothing is planned here). */
+function agendaWidgetHTML(space, state) {
+  const place = space === 'ceremony' ? 'Ceremony' : space === 'cocktail' ? 'Hangout spot' : '';
+  const t12 = (hm) => { const [h, m] = String(hm).split(':').map(Number); return `${h % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${h % 24 < 12 ? 'AM' : 'PM'}`; };
+  const list = (state.agenda || []).filter((a) => a.place === place && /^\d{1,2}:\d{2}$/.test(String(a.start))).sort((a, b) => (a.day2 ? 1 : 0) - (b.day2 ? 1 : 0) || String(a.start).localeCompare(String(b.start), undefined, { numeric: true })).slice(0, 4);
+  if (!list.length) return '';
+  return `<section class="card" id="spAgenda"><h3>Agenda</h3><ul class="agw">${list.map((a) => `<li><b>${esc(t12(a.start))}${a.end ? ` – ${esc(t12(a.end))}` : ''}</b><span>${esc(a.title || 'Event')}</span></li>`).join('')}</ul><a class="linklike" href="#agenda">Open Agenda</a></section>`;
 }
 export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' | 'cocktail'
   if (space === 'ceremony') {
@@ -162,12 +195,12 @@ export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' |
       <div class="acts">
         <div class="act"><button class="btn moss sm" id="cGo">Suggest ceremony</button><span class="tip" tabindex="0" role="note" data-tip="Rows of chairs with a center aisle for this many guests; grows the room if they don't fit. The wedding party stands either side of the altar.">ⓘ</span></div>
         <div class="act"><button class="btn gold sm" id="cSeat">Auto-seat guests</button><span class="tip" tabindex="0" role="note" data-tip="Betel's side on the left, Carter's on the right, parents and close family up front.">ⓘ</span></div>
-      </div></section>`;
+      </div></section>${agendaWidgetHTML('ceremony', ctx.state)}`;
   }
   if (space === 'cocktail') {
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
       <div class="field-row"><label class="field">Guests<input class="input" id="hCount" type="number" min="2" max="300" value="${ctx.state.guestTarget}"/></label></div>
-      <div class="acts"><div class="act"><button class="btn moss sm" id="hGo">Suggest hangout</button><span class="tip" tabindex="0" role="note" data-tip="Tables spread through the open middle, clear of the fountain, building and entrance.">ⓘ</span></div></div></section>`;
+      <div class="acts"><div class="act"><button class="btn moss sm" id="hGo">Suggest hangout</button><span class="tip" tabindex="0" role="note" data-tip="Tables spread through the open middle, clear of the fountain, building and entrance.">ⓘ</span></div></div></section>${agendaWidgetHTML('cocktail', ctx.state)}`;
   }
   return '';
 }
@@ -182,8 +215,8 @@ export function wireSpaceTools(root, space, ctx) {
     const wireParty = () => {
       box.innerHTML = partyHTML(room(), pool(), ctx.partySel?.());
       box.querySelectorAll('[data-pstep]').forEach((b) => b.onclick = () => {
-        const p = ensureParty(room(), pool());
-        p.grooms = Math.max(0, Math.min(10, p.grooms + +b.dataset.d));
+        if (+b.dataset.d > 0) addGroomsman(state);
+        else if (!removeGroomsman(state)) { ctx.toast('Remove named groomsmen on the Guests page'); return; }
         ensureParty(room(), pool()); wireParty(); redraw();
       });
       sortable(box, (changed, tapped) => {
@@ -206,6 +239,7 @@ export function wireSpaceTools(root, space, ctx) {
       });
     };
     wireRows();
+    if (convertPlaceholders(room(), state)) ctx.commit({ silent: true });
     ensureParty(room(), pool());
     { // an older saved ceremony has rows right where the party now stands: slide them back (nothing else changes)
       const rows = SP().tables, top = Math.min(...rows.map((t) => t.y)), need = partyBottom(room(), pool()) - top;

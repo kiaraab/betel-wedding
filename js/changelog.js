@@ -4,6 +4,8 @@
 import { esc, trapFocus, toast } from './util.js';
 
 export const ENTRIES = [
+  { id: '2026-11-23-ceremony', date: '2026-11-23', title: 'Ceremony planning',
+    items: ['Chairs on the ceremony plan are easier to see.', 'Adding a groomsman adds them to the Guests page too. Rename them there.', 'A small Agenda card shows when the ceremony or hangout is planned.'] },
   { id: '2026-11-23-phone-plan', date: '2026-11-23', title: 'Easier on your phone',
     items: ['The Agenda now scrolls with the page. Tap an event to edit it, or press and hold to move it.', 'Ceremony: a new Chairs per row list lets you add or remove chairs from each row.'] },
   { id: '2026-11-23-phone-guests', date: '2026-11-23', title: 'Guest list on your phone',
