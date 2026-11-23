@@ -878,9 +878,11 @@ export function renderSeating(root) {
       g.append(tri);
     });
   };
+  let pending3d = false; // a pick made while the scene is still being swapped in: swap once more when it lands
   let open3d = null; // (re)opens the 3D scene; set where the 3D view is built
   const drawPlan = () => {
-    if (mode === '3d' && !rec && threeInst && open3d) { threeInst.dispose(); threeInst = null; open3d(); return; } // an edit in the side panel: rebuild the scene
+    if (mode === '3d' && !rec && threeInst && open3d) { const old = threeInst; threeInst = null; open3d({ view: old.getView(), old }); return; } // an edit in the side panel: swap the scene in place
+    if (mode === '3d' && !rec && !threeInst && open3d) { pending3d = true; return; }
     if (mode !== 'plan') return;
     host.replaceChildren(planSVG());
     planMeta(); inspect();
@@ -1233,12 +1235,12 @@ export function renderSeating(root) {
     });
   } else {
     // 3D view (loaded on demand); a quiet loader fades in until the scene is ready
-    open3d = () => {
-    host.innerHTML = `<div class="three-loading">${heartLoaderHTML('Opening the venue…')}</div>`;
+    open3d = (soft = null) => { // soft = { view, old }: a design change replaces the scene in place (no loader, same camera)
+    if (!soft) host.innerHTML = `<div class="three-loading">${heartLoaderHTML('Opening the venue…')}</div>`;
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
       three = host.__three = threeInst = await m.mount(host, state, moodNow(), {
-        style: resolveStyle(state.style),
+        style: resolveStyle(state.style), resume: soft?.view || null,
         ...(rec ? {} : { sp: { id: space, room: SP().room, tables: SP().tables }, countAt: (t) => guestsAt(t.id).length, pool: partyPool() }),
         unseated: () => going().filter((g) => !isSeated(g)),
         // Seat someone from the 3D view (an existing unseated guest, or a new name)
@@ -1253,6 +1255,8 @@ export function renderSeating(root) {
           return true;
         },
       });
+      soft?.old?.dispose();
+      if (pending3d && mode === '3d') { pending3d = false; const o = threeInst; threeInst = null; open3d({ view: o.getView(), old: o }); return; }
       if (mode !== '3d' || !host.isConnected) { three.dispose(); threeInst = null; return; }
       const setLbl = (b, t) => { b.setAttribute('aria-label', t); b.title = t; };
       const walk = root.querySelector('#walk');
@@ -1276,7 +1280,8 @@ export function renderSeating(root) {
     state.style = withPick(state.style, b.dataset.lk, b.dataset.v);
     commit({ silent: true });
     syncLook(root, state.style);
-    if (mode === '3d' && threeInst && open3d) { threeInst.dispose(); threeInst = null; open3d(); }
+    if (mode === '3d' && threeInst && open3d) { const old = threeInst; threeInst = null; open3d({ view: old.getView(), old }); }
+    else if (mode === '3d' && open3d) pending3d = true;
   }));
 
   root.querySelector('#share').onclick = async (e) => {
