@@ -80,7 +80,12 @@
         if (await sha(pin) === HASH) {
           try { localStorage.setItem(KEY, HASH); } catch { /* remembered for this visit only */ }
           card.classList.add('unlocked');
-          setTimeout(() => { gate.classList.add('open'); enter(); setTimeout(() => gate.remove(), 800); }, 650);
+          // the four dots turn into little hearts, then a few tiny hearts drift up as the screen opens
+          const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.7a4.3 4.3 0 0 1 7.5 2.8c0 5.4-7.5 10-7.5 10z" fill="currentColor"/></svg>';
+          dots.forEach((d, i) => { d.innerHTML = HEART; d.classList.add('heart'); d.style.animationDelay = i * 90 + 'ms'; });
+          const row = document.getElementById('pinDots');
+          for (let k = 0; k < 7; k++) { const f = document.createElement('span'); f.className = 'pin-float'; f.innerHTML = HEART; f.style.left = 6 + k * 14 + '%'; f.style.animationDelay = 380 + k * 70 + 'ms'; f.style.setProperty('--dx', (k % 2 ? 1 : -1) * (6 + k * 2) + 'px'); row.append(f); }
+          setTimeout(() => { gate.classList.add('open'); enter(); setTimeout(() => gate.remove(), 900); }, 1250);
         } else {
           err.textContent = 'That is not it. Try again.';
           card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');

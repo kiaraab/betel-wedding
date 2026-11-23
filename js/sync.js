@@ -262,7 +262,7 @@ export function mountLive(btn) {
         const retry = pop.querySelector('[data-retry]');
         if (retry) retry.onclick = async () => { pop.querySelector('.live-note').innerHTML = heartLoaderHTML('', { sm: true }); await retrySync(); draw(); };
       } else if (i.role === 'out') {
-        pop.innerHTML = `<h3>Edit together</h3><p>Sign in to share changes live. We email you a link.</p>
+        pop.innerHTML = `<h3>Edit together</h3><p>Sign in to share changes. Kiara will email you a link :)</p>
           <form class="live-form"><input type="email" required placeholder="you@email.com" aria-label="Email" autocomplete="email"/><button class="btn">Send link</button></form><p class="live-note" role="status"></p>`;
         pop.querySelector('form').onsubmit = async (e) => {
           e.preventDefault();

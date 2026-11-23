@@ -3438,3 +3438,16 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .gate-card { width: min(640px, calc(100vw - 24px)); }
 .gate-card h1 { white-space: nowrap; font-size: clamp(17px, 5.2vw, 40px); letter-spacing: .06em; }
 .gate-card .gate-script { white-space: nowrap; }
+
+/* cuter unlock: dots become hearts, tiny hearts float up */
+.pin-dots { position: relative; }
+.gate-card.unlocked .pin-dots i { width: 18px; height: 18px; border: 0; background: transparent !important; color: #f4a6bb; display: grid; place-items: center; animation: heart-pop .55s var(--ease) backwards; }
+.gate-card.unlocked .pin-dots i svg { width: 100%; height: 100%; display: block; }
+.pin-float { position: absolute; top: 0; width: 10px; height: 10px; color: #f7c3d0; opacity: 0; pointer-events: none; animation: heart-float 1s ease-out forwards; }
+.pin-float svg { width: 100%; height: 100%; display: block; }
+@keyframes heart-pop { 0% { transform: scale(.2); opacity: 0; } 55% { transform: scale(1.35); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes heart-float { 0% { transform: translate(0, 0) scale(.6); opacity: 0; } 20% { opacity: .95; } 100% { transform: translate(var(--dx, 0), -64px) scale(1); opacity: 0; } }
+/* card stays until the hearts finish, then lifts away */
+.gate-card.unlocked { transition: opacity .45s 1.0s var(--ease), transform .5s 1.0s var(--ease); }
+.gate-corner { font-weight: 400; letter-spacing: .16em; }
+@media (prefers-reduced-motion: reduce) { .pin-float { display: none; } .gate-card.unlocked .pin-dots i { animation: none; } }
