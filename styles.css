@@ -3529,3 +3529,22 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
   .vm-f { min-height: 38px; }
   .gate-card .pin-pad button { min-height: 64px; }
 }
+
+/* --- phones: calmer type (nothing shouts) --- */
+@media (max-width: 760px) {
+  .page-head h1, body[data-route="guests"] h1, body[data-route="team"] h1 { font-size: 26px !important; }
+  .ag-bar h1 { font-size: 21px !important; }
+  .vm-title { font-size: 24px; }
+  .spaces .sp-sub, .spaces button { font-size: 18px !important; }
+  .spaces .sp-row { gap: 16px; }
+  .vs-title { font-size: 24px !important; }
+  .vstrip-head h3, .venue-strip h3 { font-size: 20px; }
+  .stat b, .stats b { font-size: 22px !important; }
+  .banner-names { font-size: 27px !important; }
+  .ov-card h2, .card > h2 { font-size: 16px !important; }
+  .tc-name { font-size: 17px !important; }
+  .vm-label { font-size: 11px; }
+  .vm-gh h3, .vp-head h2 { font-size: 19px; }
+  .brand { font-size: 15px; }
+  .gate-card h1 { font-size: clamp(16px, 4.8vw, 28px); }
+}
