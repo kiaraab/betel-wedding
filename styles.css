@@ -3899,3 +3899,7 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
   .add-cater { grid-column: auto; font-size: 13.5px; }
   .add-panel .guest-add > .btn { grid-column: 3; }
 }
+@media (max-width: 760px) {
+  /* 3D on a phone: the toolbar sits under the 3D | Plan switch, not behind it */
+  html body .seat-layout.vow .stage-wrap > .plan-tools { top: 62px !important; padding-top: 0 !important; left: 12px !important; right: 12px; }
+}
