@@ -1465,8 +1465,10 @@ function planHeroHTML() {
 }
 function vowSideHTML(info) {
   const plan = mode === 'plan', r = SP().room;
-  const adds = plan ? [['round', 'Round table'], ['rect', 'Rectangle table']].map(([k, l]) => `<li><button type="button" class="vs-add" data-add="${k}">+ ${l}</button></li>`).join('')
-    + Object.entries(AREA_PRESETS).filter(([k]) => info.areas.includes(k)).filter(([k]) => !['dance', 'altar', 'aisle'].includes(k) || !r.areas.some((a) => a.preset === k)).map(([k, pr]) => `<li><button type="button" class="vs-add" data-preset="${k}">+ ${esc(pr.label)}</button></li>`).join('') : '';
+  const addItems = plan ? [['round', 'Round table'], ['rect', 'Rectangle table']].map(([k, l]) => `<li><button type="button" class="vs-add" data-add="${k}">+ ${l}</button></li>`)
+    .concat(Object.entries(AREA_PRESETS).filter(([k]) => info.areas.includes(k)).filter(([k]) => !['dance', 'altar', 'aisle'].includes(k) || !r.areas.some((a) => a.preset === k)).map(([k, pr]) => `<li><button type="button" class="vs-add" data-preset="${k}">+ ${esc(pr.label)}</button></li>`)) : [];
+  // the first few stay in view; the rest tuck behind "More" (fewer choices at once)
+  const adds = addItems.slice(0, 4).join('') + (addItems.length > 4 ? `<li class="vs-moreli"><details class="vs-moreadd"><summary>More (${addItems.length - 4})</summary><ul class="vs-addlist">${addItems.slice(4).join('')}</ul></details></li>` : '');
   return `<div class="vs-head"><p class="eyebrow">Your reception</p><h2 class="vs-title">The ballroom</h2><p class="vs-stats" id="vsStats">${statsText()}</p></div>
     <div class="vs-tabs" role="tablist" aria-label="Sidebar">${VS_TABS.map(([k, l, ic]) => `<button role="tab" data-vs="${k}" aria-selected="${vsTab === k}" class="${vsTab === k ? 'on' : ''}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg>${l}</button>`).join('')}</div>
     <div class="vs-body">

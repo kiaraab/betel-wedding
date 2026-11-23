@@ -3693,7 +3693,7 @@ body[data-route="guests"] { background: #fbfaf8; }
 /* ADHD quick wins: visible "Saved", calm help button, bigger footer taps */
 .foot-saved { margin-left: 10px; font: 500 12px var(--sans); letter-spacing: .04em; opacity: 0; transition: opacity .25s var(--ease); white-space: nowrap; }
 .foot-saved.on { opacity: .85; }
-.foot-saved::before { content: "¹3 a0"; }
+.foot-saved::before { content: "✓ "; }
 .guide-q.new::after { animation: none; opacity: .7; }
 .foot-ic { min-width: 44px; height: 38px; }
 @media (max-width: 760px) { .foot-saved { margin-left: 6px; } }
@@ -3791,3 +3791,10 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
   details > summary { min-height: 44px; display: flex; align-items: center; }
   .brand { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* Reception floor plan: "Add to your reception" shows 4, the rest tuck behind More */
+.vs-moreli { list-style: none; }
+.vs-moreadd summary { min-height: 40px; display: flex; align-items: center; padding: 0 12px; border: 1px dashed #b9ae94; color: #5f6152; font: 500 13px var(--sans); cursor: pointer; list-style: none; }
+.vs-moreadd summary::-webkit-details-marker { display: none; }
+.vs-moreadd[open] summary { margin-bottom: 6px; }
+.vs-moreadd summary:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }

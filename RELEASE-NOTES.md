@@ -111,3 +111,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - The 3D | Plan switch stays in exactly the same spot when you switch views; the Reception floor plan lost its extra banner and duplicate 3D buttons.
 
 - Phones: bigger touch targets across pages; steadier Overview scrolling (no blur/mask/animation stacking); more room under the toolbar on the floor plan.
+
+- Reception floor plan: the add list shows 4 items and tucks the rest behind More. The footer Saved check mark displays correctly.
