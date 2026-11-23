@@ -75,3 +75,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - 3D view for Ceremony, Hangout and Tasting (toggle in the seating toolbar). Bell: new entry.
 
 - Seating on phones: bigger tap targets (space tabs, Undo, links).
+
+- Phone: the table sheet no longer hides behind the bottom bar; its buttons are easier to tap.
