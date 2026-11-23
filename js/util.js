@@ -216,7 +216,7 @@ export function heartLoaderHTML(label = '', { sm = false } = {}) {
 }
 
 /* ---------- bubbly selects: a native <select data-bub> keeps the value; a button + floating glass menu is what you see ---------- */
-const BS_CHEV = '<svg class="bs-chev" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M3 5.2l4 3.8 4-3.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const BS_CHEV = '<svg class="bs-chev" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path d="M3 5.2l4 3.8 4-3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 export const BS_CHECK = '<svg class="bs-ck" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const G = (d, extra = '') => `<svg class="bs-gl" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${d}</g>${extra}</svg>`;
 /** Small line glyphs for a select's values (data-bub="rsvp"). The label stays as tooltip + aria-label. */
