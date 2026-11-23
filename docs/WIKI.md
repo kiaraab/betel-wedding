@@ -9,7 +9,7 @@ A static, vanilla-JS wedding planner for the couple's team. Pages: Overview, Tea
 - Run: `python -m http.server 5173` in the repo folder, open `http://127.0.0.N:5173` (each `127.0.0.N` origin has clean storage; useful for fresh-user tests).
 - Tests: `for t in tests/*.test.mjs; do node $t; done` (guest parsing, merging, suggest, soft blockers, sync merge). Add a test for any merge/layout logic you touch.
 - Branch per change (`fb/<slug>`), merge with `git merge --no-ff`, push `main`. Keep `RELEASE-NOTES.md` current. Update the dev board (`../wedding-dev-board`, `node board.mjs add|note|done`) after every ticket (see `CLAUDE.md`).
-- **Cache busting:** phones cache files for ~10 minutes. When `styles.css` changes, bump `?v=` on the stylesheet link in `index.html`. Tell the owner to close and reopen the tab, and wait about two minutes after a push.
+- **Cache busting (important):** phones cache every file for ~10 minutes, and a half-updated mix (new script, old CSS) breaks the page. `index.html` therefore loads the stylesheet and **every** `js/*.js` through a versioned address (an import map). **Before every push that changes `js/` or `styles.css`, run `node tools/bump-version.mjs`** and commit `index.html`. Then tell the owner to close and reopen the tab and wait about two minutes after a push.
 - Do not edit Firestore rules. `FIRESTORE-RULES.txt` documents them; the owner publishes changes herself.
 
 ## Code map (`js/`)
