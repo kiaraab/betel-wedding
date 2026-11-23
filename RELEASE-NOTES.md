@@ -113,3 +113,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Phones: bigger touch targets across pages; steadier Overview scrolling (no blur/mask/animation stacking); more room under the toolbar on the floor plan.
 
 - Reception floor plan: the add list shows 4 items and tucks the rest behind More. The footer Saved check mark displays correctly.
+
+- Overview: guests in one dot picture (seated, added, still to add) with a key; Days left is a metric; RSVP tile removed (RSVPs live in RSVPify).

@@ -3798,3 +3798,20 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .vs-moreadd summary::-webkit-details-marker { display: none; }
 .vs-moreadd[open] summary { margin-bottom: 6px; }
 .vs-moreadd summary:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
+
+/* Overview metrics: tasks, days left, and one dot picture for guests (seated / added / still to add) */
+.ov .stats.ov-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ov .stats .dotstat { grid-column: 1 / -1; }
+.ds-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ds-head > div, .ds-head .ds-seat { display: grid; gap: 4px; }
+.ds-head span { font: 500 12px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+.ds-seat { text-align: right; text-decoration: none; color: inherit; }
+.ds-seat b { font-family: var(--display); font-size: 30px; font-weight: 500; color: var(--moss-800); line-height: 1; font-variant-numeric: tabular-nums; }
+.dots { display: grid; grid-template-columns: repeat(auto-fill, 12px); gap: 5px; margin: 14px 0 12px; }
+.dots i, .dots-key i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box; }
+.d-seated { background: var(--c-wine, #6e1f2e); }
+.d-added { background: transparent; border: 2px solid var(--c-wine, #6e1f2e); }
+.d-open { background: rgba(35, 37, 28, .13); }
+.dots-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font: 400 13px var(--sans); color: var(--ink-soft, #5a4348); }
+.dots-key li { display: inline-flex; align-items: center; gap: 7px; }
+.dotstat .dots, .dotstat .dots-key { animation: none; }

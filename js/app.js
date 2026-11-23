@@ -161,17 +161,22 @@ function overview() {
   const done = state.roles.filter((r) => r.status === 'Done').length;
   const going = state.guests.filter((g) => g.rsvp !== 'Declined');
   const seated = going.filter(isSeated).length;
-  const yes = state.guests.filter((g) => g.party === 'couple' || g.rsvp === 'Yes').length;
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
   const stat = (href, n, of, label, ofHTML = of) => { const tag = href ? `a class="stat" href="${href}"` : 'div class="stat"'; return `<${tag}><b>${n}<small>/${ofHTML}</small></b><span>${label}</span><div class="meter"><i style="--w:${pct(n, of)}%"></i></div></${href ? 'a' : 'div'}>`; };
 
+  // Guests in ONE picture: a dot per expected guest. Filled = seated, ring = added but not seated, faint = still to add (RSVPs live in RSVPify, so none here)
+  const seatedN = Math.min(seated, going.length), addedN = going.length - seatedN, goal = Math.max(state.guestTarget, going.length), openN = Math.max(0, goal - going.length);
+  const dotsOf = (cls, n) => `<i class="${cls}"></i>`.repeat(Math.min(n, 300));
+  const guestDotsHTML = `<section class="stat dotstat" aria-label="${seatedN} seated, ${addedN} added and not seated, ${openN} still to add">
+    <div class="ds-head"><div><b>${going.length}<small>/${guestCountHTML()}</small></b><span>Guests added</span></div><a class="ds-seat" href="#seating"><b>${seatedN}</b><span>Seated</span></a></div>
+    <div class="dots" aria-hidden="true">${dotsOf('d-seated', seatedN)}${dotsOf('d-added', addedN)}${dotsOf('d-open', openN)}</div>
+    <ul class="dots-key"><li><i class="d-seated"></i>Seated ${seatedN}</li><li><i class="d-added"></i>Added, not seated ${addedN}</li><li><i class="d-open"></i>Still to add ${openN}</li></ul>
+  </section>`;
   // "Next up": the one to three things worth doing now (ADHD rule: show what is next, not everything)
   const unseated = going.filter((g) => !isSeated(g) && g.party !== 'couple').length;
-  const notInvited = state.guests.filter((g) => g.rsvp === 'Not invited yet' && g.party !== 'couple').length;
   const openRole = state.roles.find((r) => r.status === 'In progress') || state.roles.find((r) => r.status === 'Not started');
   const nextUp = [
     unseated && state.guests.length > 2 ? { href: '#seating/reception', t: `Seat ${unseated} guest${unseated === 1 ? '' : 's'}`, s: `${seated} of ${going.length} seated` } : null,
-    notInvited ? { href: '#guests', t: `Invite ${notInvited} guest${notInvited === 1 ? '' : 's'}`, s: 'Not invited yet' } : null,
     openRole ? { href: '#team', t: openRole.title || 'Next task', s: openRole.status } : null,
     (state.agenda || []).length === 0 ? { href: '#agenda', t: 'Plan the day', s: 'The agenda is empty' } : null,
     going.length < state.guestTarget ? { href: '#guests', t: 'Add guests', s: `${going.length} of ${state.guestTarget}` } : null,
@@ -192,11 +197,10 @@ function overview() {
 
       <div class="ov-side">
         ${nextUpHTML}
-        <div class="stats">
+        <div class="stats ov-metrics">
           ${stat('#team', done, state.roles.length, 'Tasks done')}
-          ${stat(null, going.length, state.guestTarget, 'Guests', guestCountHTML())}
-          ${stat('#guests', yes, state.guests.length, 'RSVP yes')}
-          ${stat('#seating', seated, going.length, 'Seated')}
+          <div class="stat"><b>${days}</b><span>Days left</span></div>
+          ${guestDotsHTML}
         </div>
 
         <div class="ov-cards">
