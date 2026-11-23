@@ -1,4 +1,5 @@
 // "Paste a list": text or a picture of a list -> AI (when a key is saved) or the built-in parser -> an editable review table -> add.
+import { pasteHint } from './easter.js';
 import { state, uid, undoable } from './store.js';
 import { RELATIONS } from './layout.js';
 import { esc, toast, heartLoaderHTML } from './util.js';
@@ -15,7 +16,8 @@ const AI_SYSTEM = 'You extract wedding guest lists. Return JSON: an array of {"n
 /* ---------- panel ---------- */
 let panel = { open: false, text: '', edits: new Map(), removed: new Set(), aiRows: null };
 export const pasteIsOpen = () => panel.open;
-export function openPaste(text = '') { panel = { open: true, text, edits: new Map(), removed: new Set(), aiRows: null, enter: true }; }
+let hint = null; // the example names are picked each time the box opens (js/easter.js)
+export function openPaste(text = '') { hint = pasteHint(); panel = { open: true, text, edits: new Map(), removed: new Set(), aiRows: null, enter: true }; }
 export function closePaste() { panel.open = false; }
 
 /** Preview rows: AI result if there is one, else the parsed text; edited, de-duped against the list and itself. */
@@ -41,7 +43,7 @@ export function mountPaste(host, { defaultSide = 'Both' } = {}) {
   const redo = () => mountPaste(host, { defaultSide });
   host.innerHTML = `
     <section class="paste${fresh ? ' enter' : ''}" aria-label="Paste a list">
-      <textarea class="input paste-text" rows="4" aria-label="Names to add" placeholder="Paste names, one per line or with commas.  “Jane & John Doe (Carter)”, “Mia, bridesmaid”, “Sam + 1”">${esc(panel.text)}</textarea>
+      <textarea class="input paste-text" rows="4" aria-label="Names to add" placeholder="${esc(hint)}">${esc(panel.text)}</textarea>
       <div class="paste-ai">
         ${aiAvailable() ? '<button type="button" class="btn line sm" data-ai-text>Read with AI</button><button type="button" class="btn line sm" data-ai-img>From a picture</button><input type="file" accept="image/*" hidden data-ai-file/>' : '<button type="button" class="btn line sm" data-ai-settings title="Add an AI key to turn this on">Read with AI</button><button type="button" class="btn line sm" data-ai-settings title="Add an AI key to turn this on">From a picture</button>'}
         <span class="paste-status" aria-live="polite"></span><span class="spacer"></span>${aiLinkHTML()}
