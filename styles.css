@@ -3598,3 +3598,18 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .plan-tools #share svg path { stroke: currentColor; }
 .plan-tools #hdrUndo { color: var(--c-wine, #5e1a29); }
 .plan-tools #hdrUndo:disabled { opacity: .6; }
+
+/* What's new bell (js/changelog.js) */
+.foot-ic { position: relative; }
+.bell-dot { position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: #f2a7b3; box-shadow: 0 0 0 2px #5e1a29; }
+.bell-dot[hidden] { display: none; }
+.bell-pop { width: min(340px, calc(100vw - 28px)); max-height: min(60vh, 460px); overflow-y: auto; overscroll-behavior: contain; right: 52px; }
+.bell-pop h3 { font: 500 20px var(--display); margin: 0 0 8px; }
+.bell-e { padding: 10px 0; border-top: 1px solid var(--line); }
+.bell-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13.5px; color: var(--ink); }
+.bell-h span { font-size: 12px; color: var(--ink-faint); }
+.bell-e.new .bell-h b::after { content: "New"; margin-left: 8px; padding: 1px 6px; border-radius: 3px; font: 600 10px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: #fff; background: var(--wine, #6e1f2e); }
+.bell-e ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-soft); }
+.bell-e li { margin: 2px 0; }
+.bell-f { border-top: 1px solid var(--line); padding-top: 8px; }
+@media (max-width: 760px) { .bell-pop { right: 14px; } }
