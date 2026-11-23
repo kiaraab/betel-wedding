@@ -43,7 +43,7 @@ function spaceLede() {
   if (kindOf() === 'cocktail') return SP().room.bistro ? `${ts.length} bistro tables · ${seats} seats` : `${ts.length} high-tops · ${seats} stools`;
   return `${state.guests.filter((g) => isSeated(g) && g.rsvp !== 'Declined').length} of ${going().length} seated · ${ts.length} tables`;
 }
-let units = (() => { try { return localStorage.getItem('seat-units') === 'm' ? 'm' : 'ft'; } catch { return 'ft'; } })(); // plan dimension units (display only; data stays in feet)
+let units = 'ft'; // feet only: one unit keeps things simple (no metres switch) // plan dimension units (display only; data stays in feet)
 let showPhotos = false;  // plan toolbar 'Photos': seated guests with a picture show it in their seat
 let vsTab = 'layout';     // reception sidebar tab: 'layout' | 'guests' | 'look'
 let refTab = 'ideas';    // side panel tab: 'ideas' | 'venue'
@@ -704,7 +704,7 @@ export function renderSeating(root) {
           ${vow ? '' : toolsHTML}
           <div class="stage-wrap" id="stageWrap">
             ${vow ? toolsHTML : ''}
-            ${mode === 'plan' ? '<div class="plan-meta" id="planMeta"><span class="pm-dim"><span id="pmDim"></span><button type="button" class="pm-units" id="pmUnits" aria-label="Switch units"></button></span><button type="button" class="pm-clear" id="pmClear" aria-haspopup="true" aria-expanded="false" aria-controls="pmClearList"></button><div class="pm-clear-list" id="pmClearList" role="group" aria-label="Clearance conflicts" hidden></div></div>' : ''}
+            ${mode === 'plan' ? '<div class="plan-meta" id="planMeta"><span class="pm-dim"><span id="pmDim"></span></span><button type="button" class="pm-clear" id="pmClear" aria-haspopup="true" aria-expanded="false" aria-controls="pmClearList"></button><div class="pm-clear-list" id="pmClearList" role="group" aria-label="Clearance conflicts" hidden></div></div>' : ''}
             <div id="planHost"></div>
             <div class="color-legend" id="legend"${rec && mode === 'plan' && legendHTML() ? '' : ' hidden'}>${rec ? legendHTML() : ''}</div>
             <div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
@@ -840,12 +840,10 @@ export function renderSeating(root) {
     if (W) W.textContent = `${fmtLen(r.w)} ${unitLbl()}`; if (L) L.textContent = `${fmtLen(r.h)} ${unitLbl()}`;
   };
   const planMeta = () => {
-    const dimEl = root.querySelector('#pmDim'), clr = root.querySelector('#pmClear'), u = root.querySelector('#pmUnits');
+    const dimEl = root.querySelector('#pmDim'), clr = root.querySelector('#pmClear');
     if (!dimEl) return;
     const r = SP().room, m = units === 'm', f = (v) => (m ? (v * 0.3048).toFixed(2) : String(Math.round(v * 10) / 10));
     dimEl.textContent = `${f(r.w)} × ${f(r.h)} ${m ? 'm' : 'ft'}${r.approx || space === 'reception' ? ' · estimate' : ''}`;
-    u.textContent = m ? 'Feet' : 'Metres';
-    u.onclick = () => setUnits(m ? 'ft' : 'm');
     const c = clearanceIssues(r, SP().tables, kindOf() === 'cocktail' ? 1.5 : 3.5); // standing high-tops need less aisle than seated rounds
     clr.textContent = c.items.length ? `Clearance: ${c.items.length} conflict${c.items.length > 1 ? 's' : ''}` : 'Clearance: no conflicts';
     clr.classList.toggle('bad', c.items.length > 0);
@@ -1474,7 +1472,6 @@ function vowSideHTML(info) {
     <div class="vs-body">
       <section class="vs-pane" data-pane="layout">${plan ? `
         <div class="vs-sec"><h3 class="caps">Room &amp; measurements</h3>
-          <div class="vs-units" role="group" aria-label="Units"><button type="button" data-units="ft" aria-pressed="${units === 'ft'}">Feet</button><button type="button" data-units="m" aria-pressed="${units === 'm'}">Metres</button></div>
           <dl class="vs-dims"><div><dt>Width</dt><dd id="vsW">${fmtLen(r.w)} ${unitLbl()}</dd></div><div><dt>Length</dt><dd id="vsL">${fmtLen(r.h)} ${unitLbl()}</dd></div></dl>
           <p class="vs-note">Estimate from the Matterport tour (±5 ft); the floor plan from Morais will replace it.</p></div>
         <div class="vs-sec"><h3 class="caps">Add to your reception</h3><ul class="vs-addlist">${adds}</ul></div>
