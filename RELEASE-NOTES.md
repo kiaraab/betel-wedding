@@ -77,3 +77,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Seating on phones: bigger tap targets (space tabs, Undo, links).
 
 - Phone: the table sheet no longer hides behind the bottom bar; its buttons are easier to tap.
+
+- Venue photos: flat place tabs joined to the map; tapping a place on the map filters the photos and shows its details and Edit seats.
