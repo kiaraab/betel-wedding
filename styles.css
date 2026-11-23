@@ -3793,3 +3793,17 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .hs-sec h3 { margin: 6px 0 2px; font: 500 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
 .hs-sec ol { margin: 0 0 6px; padding-left: 20px; font-size: 14px; color: var(--ink-soft); }
 .hs-sec li { margin: 3px 0; }
+
+/* Guests: plain, bright page like Notion (the blurred photo made it feel dark), and the same flat grid look on phones */
+body[data-route="guests"]::before { display: none; }
+body[data-route="guests"]::after { background: #fbfaf8; }
+body[data-route="guests"] { background: #fbfaf8; }
+@media (max-width: 760px) {
+  body[data-route="guests"] .card.flush { background: #fff !important; border: 1px solid #e7e4df; border-radius: 3px; box-shadow: none; }
+  body[data-route="guests"] table.guests thead tr { background: #f7f5f1; }
+  body[data-route="guests"] table.guests thead th { color: #6f6962; font-weight: 500; letter-spacing: .04em; }
+  body[data-route="guests"] table.guests tr.row { border-bottom: 1px solid #e9e6e1 !important; background: #fff; }
+  body[data-route="guests"] table.guests tr.row .input, body[data-route="guests"] table.guests tr.row .g-name { border: 0 !important; background: transparent !important; box-shadow: none !important; border-radius: 0 !important; font-weight: 400; color: #37332e; }
+  body[data-route="guests"] table.guests tr.row .bs-btn { border: 0 !important; background: transparent !important; box-shadow: none !important; color: #4a4540; }
+  body[data-route="guests"] table.guests tr.row .input:focus { outline: 2px solid var(--c-wine, #6e1f2e) !important; outline-offset: -2px; background: #fff !important; }
+}
