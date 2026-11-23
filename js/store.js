@@ -87,6 +87,16 @@ export function healSeats() {
       if (c.party) next.room.party = c.party; // keep her wedding-party order
       sp.ceremony = next; changed = true;
     }
+    // ceremonies seeded for 60 (6 rows a side, untouched) grow to the 100-guest norm: 4 more rows a side, same pitch
+    ['ceremony', 'indoor'].forEach((key) => {
+      const ts = sp[key]?.tables;
+      if (!Array.isArray(ts) || ts.length !== 12 || !ts.every((t) => t.shape === 'row' && t.seats === 5 && !t.rot && /^c[lr]\d$/.test(t.id))) return;
+      const l1 = ts.find((t) => t.id === 'cl1'), r1 = ts.find((t) => t.id === 'cr1'), l2 = ts.find((t) => t.id === 'cl2');
+      if (!l1 || !r1 || !l2 || ts.some((t) => !/^c[lr][1-6]$/.test(t.id))) return;
+      const pitch = l2.y - l1.y;
+      for (let r = 6; r < 10; r++) [[l1, 'cl', 'L', 0], [r1, 'cr', 'R', 1]].forEach(([b, pre, side, k2]) => ts.push({ id: `${pre}${r + 1}`, name: `${r + 1}${side}`, shape: 'row', seats: 5, x: b.x, y: b.y + r * pitch, rot: 0, o: r * 2 + k2 }));
+      changed = true;
+    });
     if (h && h.name === 'Tasting room' && h.w === 44 && h.h === 34 && !h.bistro) { sp.cocktail = seedCocktail(); changed = true; }
   }
   if (Array.isArray(state.guests) && Array.isArray(state.tables)) {

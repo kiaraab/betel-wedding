@@ -210,8 +210,8 @@ export const SPACES = [
 ];
 
 const sid = (p, i) => `${p}${i + 1}`;
-/** Ceremony rows for ~60: 6 rows a side × 5 chairs, 3 ft row pitch; `axis` = x of the aisle, `y0` = first row. */
-function ceremonyRows(axis, aisle, y0, perRow = 5, rows = 6, pitch = 3) {
+/** Ceremony rows for 100: 10 rows a side × 5 chairs, 3 ft row pitch; `axis` = x of the aisle, `y0` = first row. */
+function ceremonyRows(axis, aisle, y0, perRow = 5, rows = 10, pitch = 3) {
   const half = (perRow * 2) / 2 + 0.5;                 // row half-width (2 ft per chair) + a little air
   const xs = [axis - aisle / 2 - half, axis + aisle / 2 + half];
   const tables = [];
@@ -343,10 +343,10 @@ export const MORAIS_PHOTOS = [
 
 export const headTable = () => ({ id: 'head', name: 'Mr. & Mrs. Griffin', shape: 'rect', x: 25, y: 7, sides: { top: 2, bottom: 0, left: 0, right: 0 }, rot: 0, o: 0 });
 
-// Starting layout for ~60 guests: sweetheart table at the arched doors, dance floor in front, rounds in a U
+// Starting layout for 100 guests (the norm): sweetheart table at the arched doors, dance floor in front. Round tables only fit about 76 in this hall, so the starting layout uses long family rows (5 x 20).
 export function seedTables() {
   const head = headTable();
-  return [head, ...suggestTables(seedRoom(), 60, 'round8', head).tables];
+  return [head, ...suggestTables(seedRoom(), 100, 'family', head).tables];
 }
 
 /* ---------- Photos ---------- */
