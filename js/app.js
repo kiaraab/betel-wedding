@@ -477,7 +477,7 @@ const needsAddress = (g) => !g.street && g.party !== 'couple';
 const PIN = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>';
 const SIDES = ['Betel', 'Carter', 'Both'];
 const DETAIL_FIELDS = [
-  ['street', 'Street', 'text'], ['city', 'City', 'text'], ['state', 'State', 'text'], ['zip', 'ZIP', 'text'],
+  ['street', 'Street', 'text'], ['street2', 'Apt / suite', 'text'], ['city', 'City', 'text'], ['state', 'State', 'text'], ['zip', 'ZIP', 'text'],
   ['household', 'Household', 'text'], ['plusOne', 'Plus-one', 'text'],
   ['diet', 'Dietary', 'text'], ['notes', 'Notes', 'text'],
 ];

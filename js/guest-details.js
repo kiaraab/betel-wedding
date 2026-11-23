@@ -96,8 +96,8 @@ export function detailsHTML(g, { extra = false } = {}) {
         <input type="file" accept="image/*" hidden data-photo-file/>
       </div>
       <div class="gd-addr">
-        ${field(g, 'street', 'Street', 'wide')}
-        ${field(g, 'city', 'City')}${field(g, 'state', 'State', 'short')}${field(g, 'zip', 'ZIP', 'short')}
+        ${field(g, 'street', 'Street', 'c4')}${field(g, 'street2', 'Apt / suite', 'c2')}
+        ${field(g, 'city', 'City', 'c3')}${field(g, 'state', 'State', 'c1')}${field(g, 'zip', 'ZIP', 'c2')}
       </div>
       <div class="gd-rel">
         ${extra ? `${g.party === 'couple' ? '' : `<label class="gd-f"><span>Relation</span><select class="select" data-k="relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`}

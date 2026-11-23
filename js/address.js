@@ -24,7 +24,7 @@ function fillFrom(place, row, save) {
   const comps = place.addressComponents || [];
   const part = (type, short) => { const c = comps.find((x) => x.types.includes(type)); return c ? (short ? c.shortText : c.longText) : ''; };
   const street = [part('street_number'), part('route')].filter(Boolean).join(' ');
-  const values = { street: street || place.displayName || '', city: part('locality') || part('postal_town') || part('sublocality'), state: part('administrative_area_level_1', true), zip: part('postal_code') };
+  const values = { street: street || place.displayName || '', street2: part('subpremise'), city: part('locality') || part('postal_town') || part('sublocality'), state: part('administrative_area_level_1', true), zip: part('postal_code') };
   Object.entries(values).forEach(([k, v]) => {
     const input = row.querySelector(`[data-k="${k}"]`);
     if (input && v) { input.value = v; save(k, v, row); }
