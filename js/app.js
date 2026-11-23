@@ -876,6 +876,26 @@ enableAddressLookup((k, v, row) => {
   const g = state.guests.find((x) => x.id === row?.dataset.id);
   if (g) { g[k] = v; commit(); }
 });
+// A gentle reminder: edits made without signing in stay on this device only. After a couple of minutes of editing, offer to sign in.
+(() => {
+  let last = state.updatedAt, active = 0, lastNudge = 0;
+  const nudge = () => {
+    if (document.getElementById('signNudge')) return;
+    const n = document.createElement('div');
+    n.id = 'signNudge'; n.className = 'sign-nudge'; n.setAttribute('role', 'status');
+    n.innerHTML = '<span>Sign in to save your changes so everyone sees them.</span><button type="button" class="btn moss sm" data-go>Sign in</button><button type="button" class="x" data-x aria-label="Dismiss">×</button>';
+    document.body.append(n);
+    n.querySelector('[data-go]').onclick = () => { n.remove(); document.getElementById('liveBtn')?.click(); };
+    n.querySelector('[data-x]').onclick = () => n.remove();
+    setTimeout(() => n.remove(), 20000);
+  };
+  setInterval(() => {
+    if (state.updatedAt !== last) { last = state.updatedAt; active++; }
+    const i = syncInfo();
+    if (i.live) { active = 0; document.getElementById('signNudge')?.remove(); return; }
+    if (active >= 8 && Date.now() - lastNudge > 8 * 60_000 && !document.body.classList.contains('locked')) { lastNudge = Date.now(); active = 0; nudge(); }
+  }, 15_000);
+})();
 tickCountdown();
 setInterval(tickCountdown, 60_000);
 initGuide(() => document.body.dataset.route || 'overview');

@@ -3548,3 +3548,12 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
   .brand { font-size: 15px; }
   .gate-card h1 { font-size: clamp(16px, 4.8vw, 28px); }
 }
+
+.cat-limit { padding: 9px 12px; border-radius: 6px; background: #f6e4e4; border-left: 3px solid var(--wine); font-size: 13.5px; color: var(--ink); }
+.cat-limit b { color: var(--wine); }
+.cat-table tr.lim td { background: rgba(110, 31, 46, .06); }
+
+/* sign-in reminder */
+.sign-nudge { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--foot-h, 40px) + 14px); z-index: 90; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 24px); padding: 10px 12px 10px 16px; border-radius: 12px; background: #fdfaf4; color: var(--ink); border: 1px solid var(--line-strong, rgba(42,26,29,.25)); box-shadow: 0 18px 40px -14px rgba(30, 14, 18, .5); font-size: 13.5px; animation: pop .2s var(--ease); }
+.sign-nudge .x { border: 0; background: none; font-size: 20px; line-height: 1; cursor: pointer; color: var(--ink-soft); width: 28px; height: 28px; }
+@media (max-width: 760px) { .sign-nudge { flex-wrap: wrap; justify-content: center; text-align: center; bottom: calc(var(--foot-h, 40px) + 56px); } }

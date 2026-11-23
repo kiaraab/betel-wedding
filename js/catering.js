@@ -4,6 +4,7 @@ import { state, commit } from './store.js';
 import { esc, trapFocus } from './util.js';
 
 const going = (g) => g.rsvp !== 'Declined';
+const LIMIT = 'Limit alcohol';
 const dietList = (g) => String(g.diet || '').split(/\s*[,;]\s*/).filter(Boolean);
 const tableName = (g) => { const t = state.tables.find((x) => x.id === g.tableId); return t ? (t.id === 'head' ? 'Sweetheart' : /^\d+$/.test(t.name) ? `Table ${t.name}` : t.name) : ''; };
 const address = (g) => [g.street, g.street2, [g.city, g.state].filter(Boolean).join(', '), g.zip].filter(Boolean).join(' ');
@@ -22,6 +23,7 @@ function csv() {
   const lines = [
     ['Caterer', c.name || '', 'Phone', c.phone || '', 'Email', c.email || ''].map(q).join(','),
     ['Guests going', rows().length].map(q).join(','),
+    ['Limit alcohol (bar staff)', rows().filter((r) => r.diet.includes(LIMIT)).map((r) => r.name).join('; ') || 'none'].map(q).join(','),
     '',
     head.map(q).join(','),
     ...rows().map((r) => [r.name, r.table, r.diet, r.plus, r.household, r.rsvp, r.address, r.notes].map(q).join(',')),
@@ -50,10 +52,11 @@ export function openCatering() {
           <label>Phone<input class="input" name="phone" type="tel" value="${esc(c.phone || '')}" placeholder="(555) 555-5555" autocomplete="off"/></label>
           <label>Email<input class="input" name="email" type="email" value="${esc(c.email || '')}" placeholder="name@caterer.com" autocomplete="off"/></label>
         </div>
+        ${list.some((r) => r.diet.includes(LIMIT)) ? `<div class="cat-limit" role="note"><b>Limit alcohol</b> (let bar staff know quietly): ${list.filter((r) => r.diet.includes(LIMIT)).map((r) => esc(r.name)).join(', ')}</div>` : ''}
         <div class="cat-sum"><b>${list.length}</b> guests going${Object.keys(counts).length ? ' · ' + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${esc(k)} <b>${n}</b>`).join(' · ') : ''}</div>
         <div class="cat-wrap"><table class="cat-table">
           <thead><tr><th>Name</th><th>Table</th><th>Dietary needs</th><th>Plus-one</th><th>Address</th></tr></thead>
-          <tbody>${list.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.table)}</td><td>${esc(r.diet) || '—'}</td><td>${esc(r.plus)}</td><td>${esc(r.address)}</td></tr>`).join('')}</tbody>
+          <tbody>${list.map((r) => `<tr${r.diet.includes(LIMIT) ? ' class="lim"' : ''}><td>${esc(r.name)}</td><td>${esc(r.table)}</td><td>${esc(r.diet) || '—'}</td><td>${esc(r.plus)}</td><td>${esc(r.address)}</td></tr>`).join('')}</tbody>
         </table></div>
       </div>
       <footer class="cat-foot"><button type="button" class="btn line sm" data-print>Print</button><span class="spacer"></span><button type="button" class="btn line sm" data-x>Close</button><button type="button" class="btn moss sm" data-csv>Download CSV</button></footer>

@@ -4,7 +4,7 @@ import { state, commit, uid } from './store.js';
 import { togetherGroups, seatCount, RELATIONS, relationOf } from './layout.js';
 import { esc, toast } from './util.js';
 
-export const DIETS = ['Gluten free', 'Vegetarian', 'Vegan', 'Dairy free', 'Nut allergy', 'Shellfish allergy', 'Halal', 'Kosher', 'Pescatarian'];
+export const DIETS = ['Gluten free', 'Vegetarian', 'Vegan', 'Dairy free', 'Nut allergy', 'Shellfish allergy', 'Halal', 'Kosher', 'Pescatarian', 'Limit alcohol'];
 const key = (a, b) => [a, b].sort().join('|');
 const dietList = (g) => String(g.diet || '').split(/\s*[,;]\s*/).filter(Boolean);
 const households = () => [...new Set(state.guests.map((g) => String(g.household || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
