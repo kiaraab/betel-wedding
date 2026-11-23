@@ -4,8 +4,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { seatCount, tableR, rectDims, chairPositions } from './layout.js';
+import { seatCount, tableR, rectDims, chairPositions, findFreeSpot } from './layout.js';
 import { partyDots } from './spaces.js';
+import { resolveStyle, partyColor } from './style-options.js';
+import * as LOOK from './three-style.js';
 
 const WALL_H = 20;     // ESTIMATE ~20 ft to the coffers (photo: arched doors ~10 ft = half the wall below the crown); not published. Balcony slab ~11 ft
 const _v = new THREE.Vector3();
@@ -147,7 +149,8 @@ function part(kind, color, [x, y, z], [sx, sy, sz], [rx = 0, ry = 0, rz = 0] = [
 const rngOf = (seed) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const BLOOMS = [PAL.wine, PAL.wine, PAL.wine, PAL.wineLt, '#8c2a3a', PAL.blush, PAL.ivory, PAL.ivory, '#b9c08a'];
 /** A low, loose mound of blooms and greenery (the board: hydrangea, roses, trailing leaves) centred at (cx, y, cz). */
-function florals(cx, y, cz, R, H, seed) {
+function florals(cx, y, cz, R, H, seed, kind = 'wine') {
+  if (kind !== 'wine') return LOOK.mound(kind, cx, y, cz, R, H, seed); // the Look choices: all-white tulip/hydrangea, cascading amaranthus
   const rnd = rngOf(seed), out = [];
   for (let k = 0; k < 14; k++) {
     const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * R, r = 0.2 + rnd() * 0.22;
@@ -166,11 +169,18 @@ function candles(list, y, parts, tips) {
     tips.push(part('sph', '#fff', [x, y + hh + 0.14, z], [0.07, 0.14, 0.07])); // all flames share the emissive flame material
   });
 }
+/** Candles in the chosen Look; 'taper' (today's) keeps the original pieces. Returns the flame positions [x, y, z] for the glow halos. */
+function lightSet(kind, list, y, parts, tips) {
+  const tipAt = [];
+  if (kind === 'taper') { candles(list, y, parts, tips); list.forEach(([x, z, hh]) => tipAt.push([x, y + hh + 0.14, z])); } else LOOK.candleSet(kind, list, y, parts, tips, tipAt);
+  return tipAt;
+}
+const LK_DEFAULT = { centers: 'wine', candles: 'taper', garland: false }; // today's look
 const round1 = (n) => Math.round(n * 10) / 10;
 const _decorCache = new Map();
-/** Round table decor: cross runner, place settings (olive charger + ivory plate), candle trio, floral mound. Cached per size. */
-function roundDecor(r, seats, small, runnerColor, th, seed) {
-  const key = ['r', round1(r), seats, small, runnerColor, th, seed].join();
+/** Round table decor: cross runner, place settings (olive charger + ivory plate), candle trio, floral mound. Cached per size. lk = the Look choices. */
+function roundDecor(r, seats, small, runnerColor, th, seed, lk = LK_DEFAULT) {
+  const key = ['r', round1(r), seats, small, runnerColor, th, seed, lk.centers, lk.candles, lk.garland].join();
   if (_decorCache.has(key)) return _decorCache.get(key);
   const parts = [], tips = [], y = th;
   if (!small) {
@@ -181,25 +191,27 @@ function roundDecor(r, seats, small, runnerColor, th, seed) {
       parts.push(part('cyl', PAL.oliveDk, [Math.cos(a) * d, y + 0.04, Math.sin(a) * d], [0.62, 0.05, 0.62]), part('cyl', PAL.ivory, [Math.cos(a) * d, y + 0.08, Math.sin(a) * d], [0.46, 0.05, 0.46]));
     }
   }
+  if (lk.garland && !small) parts.push(...LOOK.garland('round', r, y));
   const k = small ? 0.55 : 1;
-  parts.push(...florals(0, y, 0, 0.95 * k, 0.5 * k, seed));
-  candles(small ? [[0.5, 0.3, 0.7]] : [[0.95, 0.35, 1.9], [-0.85, 0.55, 2.3], [0.1, -1.0, 2.0]], y, parts, tips);
-  const out = { decor: mergeGeometries(parts), tips: mergeGeometries(tips), tipAt: small ? [[0.5, y + 0.84, 0.3]] : [[0.95, y + 2.04, 0.35], [-0.85, y + 2.44, 0.55], [0.1, y + 2.14, -1.0]] };
+  parts.push(...florals(0, y, 0, 0.95 * k, 0.5 * k, seed, lk.centers));
+  const tipAt = lightSet(lk.candles, small ? [[0.5, 0.3, 0.7]] : [[0.95, 0.35, 1.9], [-0.85, 0.55, 2.3], [0.1, -1.0, 2.0]], y, parts, tips);
+  const out = { decor: mergeGeometries(parts), tips: mergeGeometries(tips), tipAt };
   parts.forEach((g) => g.dispose()); tips.forEach((g) => g.dispose());
   _decorCache.set(key, out); return out;
 }
 /** Long (rect) table decor: a run of floral mounds with candle clusters between them, a long runner with hanging ends, a plate per seat. */
-function longDecor(L, D, seatsTop, runnerColor, th) {
-  const key = ['l', round1(L), round1(D), seatsTop, runnerColor, th].join();
+function longDecor(L, D, seatsTop, runnerColor, th, lk = LK_DEFAULT) {
+  const key = ['l', round1(L), round1(D), seatsTop, runnerColor, th, lk.centers, lk.candles, lk.garland].join();
   if (_decorCache.has(key)) return _decorCache.get(key);
   const parts = [], tips = [], tipAt = [], y = th;
   parts.push(part('box', runnerColor, [0, y + 0.03, 0], [L + 1.2, 0.05, Math.min(1.5, D * 0.5)]));
   [-1, 1].forEach((sd) => parts.push(part('box', runnerColor, [sd * (L / 2 + 0.6), y - 0.7, 0], [0.05, 1.5, Math.min(1.5, D * 0.5)])));
+  if (lk.garland) parts.push(...LOOK.garland('rect', { L, D }, y));
   const n = Math.max(2, Math.round(L / 4.2));
   for (let i = 0; i < n; i++) {
     const x = (i / (n - 1) - 0.5) * (L - 1.6);
-    parts.push(...florals(x, y, 0, 1.0, 0.55, 11 + i * 5));
-    if (i < n - 1) { const cx = x + (L - 1.6) / (n - 1) / 2; candles([[cx - 0.2, 0.2, 2.2], [cx + 0.2, -0.25, 1.7]], y, parts, tips); tipAt.push([cx - 0.2, y + 2.34, 0.2], [cx + 0.2, y + 1.84, -0.25]); }
+    parts.push(...florals(x, y, 0, 1.0, 0.55, 11 + i * 5, lk.centers));
+    if (i < n - 1) { const cx = x + (L - 1.6) / (n - 1) / 2; tipAt.push(...lightSet(lk.candles, [[cx - 0.2, 0.2, 2.2], [cx + 0.2, -0.25, 1.7]], y, parts, tips)); }
   }
   if (seatsTop) for (let i = 0; i < seatsTop; i++) {
     const x = (i / seatsTop - 0.5) * (L - 1.2) + (L - 1.2) / seatsTop / 2;
@@ -294,9 +306,10 @@ function clothGeo(r, th) {
 }
 
 /** `sp` = { room, tables } of another space (ceremony / hangout / tasting room); omit it for the ballroom reception. `countAt(t)` = guests seated at a table, `pool` = the ceremony's wedding party pool. */
-export async function mount(host, state, mood, { onSeat, unseated = () => [], sp = null, countAt = null, pool = [] } = {}) {
+export async function mount(host, state, mood, { onSeat, unseated = () => [], sp = null, countAt = null, pool = [], style = null } = {}) {
   host.innerHTML = '';
   allLabels = [];
+  const STY = resolveStyle(style); // the Look choices (js/style-options.js); every default is today's scene
   const ballroom = !sp, ROOM = sp ? sp.room : state.room, TABLES = sp ? sp.tables : state.tables;
   const { w, h, fixed } = ROOM;
   const closed = ballroom || ROOM.floor === 'tile'; // walled rooms; the lawn and the courtyard are open air
@@ -603,6 +616,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     scene.add(pl);
     lamps.push(pl);
   });
+  if (STY.ceiling !== 'lights') { const cd = LOOK.ceilingDecor(STY.ceiling, { w, h, Z, WALL_H, greenStrands }); if (cd) ceilingG.add(cd); } // Look: sage drape / greenery cloud
 
   } else buildSpace();
 
@@ -663,7 +677,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     // the wedding party stands either side of the altar (same positions as the plan's numbered dots)
     if (ROOM.party) {
       partyDots(ROOM, pool).forEach((d, i) => {
-        const g = new THREE.Group(), mat = std(d.side === 'b' ? mood.swatches[3] : mood.swatches[1]);
+        const g = new THREE.Group(), mat = std(partyColor(style, d.side === 'b' ? 'b' : 'g') || (d.side === 'b' ? mood.swatches[3] : mood.swatches[1]));
         const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.8, 3.6, 14), mat); body.position.y = 2.4; body.castShadow = true;
         const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), std('#e8d5bf')); head.position.y = 4.8;
         g.add(body, head); g.position.set(X(d.x), 0, Z(d.y)); g.scale.setScalar(0.001);
@@ -683,6 +697,12 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const LINENS = [linen(PAL.choc, 0.55), linen(PAL.wine, 0.85), linen(PAL.olive, 0.85)];
   const runnerOf = (cloth) => (cloth === 0 ? '#6f7a45' : cloth === 1 ? '#c9c3a3' : PAL.wine); // moss runner on chocolate, ivory-sage on wine, wine on olive
   const clothIdx = (t, i) => (t.id === 'head' ? 2 : i % 3 === 2 ? 1 : 0); // mostly chocolate, a wine one now and then
+  // Look: table dressing (reception only). Olive satin on every table, or white linen with a leafy garland.
+  const lookTable = ballroom ? STY.table : 'choc';
+  if (lookTable === 'olive') { const satin = new THREE.MeshStandardMaterial({ color: '#5f6b33', map: foldTex, roughness: 0.32, metalness: 0.08 }); LINENS.fill(satin); }
+  else if (lookTable === 'linen') LINENS.fill(linen('#f1ebdd', 0.92));
+  const runnerOfLook = (ci) => (lookTable === 'olive' ? '#c9cfae' : lookTable === 'linen' ? '#a8b38a' : runnerOf(ci));
+  const lk = ballroom ? { centers: STY.centers, candles: STY.candles, garland: lookTable === 'linen' } : LK_DEFAULT;
   const topMat = look && sp.id === 'tasting' ? new THREE.MeshStandardMaterial({ color: look.top, roughness: 0.7 }) : null; // null = pick a linen per table
   const decorMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 });
   const chairMat = look ? new THREE.MeshStandardMaterial({ color: look.chair, roughness: 0.6 }) : new THREE.MeshStandardMaterial({ color: '#4a2f1e', roughness: 0.6 }); // dark walnut cross-back chairs
@@ -710,20 +730,20 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     const isRow = t.shape === 'row', th = t.high ? 3.6 : 2.5;
     const rot = ((t.rot || 0) * Math.PI) / 180;
     let top, dec = null, rectGeo = null;
-    const ci = clothIdx(t, i), tmat = topMat || LINENS[ci], rc = runnerOf(ci);
+    const ci = clothIdx(t, i), tmat = topMat || LINENS[ci], rc = runnerOfLook(ci);
     const small = !!t.high;
     if (isRow) { // ceremony row: chairs only
       top = new THREE.Object3D();
     } else if (t.shape === 'round') {
       const r = tableR(t);
       top = new THREE.Mesh(clothGeo(r, th), tmat);
-      if (!topMat) dec = roundDecor(r, t.arc ? 0 : t.seats, small, rc, th, 3 + i * 7);
+      if (!topMat) dec = roundDecor(r, t.arc ? 0 : t.seats, small, rc, th, 3 + i * 7, lk);
     } else {
       const { L, D } = rectDims(t);
       const key = ['b', round1(L), round1(D), th].join();
       if (!_decorCache.has(key)) { const a = new THREE.BoxGeometry(L, th, D).translate(0, th / 2, 0), b = new THREE.BoxGeometry(L + 0.5, 0.4, D + 0.5).translate(0, 0.2, 0); _decorCache.set(key, mergeGeometries([a, b])); a.dispose(); b.dispose(); }
       top = new THREE.Mesh(_decorCache.get(key), tmat);
-      if (!topMat) dec = longDecor(L, D, 0, rc, th);
+      if (!topMat) dec = longDecor(L, D, 0, rc, th, lk);
     }
     top.position.y = 0; top.castShadow = top.receiveShadow = true;
     g.add(top);
@@ -795,7 +815,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   });
 
   /* ---- styling from the board: chiffon swags, hanging greenery, flower arch, mirror aisle, olive velvet drapes ---- */
-  const chiffonMats = [PAL.sage, '#efe8d4'].map((c) => new THREE.MeshStandardMaterial({ color: c, emissive: '#2a3018', emissiveIntensity: 0.3, roughness: 0.9, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+  const chiffonMats = sp?.id === 'ceremony' && STY.canopy !== 'sage' ? LOOK.canopyMats(STY.canopy) : [PAL.sage, '#efe8d4'].map((c) => new THREE.MeshStandardMaterial({ color: c, emissive: '#2a3018', emissiveIntensity: 0.3, roughness: 0.9, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
   const swag = (a, b, sag, drop, i, parent = scene) => { const m = new THREE.Mesh(swagGeo(a, b, sag, drop, i * 1.7 + 0.4), chiffonMats[i % 2]); m.renderOrder = 3; parent.add(m); return m; };
   {
     const pg = (fixed.decor || []).find((d) => d.kind === 'pergola');
@@ -812,17 +832,22 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     const altar = ROOM.areas.find((a) => a.preset === 'altar');
     if (altar && sp?.id === 'ceremony') { // flower arch at the altar
       const ax = X(altar.x + altar.w / 2), az = Z(altar.y + altar.h * 0.55), R = Math.min(5.2, altar.w / 2 + 2.2);
-      const arch = new THREE.Mesh(floralArch(R, 9), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
+      const arch = new THREE.Mesh(STY.arch === 'garden' ? floralArch(R, 9) : LOOK.archVariant(STY.arch, R, 9), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
       arch.position.set(ax, altar.h ? 0.6 : 0, az); scene.add(arch);
       const top = R + 1.8;
       swag([ax - R, top, az + 0.5], [ax + R, top, az + 0.5], 1.4, 5.2, 1); swag([ax - R, top + 0.2, az - 0.3], [ax + R, top + 0.2, az - 0.3], 1.8, 6.5, 2);
       [-1, 1].forEach((sd, k) => swag([ax + sd * R, top, az], [ax + sd * (R + 1.8), 0.9, az + 0.6], 0, 4.5, 3 + k));
       const ga = []; for (let k = 0; k < 16; k++) { const a = (k / 15) * Math.PI; ga.push([ax + Math.cos(a) * R * 0.98, 0.6 + 1.4 + Math.sin(a) * (R - 0.2), az + 0.55]); }
-      scene.add(greenStrands(ga, 33, 3.4));
+      if (STY.arch === 'garden' || STY.arch === 'tulip') scene.add(greenStrands(ga, 33, 3.4));
     }
+    // Look: a backdrop behind the altar (willow tunnel, vine curtain, moss portal)
+    if (pg && sp?.id === 'ceremony' && STY.backdrop !== 'open') { const b = LOOK.backdrop(STY.backdrop, { X, Z, pg, greenStrands }); if (b) scene.add(b); }
     // mirror aisle: a polished dark strip that "reflects" the sage chiffon and the string lights (painted, so no extra render pass)
     const aisleA = ROOM.areas.find((a) => a.preset === 'aisle');
-    if (aisleA && sp?.id === 'ceremony') {
+    if (aisleA && sp?.id === 'ceremony' && STY.aisle !== 'mirror') { // Look: cream runner / petal path instead of the mirror pool
+      const ad = LOOK.aisleDecor(STY.aisle, aisleA); ad.position.set(X(aisleA.x + aisleA.w / 2), 0.05, Z(aisleA.y + aisleA.h / 2)); scene.add(ad);
+    }
+    if (aisleA && sp?.id === 'ceremony' && STY.aisle === 'mirror') {
       const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d');
       const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#9fae86'); gr.addColorStop(0.35, '#5f6f58'); gr.addColorStop(1, '#27322f');
       g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
@@ -892,6 +917,22 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     if (!ballroom) [0.35, 0.7].forEach((f) => { const pl = new THREE.PointLight('#ffc27a', 0, 60, 1.3); pl.position.set(0, 10, Z(h * f)); scene.add(pl); lamps.push(pl); });
   }
 
+  /* ---- Look: hangout stations and guest extras (courtyard + tasting room). Each piece takes the nearest clear spot on the plan. ---- */
+  let lantern = null; // sky lanterns: { mat, group } glow with the evening and bob a little
+  if (sp && (sp.id === 'cocktail' || sp.id === 'tasting') && (STY.station !== 'none' || STY.extras.length)) {
+    const taken = []; // plan-space boxes already used by these pieces
+    const place = (foot) => {
+      const spot = findFreeSpot(ROOM, [...TABLES, ...taken], { box: { hw: foot.hw + 1, hh: foot.hh + 1 } });
+      taken.push({ id: 'look' + taken.length, shape: 'round', x: spot.x, y: spot.y, box: { hw: foot.hw + 1, hh: foot.hh + 1 } });
+      return spot;
+    };
+    const drop = (obj, foot, rot = 0) => { const s = place(foot); obj.position.set(X(s.x), 0, Z(s.y)); obj.rotation.y = rot; obj.scale.setScalar(0.001); popIns.push({ g: obj, delay: 0.5 + taken.length * 0.1 }); scene.add(obj); };
+    if (STY.station !== 'none') drop(LOOK.station(STY.station, label), LOOK.FOOT[STY.station]);
+    if (STY.extras.includes('skee')) { drop(LOOK.extra('skee', label).group, LOOK.FOOT.skee); drop(LOOK.extra('cars', label).group, LOOK.FOOT.cars); }
+    if (STY.extras.includes('polaroid')) drop(LOOK.extra('polaroid', label).group, LOOK.FOOT.polaroid);
+    if (STY.extras.includes('lanterns')) { const l = LOOK.extra('lanterns', label, { w, h, ceil: closed ? WH : 0 }); scene.add(l.group); lantern = { mat: l.mat, group: l.group }; }
+  }
+
   /* ---- size ---- */
   let refitHome = () => {}; // set below, once the home view exists: re-frames it when the picture changes shape
   const resize = () => {
@@ -918,6 +959,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     glowMat.emissiveIntensity = 0.6 + 2.4 * k;
     flameMat.emissiveIntensity = 0.4 + 3.2 * k;
     danceMat.emissiveIntensity = 0.05 + 0.5 * k;
+    if (lantern) lantern.mat.emissiveIntensity = 0.35 + 1.9 * k;
     creamMat.emissiveIntensity = 0.45 * (1 - 0.75 * k); moldMat.emissiveIntensity = 0.5 * (1 - 0.75 * k);
     glassMats.forEach((m) => { m.emissive.copy(dayGlass).lerp(duskGlass, k); m.emissiveIntensity = 0.55 - 0.35 * k; m.color.setScalar(1 - 0.6 * k); });
     scene.background.copy(dayBg).lerp(nightBg, k);
@@ -1102,6 +1144,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
       if (Math.abs(eveningTarget - evening) < 0.0005) evening = eveningTarget;
       applyLight(evening); lit = evening; // only while the mood is changing
     }
+    if (lantern) lantern.group.position.y = Math.sin(clock * 0.45) * 0.5;
     if (evening > 0) {
       flameMat.emissiveIntensity = (0.4 + 3.2 * evening) * (1 + Math.sin(clock * 9) * 0.1 + Math.sin(clock * 23) * 0.04);
       lamps.forEach((l, i) => { l.intensity = LAMP * evening * (1 + Math.sin(clock * 3 + i * 2) * 0.02); });
