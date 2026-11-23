@@ -2,7 +2,7 @@
 // "Seen" is remembered per device (localStorage); the tour can always be replayed from the "?".
 import { trapFocus } from './util.js';
 const SEEN_WELCOME = 'bc-welcome-seen';
-const SEEN_UPDATE = 'bc-update-guide-1123'; // the "what got easier" guide, shown once per device
+const SEEN_UPDATE = 'bc-update-guide-1124'; // the "what got easier" guide, shown once per device
 const seenKey = (r) => `bc-tour-${r}`;
 const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const write = (k) => { try { localStorage.setItem(k, '1'); } catch { /* storage blocked: shows again next time */ } };
@@ -65,7 +65,7 @@ export function initGuide(getRoute) {
   document.body.append(btn);
   refreshGuide();
   if (!read(SEEN_WELCOME)) setTimeout(welcome, 500);
-  else if (!read(SEEN_UPDATE)) setTimeout(startUpdateTour, 1200);
+  else if (!read(SEEN_UPDATE) || /[?&]tour=update/.test(location.search)) setTimeout(startUpdateTour, 1200); // add ?tour=update to the address to replay it
 }
 
 /** Call after each page render: the "?" breathes gently until that page's tour has been seen. */
@@ -103,14 +103,13 @@ function welcome() {
 const UPDATE_STEPS = [
   { route: 'overview', sel: '.nextup', text: 'Next up: the one to three things worth doing now. Tap one to go there.' },
   { route: 'overview', sel: '.dotstat', text: 'Your guests in one picture. The two hearts are you. Filled dots are seated, rings are added but not seated, faint ones are still to add.' },
-  { route: 'overview', sel: '.foot-l', text: 'A check appears here whenever your changes save. Made a mistake? Tap Undo on the message.' },
   { route: 'overview', sel: '#navToggle', text: 'Menu: every page is one tap away.' },
+  { route: 'guests', sel: '#addPlus', text: 'Tap + to add one person, or paste a whole list. Guests now fit about 16 to a screen, so scrolling is quick.' },
   { route: 'seating/reception', sel: '.view-fixed', text: '3D and Plan sit in the same spot on every space.' },
-  { route: 'seating/reception', sel: '.vs-tabs [data-vs="look"]', text: 'Look: pick table linens, candles, ceiling and more. The 3D changes as you pick.' },
-  { route: 'seating/ceremony', sel: '.look-pick', text: 'Each space has its own looks. Ceremony: canopy, aisle, backdrop and arch flowers.' },
-  { route: 'seating/ceremony', sel: '.venue-strip .vstrip-head', text: 'Venue photos fold away to keep things calm. Tap this bar to open or close them.' },
-  { route: 'overview', sel: '#bellBtn', text: 'The bell shows what is new.' },
-  { route: 'overview', sel: '#liveBtn', text: 'The people icon: sign in, send feedback, see history.' },
+  { route: 'seating/reception', sel: '#evening', text: 'The eye takes a candlelit tour of the evening.' },
+  { route: 'seating/reception', sel: '.vs-tabs [data-vs="look"]', text: 'Look: pick table linens, candles, ceiling and more. The 3D stays pinned above while you pick.' },
+  { route: 'seating/ceremony', sel: '.look-pick .lk-head', text: 'Each space has its own looks. Ceremony: canopy, aisle, backdrop and arch flowers.' },
+  { route: 'overview', sel: '.foot-acts', text: 'The bell shows what is new. The people icon is where you sign in, send feedback and see history.' },
 ];
 const waitFor = (sel, ms = 3500) => new Promise((res) => {
   const t0 = performance.now();
