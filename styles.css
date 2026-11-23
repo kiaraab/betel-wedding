@@ -3613,3 +3613,12 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .bell-e li { margin: 2px 0; }
 .bell-f { border-top: 1px solid var(--line); padding-top: 8px; }
 @media (max-width: 760px) { .bell-pop { right: 14px; } }
+
+/* Guest list: lighter, thinner type (Inter 300) with a little air, headers in light Cinzel */
+body[data-route="guests"] table.guests td .input, body[data-route="guests"] table.guests td .g-name,
+body[data-route="guests"] table.guests .bs-btn, body[data-route="guests"] table.guests .bs-btn *,
+body[data-route="guests"] table.guests .c-txt, body[data-route="guests"] table.guests .select { font-weight: 300; letter-spacing: .01em; color: #4a3a3e; }
+body[data-route="guests"] table.guests .couple-tag, body[data-route="guests"] table.guests td.row-actions .more { font-weight: 400; }
+body[data-route="guests"] table.guests th { font-weight: 400; letter-spacing: .14em; }
+body[data-route="guests"] .lede { font-weight: 300; }
+@media (max-width: 760px) { body[data-route="guests"] table.guests tr.row td.c-name .g-name { font-weight: 400; font-size: 15px; } }

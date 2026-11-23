@@ -4,6 +4,8 @@
 import { esc, trapFocus, toast } from './util.js';
 
 export const ENTRIES = [
+  { id: '2026-11-23-look', date: '2026-11-23', title: 'A softer guest list',
+    items: ['The guest list now has a lighter, thinner look.', 'Tap the bell any time to see what’s new.'] },
   { id: '2026-11-23-seats', date: '2026-11-23', title: 'Seats and guests',
     items: ['The dot on a guest’s ⋮ now means no seat yet. Addresses are optional.', 'The save-as-picture button on the seating plan is easier to see.'] },
   { id: '2026-11-22-ai', date: '2026-11-22', title: 'Smarter and faster',
