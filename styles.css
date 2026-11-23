@@ -3821,3 +3821,55 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 
 /* address fields hidden (js/features.js): no empty address column in the details grid */
 .gd.gd-noaddr, .pp .gd.gd-noaddr { grid-template-columns: 76px minmax(0, 1fr); grid-template-areas: "photo rel" "notes notes"; }
+
+/* Phone Guests: compact rows so the whole list scrolls fast and duplicates stand out.
+   One line per guest: name | side | relationship | menu. Extra columns (household, table...) sit on a slim second line. */
+@media (max-width: 760px) {
+  table.guests tr.row { grid-template-columns: minmax(0, 1fr) auto auto auto !important; gap: 2px 6px !important; padding: 3px 10px !important; align-items: center; }
+  table.guests tr.row > td { padding: 0 !important; min-height: 0 !important; height: auto !important; }
+  table.guests tr.row > td.c-name { grid-area: 1 / 1 !important; }
+  table.guests tr.row > td.c-side { grid-area: 1 / 2 !important; }
+  table.guests tr.row > td.c-relation { grid-area: 1 / 3 !important; }
+  table.guests tr.row > td.row-actions { grid-area: 1 / 4 !important; display: flex; align-items: center; justify-content: flex-end; gap: 0; }
+  table.guests tr.row > td.c-household, table.guests tr.row > td.c-table, table.guests tr.row > td.c-plus, table.guests tr.row > td.c-notes, table.guests tr.row > td.c-diet { grid-area: auto / 1 / auto / -1 !important; }
+  table.guests tr.row > td::before { display: none !important; content: none !important; }
+  table.guests tr.row input.g-name { min-height: 36px !important; height: 36px; padding: 0 2px; font-size: 15.5px; border-color: transparent; background: transparent; }
+  table.guests tr.row .bs-btn { height: 32px !important; min-height: 0 !important; font-size: 12.5px; padding: 0 6px !important; }
+  table.guests tr.row .bs-btn svg { width: 10px; height: 10px; }
+  table.guests tr.row td.c-household .bs-btn, table.guests tr.row td.c-table .bs-btn { width: 100%; height: 30px !important; }
+  table.guests .addr-btn, table.guests .more.addr-btn, table.guests button.x { min-width: 34px !important; min-height: 34px !important; width: 34px; height: 34px; padding: 0; }
+  table.guests tr.row .name-cell { min-width: 0; }
+  table.guests thead { display: none; }
+}
+@media (max-width: 760px) {
+  /* extra columns: a quiet caption under the name; hidden while empty (set them in Details) */
+  html body table.guests tr.row > td.c-household:has(.bs-btn[data-v=""]), html body table.guests tr.row > td.c-table:has(.bs-btn[data-v=""]) { display: none !important; }
+  html body table.guests tr.row > td.c-household .bs-btn, html body table.guests tr.row > td.c-table .bs-btn { height: 24px !important; width: auto !important; justify-content: flex-start; border-color: transparent !important; background: transparent !important; box-shadow: none !important; color: var(--ink-soft, #5a4348); font-size: 12px; padding: 0 2px !important; }
+  html body table.guests tr.row > td.c-household, html body table.guests tr.row > td.c-table { margin-top: -2px; }
+}
+@media (max-width: 760px) {
+  html body table.guests tr.row { padding: 2px 10px !important; gap: 0 6px !important; grid-template-rows: auto !important; grid-auto-rows: auto !important; }
+  html body table.guests tr.row .bs-btn { height: 30px !important; min-height: 0 !important; }
+  html body table.guests tr.row > td.c-side, html body table.guests tr.row > td.c-relation { height: 30px !important; display: flex; align-items: center; }
+  html body table.guests tr.row > td.c-household, html body table.guests tr.row > td.c-table { height: 22px !important; margin-top: -6px; }
+  html body table.guests tr.row > td.c-household .bs-btn, html body table.guests tr.row > td.c-table .bs-btn { height: 22px !important; }
+  html body table.guests tr.row input.g-name { height: 34px !important; min-height: 0 !important; }
+  html body table.guests tr.row > td.c-name { height: 34px !important; }
+  html body table.guests tr.row > td.row-actions { height: 34px !important; }
+}
+@media (max-width: 760px) {
+  html body table.guests tr.row > td.c-side, html body table.guests tr.row > td.c-relation { height: auto !important; overflow: visible !important; align-self: center; }
+  html body table.guests tr.row > td.c-household, html body table.guests tr.row > td.c-table { height: auto !important; overflow: visible !important; margin-top: -4px; line-height: 1.2; }
+  html body table.guests tr.row > td.c-household .bs-btn, html body table.guests tr.row > td.c-table .bs-btn { height: 24px !important; line-height: 1.2; overflow: visible; }
+  html body table.guests tr.row .bs-btn { line-height: 1.2; overflow: visible; }
+}
+@media (max-width: 760px) {
+  /* one line per guest on phones; household, table, plus-one and notes live in Details (the menu on each row) */
+  html body table.guests tr.row > td.c-household, html body table.guests tr.row > td.c-table, html body table.guests tr.row > td.c-plus, html body table.guests tr.row > td.c-notes, html body table.guests tr.row > td.c-diet { display: none !important; }
+}
+@media (max-width: 760px) {
+  /* final word for the phone guest list (beats the older route-scoped !important rules) */
+  html body[data-route="guests"] table.guests tr.row { padding: 3px 12px !important; gap: 0 6px !important; grid-template-columns: minmax(0, 1fr) auto auto auto !important; grid-template-rows: auto !important; align-items: center; }
+  html body[data-route="guests"] table.guests tr.row .bs-btn { min-height: 0 !important; height: 32px !important; }
+  html body[data-route="guests"] table.guests tr.row > td.c-side, html body[data-route="guests"] table.guests tr.row > td.c-relation { height: auto !important; min-height: 0 !important; }
+}
