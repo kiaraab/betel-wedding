@@ -7,7 +7,7 @@ import { esc, toast } from './util.js';
 export const DIETS = ['Gluten free', 'Vegetarian', 'Vegan', 'Dairy free', 'Nut allergy', 'Shellfish allergy', 'Halal', 'Kosher', 'Pescatarian', 'Limit alcohol'];
 const key = (a, b) => [a, b].sort().join('|');
 const dietList = (g) => String(g.diet || '').split(/\s*[,;]\s*/).filter(Boolean);
-const households = () => [...new Set(state.guests.map((g) => String(g.household || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+export const households = () => [...new Set(state.guests.map((g) => String(g.household || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const lastName = (n) => String(n || '').trim().split(/\s+/).slice(1).join(' ');
 
 /* ---------- links ---------- */
@@ -29,8 +29,30 @@ function seatWith(g, tableId) {
   if (state.guests.filter((x) => x.tableId === t.id).length < seatCount(t)) g.tableId = t.id;
 }
 
+/** The one Household control: pick an existing household, "—" for none, or add a new one. */
+export const householdSelectHTML = (g, extra = '') => {
+  const cur = String(g.household || '').trim(), hh = households();
+  if (cur && !hh.includes(cur)) hh.push(cur);
+  return `<select class="select" data-hh ${extra} aria-label="Household"><option value="">—</option>${hh.map((h) => `<option ${h === cur ? 'selected' : ''}>${esc(h)}</option>`).join('')}<option value="__new">+ New household</option></select>`;
+};
+export function wireHouseholdSelect(sel, g, redraw) {
+  sel.onchange = () => {
+    if (sel.value !== '__new') { const n = setHousehold(g, sel.value); if (n) toast(`Linked with ${n} in ${g.household}`); return redraw(); }
+    const input = document.createElement('input');
+    input.className = 'input'; input.placeholder = 'Household name'; input.setAttribute('aria-label', 'New household name');
+    input.value = lastName(g.name) ? `${lastName(g.name)} household` : '';
+    const pretty = sel.nextElementSibling?.classList?.contains('bs-btn') ? sel.nextElementSibling : null; // the glass button that fronts a bubbly select
+    pretty?.remove(); sel.replaceWith(input); input.focus(); input.select();
+    let done = false;
+    const finish = (save) => { if (done) return; done = true; if (save && input.value.trim()) setHousehold(g, input.value); redraw(); };
+    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); finish(true); } if (e.key === 'Escape') { e.stopPropagation(); finish(false); } };
+    input.onblur = () => finish(true);
+  };
+}
+
 export function setHousehold(g, name) {
   name = String(name || '').trim();
+  name = households().find((h) => h.toLowerCase() === name.toLowerCase()) || name; // same household, same spelling
   g.household = name;
   dropAutoLinks(g.id, 'household');
   if (!name) return 0;
@@ -102,13 +124,7 @@ export function detailsHTML(g, { extra = false } = {}) {
       <div class="gd-rel">
         ${extra ? `${g.party === 'couple' ? '' : `<label class="gd-f"><span>Relation</span><select class="select" data-k="relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`}
         <label class="gd-f"><span>Table</span><select class="select" data-tbl><option value="">—</option>${state.tables.map((t) => `<option value="${t.id}" ${t.id === g.tableId ? 'selected' : ''}>${esc(t.id === 'head' ? 'Sweetheart' : t.name)}</option>`).join('')}</select></label>` : ''}
-        <label class="gd-f"><span>Household</span>
-          <select class="select" data-hh>
-            <option value="">—</option>
-            ${hh.map((h) => `<option ${h === cur ? 'selected' : ''}>${esc(h)}</option>`).join('')}
-            <option value="__new">+ New household</option>
-          </select>
-        </label>
+        <label class="gd-f"><span>Household</span>${householdSelectHTML(g)}</label>
         <label class="gd-f"><span>Plus-one</span>
           <select class="select" data-plus>
             <option value="">—</option>
@@ -152,17 +168,8 @@ export function wireDetails(root, g, { onRedraw } = {}) {
     g.tableId = t ? t.id : null; commit({ silent: true });
   };
 
-  // household: pick a group, or type a new one in place
-  const hh = box.querySelector('[data-hh]');
-  hh.onchange = () => {
-    if (hh.value !== '__new') { const n = setHousehold(g, hh.value); if (n) toast(`Linked with ${n} in ${hh.value}`); return redraw(); }
-    const input = document.createElement('input');
-    input.className = 'input'; input.placeholder = 'Household name'; input.value = lastName(g.name) ? `${lastName(g.name)} household` : '';
-    hh.replaceWith(input); input.focus(); input.select();
-    const done = (save) => { if (save && input.value.trim()) setHousehold(g, input.value); redraw(); };
-    input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); done(true); } if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
-    input.onblur = () => done(true);
-  };
+  // household: pick a group, or add a new one (shared with the guest table)
+  wireHouseholdSelect(box.querySelector('[data-hh]'), g, redraw);
 
   // plus-one: someone on the list, or a new "X's plus-one" guest
   const plus = box.querySelector('[data-plus]');
