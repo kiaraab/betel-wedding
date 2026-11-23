@@ -115,3 +115,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Reception floor plan: the add list shows 4 items and tucks the rest behind More. The footer Saved check mark displays correctly.
 
 - Overview: guests in one dot picture (seated, added, still to add) with a key; Days left is a metric; RSVP tile removed (RSVPs live in RSVPify).
+
+- Overview dots start with two dark red hearts for Betel and Carter.
