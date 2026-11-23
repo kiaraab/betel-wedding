@@ -640,6 +640,7 @@ function healHangout() {
   if (changed) commit({ silent: true });
 }
 const SPACE_IDS = ['reception', 'ceremony', 'indoor', 'cocktail', 'tasting'];
+const THREE_SPACES = ['reception', 'ceremony', 'cocktail', 'tasting'];
 export function renderSeating(root) {
   // '#seating' = the venue map (entry view); '#seating/<space>' = that space's editor
   const sub = location.hash.slice(1).split('/')[1];
@@ -660,13 +661,14 @@ export function renderSeating(root) {
   clearBalcony(); healHangout();
   const rec = space === 'reception';
   setBackdrop(BACKDROP[space] || BACKDROP.reception);
-  if (!rec) mode = 'plan'; // 3D is the ballroom only (for now)
+  if (!THREE_SPACES.includes(space)) mode = 'plan'; // 3D: the ballroom, the ceremony lawn, the courtyard and the tasting room (not the indoor bay yet)
   const info = spaceInfo();
   const vow = rec;
   const PLANFILE = `<div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>`;
   if (vow && mode === 'plan' && vsTab !== 'guests') refTab = vsTab === 'look' ? 'venue' : 'ideas';
   const toolsHTML = `
           <div class="plan-tools">
+            ${!vow && THREE_SPACES.includes(space) ? `<button class="tool" type="button" data-mode="${mode === '3d' ? 'plan' : '3d'}">${mode === '3d' ? 'Plan' : '3D'}</button>` : ''}
             ${mode === 'plan' ? `
               ${info.add === 'row' ? toolIcon('row', 'Add row', 'data-add="row"')
                 : info.add === 'high' ? toolIcon('high', 'Add high-top', 'data-add="high"')
@@ -890,7 +892,9 @@ export function renderSeating(root) {
       g.append(tri);
     });
   };
+  let open3d = null; // (re)opens the 3D scene; set where the 3D view is built
   const drawPlan = () => {
+    if (mode === '3d' && !rec && threeInst && open3d) { threeInst.dispose(); threeInst = null; open3d(); return; } // an edit in the side panel: rebuild the scene
     if (mode !== 'plan') return;
     host.replaceChildren(planSVG());
     planMeta(); inspect();
@@ -1243,10 +1247,12 @@ export function renderSeating(root) {
     });
   } else {
     // 3D view (loaded on demand); a quiet loader fades in until the scene is ready
+    open3d = () => {
     host.innerHTML = `<div class="three-loading">${heartLoaderHTML('Opening the venue…')}</div>`;
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
       three = host.__three = threeInst = await m.mount(host, state, moodNow(), {
+        ...(rec ? {} : { sp: { id: space, room: SP().room, tables: SP().tables }, countAt: (t) => guestsAt(t.id).length, pool: partyPool() }),
         unseated: () => going().filter((g) => !isSeated(g)),
         // Seat someone from the 3D view (an existing unseated guest, or a new name)
         onSeat: (tableId, name) => {
@@ -1269,8 +1275,11 @@ export function renderSeating(root) {
       root.querySelector('#zIn3').onclick = () => three.zoom(0.78);
       root.querySelector('#zOut3').onclick = () => three.zoom(1 / 0.78);
       root.querySelector('#full3').onclick = () => { const w = root.querySelector('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen(); else w.requestFullscreen?.(); };
-      root.querySelector('#evening').onclick = () => { three.experience(); setLbl(light, 'Afternoon light'); light.classList.add('on'); const w = root.querySelector('#walk'); setLbl(w, 'Walk through'); w.classList.remove('on'); };
+      const evening = root.querySelector('#evening');
+      if (evening) evening.onclick = () => { three.experience(); setLbl(light, 'Afternoon light'); light.classList.add('on'); const w = root.querySelector('#walk'); setLbl(w, 'Walk through'); w.classList.remove('on'); };
     }).catch((err) => { console.error(err); host.innerHTML = '<p class="muted" style="padding:24px">3D view needs an internet connection.</p>'; });
+    };
+    open3d();
   }
 
   root.querySelector('#share').onclick = async (e) => {

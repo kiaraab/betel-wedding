@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { seatCount, tableR, rectDims, chairPositions } from './layout.js';
+import { partyDots } from './spaces.js';
 
 const WALL_H = 20;     // ESTIMATE ~20 ft to the coffers (photo: arched doors ~10 ft = half the wall below the crown); not published. Balcony slab ~11 ft
 const _v = new THREE.Vector3();
@@ -92,13 +93,17 @@ function archShape(w, h) { // rectangle with a round top, base at y=0
   return s;
 }
 
-export async function mount(host, state, mood, { onSeat, unseated = () => [] } = {}) {
+/** `sp` = { room, tables } of another space (ceremony / hangout / tasting room); omit it for the ballroom reception. `countAt(t)` = guests seated at a table, `pool` = the ceremony's wedding party pool. */
+export async function mount(host, state, mood, { onSeat, unseated = () => [], sp = null, countAt = null, pool = [] } = {}) {
   host.innerHTML = '';
   allLabels = [];
-  const { w, h, fixed } = state.room;
+  const ballroom = !sp, ROOM = sp ? sp.room : state.room, TABLES = sp ? sp.tables : state.tables;
+  const { w, h, fixed } = ROOM;
+  const closed = ballroom || ROOM.floor === 'tile'; // walled rooms; the lawn and the courtyard are open air
+  const WH = ballroom ? WALL_H : 12;
   const X = (x) => x - w / 2, Z = (y) => y - h / 2;
   // The stage bay is on the LEFT long wall, outside the hall; its platform is 3 steps (0.5 ft rise each) up. Items inside the bay (sweetheart table, cake) stand on it.
-  const stg = fixed.stage && fixed.stage.wall !== 'top' ? fixed.stage : null, STEP_RISE = 0.5, PLATFORM = stg ? STEP_RISE * (stg.steps || 3) : 0;
+  const stg = ballroom && fixed.stage && fixed.stage.wall !== 'top' ? fixed.stage : null, STEP_RISE = 0.5, PLATFORM = stg ? STEP_RISE * (stg.steps || 3) : 0;
   const onStage = (x, y) => !!stg && x < 0 && Math.abs(y - stg.cy) < stg.r + 1;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -131,12 +136,24 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3; // softer edges, no extra pass
   scene.add(sun);
 
+  /* ---- shared materials (the ballroom block below and the other spaces both light these) ---- */
+  const ceilingG = new THREE.Group();
+  scene.add(ceilingG);
+  const creamMat = new THREE.MeshStandardMaterial({ color: '#f4ecd9', roughness: 0.9, emissive: '#e9dfc6', emissiveIntensity: 0.45 });
+  const moldMat = new THREE.MeshStandardMaterial({ color: '#fbf6ea', roughness: 0.7, emissive: '#f1e8d2', emissiveIntensity: 0.5 });
+  const glowMat = new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb860', emissiveIntensity: 0.6, side: THREE.DoubleSide });
+  const glassMats = [], lamps = [], flames = [], popIns = [];
+
   /* ---- floor + walls ---- */
-  const wood = woodTexture(); wood.repeat.set(w / 16, h / 16);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: wood, roughness: 0.55 }));
+  const FLOORS = { lawn: '#8fa876', concrete: '#cfc9bd', tile: '#d9ccb6' }; // flat colors for the other spaces
+  let floorMat;
+  if (ballroom) { const wood = woodTexture(); wood.repeat.set(w / 16, h / 16); floorMat = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.55 }); }
+  else floorMat = new THREE.MeshStandardMaterial({ color: FLOORS[ROOM.floor] || '#d9ccb6', roughness: 0.9 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, h), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
   scene.add(floor);
 
+  if (ballroom) {
   // Shimmery gold-taupe walls (a touch of metalness catches the light)
   const wallTex = wallTexture();
   const wallMatFor = (len, height) => { const t = wallTex.clone(); t.repeat.set(len / 9, height / 9); t.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: t, color: '#fff6e2', roughness: 0.6, metalness: 0.06, side: THREE.DoubleSide }); };
@@ -156,11 +173,6 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   wall(w, 0, h / 2, 0, 3, lowWall);               // near wall cut away so you can see in
 
   /* ---- ceiling: cream coffers, crown molding, gold circle frieze. Hidden when the camera is above it. ---- */
-  const ceilingG = new THREE.Group();
-  scene.add(ceilingG);
-  // the ceiling only gets bounce light, so it carries a soft glow of its own to read cream like the photo
-  const creamMat = new THREE.MeshStandardMaterial({ color: '#f4ecd9', roughness: 0.9, emissive: '#e9dfc6', emissiveIntensity: 0.45 });
-  const moldMat = new THREE.MeshStandardMaterial({ color: '#fbf6ea', roughness: 0.7, emissive: '#f1e8d2', emissiveIntensity: 0.5 });
   const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(w, h), creamMat);
   ceiling.rotation.x = Math.PI / 2; ceiling.position.y = WALL_H;
   ceilingG.add(ceiling);
@@ -197,7 +209,6 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
          Glass is a tiled pane texture (white muntin grid) that glows like daylight, dusk at night. ---- */
   const paneTex = paneTexture();
   const frameMat = new THREE.MeshStandardMaterial({ color: '#fbf8f0', roughness: 0.55 });
-  const glassMats = [];
   const glassFor = (cols, ow, rows, rectH) => {
     const t = paneTex.clone();
     // ShapeGeometry UVs are in feet: one pane = ow/cols wide, rectH/rows tall, grid centered on the opening
@@ -324,9 +335,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   /* ---- chandeliers ---- */
   // 6 gold tiered chandeliers with amber shades, two rows down the length (one per coffer);
   // only 4 point lights shared between them, to stay light on phones
-  const lamps = [];
   const goldMat = new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.75, roughness: 0.3 });
-  const glowMat = new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb860', emissiveIntensity: 0.6, side: THREE.DoubleSide });
   const shadeGeo = new THREE.CylinderGeometry(0.2, 0.32, 0.5, 12, 1, true);
   const HANG = 11.5; // chandelier body height (ft) — estimate
   const chandelier = (x, z) => {
@@ -355,15 +364,85 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     lamps.push(pl);
   });
 
+  } else buildSpace();
+
+  /* ---- the other spaces: lawn pergola, courtyard, tasting room. Fixed features come from room.fixed.decor (same data as the floor plan). ---- */
+  function buildSpace() {
+    const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra });
+    const stone = std('#d8d2c4'), white = std('#faf6ec', { roughness: 0.5 });
+    const box = (x, y, bw, bh, hh, mat, cast = true) => { // plan rect (x, y, w, h) -> box of height hh standing on the floor
+      const m = new THREE.Mesh(new THREE.BoxGeometry(bw, hh, bh), mat);
+      m.position.set(X(x + bw / 2), hh / 2, Z(y + bh / 2)); m.castShadow = cast; m.receiveShadow = true; scene.add(m); return m;
+    };
+    if (closed) { // tasting room: three walls and a ceiling, the near wall cut away like the ballroom's
+      const wt = wallTexture(), mat = (len) => { const t = wt.clone(); t.repeat.set(len / 9, WH / 9); t.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: t, color: '#fff6e2', roughness: 0.6, side: THREE.DoubleSide }); };
+      [[w, 0, -h / 2, 0], [h, -w / 2, 0, Math.PI / 2], [h, w / 2, 0, Math.PI / 2]].forEach(([len, x, z, ry]) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(len, WH, 0.6), mat(len)); m.position.set(x, WH / 2, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m);
+      });
+      const low = new THREE.Mesh(new THREE.BoxGeometry(w, 3, 0.6), new THREE.MeshStandardMaterial({ color: '#cdbd98', roughness: 0.9, transparent: true, opacity: 0.35 }));
+      low.position.set(0, 1.5, h / 2); scene.add(low);
+      const ceil = new THREE.Mesh(new THREE.PlaneGeometry(w, h), creamMat); ceil.rotation.x = Math.PI / 2; ceil.position.y = WH; ceilingG.add(ceil);
+    }
+    (fixed.decor || []).forEach((d) => {
+      const cx = X(d.x + d.w / 2), cz = Z(d.y + d.h / 2);
+      if (d.kind === 'balustrade') box(d.x, d.y, d.w, d.h, 3, stone);
+      else if (d.kind === 'building') box(d.x, d.y, d.w, d.h, 9, std('#e0d4bd'));
+      else if (d.kind === 'pergola') {
+        [0, 1 / 3, 2 / 3, 1].forEach((fx) => [0, 1].forEach((fy) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.55, 10, 14), white); c.position.set(X(d.x + fx * d.w), 5, Z(d.y + fy * d.h)); c.castShadow = true; scene.add(c); }));
+        [0, 1].forEach((fy) => box(d.x - 0.6, d.y + fy * d.h - 0.4, d.w + 1.2, 0.8, 0.7, white).position.setY(10.3)); // two long beams
+        for (let x = d.x; x <= d.x + d.w + 0.01; x += 2.4) box(x - 0.2, d.y - 0.8, 0.4, d.h + 1.6, 0.4, white).position.setY(10.9); // cross slats
+        const l = label(d.label || 'Pergola', { size: 1.2 }); l.position.set(cx, 12.5, cz); scene.add(l);
+      } else if (d.kind === 'fountain') {
+        const r = d.w / 2;
+        const basin = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.3, 1.8, 40), stone); basin.position.set(cx, 0.9, cz); basin.castShadow = basin.receiveShadow = true; scene.add(basin);
+        const water = new THREE.Mesh(new THREE.CylinderGeometry(r - 0.7, r - 0.7, 0.1, 40), std('#a9cfd6', { roughness: 0.2 })); water.position.set(cx, 1.85, cz); scene.add(water);
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 4.2, 16), stone); col.position.set(cx, 3, cz); scene.add(col);
+        const bowl = new THREE.Mesh(new THREE.CylinderGeometry(2, 0.9, 0.8, 24), stone); bowl.position.set(cx, 5.2, cz); scene.add(bowl);
+        const l = label(d.label || 'Fountain', { size: 1.2 }); l.position.set(cx, 7.5, cz); scene.add(l);
+      } else if (d.kind === 'tree') {
+        const r = d.w / 2;
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 9, 10), std('#6e5238')); trunk.position.set(cx, 4.5, cz); trunk.castShadow = true; scene.add(trunk);
+        const crown = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 12), std('#6f8f54')); crown.scale.y = 0.62; crown.position.set(cx, 11.5, cz); crown.castShadow = true; scene.add(crown);
+      } else if (d.kind === 'fireplace') {
+        box(d.x, d.y, d.w, d.h, 7, std('#bdb3a2'));
+        const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3, 3.2), std('#2a2420')); mouth.position.set(X(d.x + d.w) + 0.05, 1.8, cz); scene.add(mouth);
+        const l = label(d.label || 'Fireplace', { size: 1.2 }); l.position.set(cx + 1.5, 8.6, cz); scene.add(l);
+      } else if (d.kind === 'wine') box(d.x, d.y, d.w, Math.max(d.h, 1.4), 8, std('#5b3a29'));
+      else if (d.kind === 'sunroom') {
+        const room8 = new THREE.Mesh(new THREE.CylinderGeometry(d.w / 2, d.w / 2, 10, 8, 1, true), std('#b9d0cf', { transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
+        room8.position.set(cx, 5, cz); room8.rotation.y = Math.PI / 8; scene.add(room8);
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(d.w / 2, d.w / 2, 0.2, 8), std('#cbbd9f')); base.position.set(cx, 0.1, cz); base.rotation.y = Math.PI / 8; scene.add(base);
+      } else if (d.kind === 'bar') {
+        box(d.x, d.y, d.w, d.h, 3.4, std('#7a5638'));
+        box(d.x - 0.2, d.y - 0.2, d.w + 0.4, d.h + 0.4, 0.2, std('#efe6d2')).position.setY(3.5);
+        const l = label('Bar', { size: 1.2, color: '#6b1f2a' }); l.position.set(cx, 6, cz); scene.add(l);
+      } else if (d.kind === 'hedge') box(d.x, d.y, d.w, d.h, 4, std('#5f7d48'));
+      else if (d.kind === 'cypress') { const c = new THREE.Mesh(new THREE.ConeGeometry(d.w / 2, 14, 12), std('#41593a')); c.position.set(cx, 7, cz); c.castShadow = true; scene.add(c); }
+      else if (d.kind === 'statue') { box(d.x, d.y, d.w, d.h, 3, stone); const s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4, 10), white); s2.position.set(cx, 5, cz); scene.add(s2); }
+    });
+    // the wedding party stands either side of the altar (same positions as the plan's numbered dots)
+    if (ROOM.party) {
+      partyDots(ROOM, pool).forEach((d, i) => {
+        const g = new THREE.Group(), mat = std(d.side === 'b' ? mood.swatches[3] : mood.swatches[1]);
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.8, 3.6, 14), mat); body.position.y = 2.4; body.castShadow = true;
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), std('#e8d5bf')); head.position.y = 4.8;
+        g.add(body, head); g.position.set(X(d.x), 0, Z(d.y)); g.scale.setScalar(0.001);
+        const tag = label(d.label, { size: 1 }); tag.position.set(0, 6.6, 0); g.add(tag);
+        popIns.push({ g, delay: 0.3 + i * 0.05 }); scene.add(g);
+      });
+    }
+  }
+
   /* ---- tables + chairs ---- */
   const cloth = new THREE.MeshStandardMaterial({ color: '#f5efe2', roughness: 0.85 });
-  const chairMat = new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.55, roughness: 0.35 });
+  const SPACE_LOOK = { ceremony: { chair: '#f4f1ea', top: '#f5efe2' }, cocktail: { chair: '#2b2b2b', top: '#2b2b2b' }, tasting: { chair: '#7a5638', top: '#7a5638' } };
+  const look = SPACE_LOOK[sp?.id] || null;
+  const topMat = look ? new THREE.MeshStandardMaterial({ color: look.top, roughness: 0.7 }) : cloth;
+  const chairMat = look ? new THREE.MeshStandardMaterial({ color: look.chair, roughness: 0.6 }) : new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.55, roughness: 0.35 });
   const seatedMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.7 });
   const bloomMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.8 });
   const leafMat = new THREE.MeshStandardMaterial({ color: mood.swatches[1], roughness: 0.8 });
   const flameMat = new THREE.MeshStandardMaterial({ color: '#ffe7b0', emissive: '#ffb347', emissiveIntensity: 0.4 });
-  const flames = [];
-  const popIns = [];
 
   const chairMeshes = []; // for tap-to-seat
   const tableInfo = new Map(); // tableId -> { group, tag, n, total }
@@ -385,38 +464,43 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     return c;
   };
 
-  state.tables.forEach((t, i) => {
+  TABLES.forEach((t, i) => {
     const g = new THREE.Group();
-    const n = state.guests.filter((x) => x.tableId === t.id).length;
+    const n = countAt ? countAt(t) : state.guests.filter((x) => x.tableId === t.id).length;
+    const isRow = t.shape === 'row', th = t.high ? 3.6 : 2.5;
     const rot = ((t.rot || 0) * Math.PI) / 180;
     let top;
-    if (t.shape === 'round') {
+    if (isRow) { // ceremony row: chairs only
+      top = new THREE.Object3D();
+    } else if (t.shape === 'round') {
       const r = tableR(t);
-      top = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.3, 2.5, 40), cloth);
+      top = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.3, th, 40), topMat);
     } else {
       const { L, D } = rectDims(t);
-      top = new THREE.Mesh(new THREE.BoxGeometry(L, 2.5, D), cloth);
+      top = new THREE.Mesh(new THREE.BoxGeometry(L, 2.5, D), topMat);
     }
-    top.position.y = 1.25; top.castShadow = top.receiveShadow = true;
+    top.position.y = th / 2; top.castShadow = top.receiveShadow = true;
     g.add(top);
-    // centerpiece: blooms + a candle
-    [[0, 0, .45, bloomMat], [.5, .2, .3, leafMat], [-.45, .25, .28, leafMat]].forEach(([dx, dz, r, m]) => {
+    // centerpiece: blooms + a candle (ballroom only)
+    if (ballroom) [[0, 0, .45, bloomMat], [.5, .2, .3, leafMat], [-.45, .25, .28, leafMat]].forEach(([dx, dz, r, m]) => {
       const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), m); b.position.set(dx, 2.5 + r * 0.8, dz); g.add(b);
     });
-    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2), new THREE.MeshStandardMaterial({ color: '#fbf6ea' }));
-    candle.position.set(0, 3.1, -0.6); g.add(candle);
-    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), flameMat); flame.position.set(0, 3.8, -0.6); g.add(flame); flames.push(flame);
+    if (ballroom) {
+      const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.2), new THREE.MeshStandardMaterial({ color: '#fbf6ea' }));
+      candle.position.set(0, 3.1, -0.6); g.add(candle);
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), flameMat); flame.position.set(0, 3.8, -0.6); g.add(flame); flames.push(flame);
+    }
     chairPositions(t).forEach(([cx, cz], k) => {
       const px = cx * Math.cos(rot) - cz * Math.sin(rot), pz = cx * Math.sin(rot) + cz * Math.cos(rot);
-      const ch = chair(px, pz, 0, 0, k < n);
+      const ch = chair(px, pz, isRow ? px : 0, isRow ? pz - 10 : 0, k < n); // ceremony rows face the altar (up the plan)
       ch.userData.tableId = t.id; ch.userData.taken = k < n;
       ch.traverse((m) => { if (m.isMesh) { m.userData.chair = ch; chairMeshes.push(m); } });
       g.add(ch);
     });
-    if (t.shape !== 'round') top.rotation.y = -rot;
+    if (t.shape !== 'round' && !isRow) top.rotation.y = -rot;
     g.position.set(X(t.x), onStage(t.x, t.y) ? PLATFORM : 0, Z(t.y));
-    const tag = label(t.id === 'head' ? t.name : `${/^\d+$/.test(t.name) ? t.name.padStart(2, '0') : t.name} · ${n}/${seatCount(t)}`, { size: 1.2 });
-    tag.position.set(0, 6, 0); g.add(tag);
+    const tag = isRow ? null : label(t.id === 'head' ? t.name : `${/^\d+$/.test(t.name) ? t.name.padStart(2, '0') : t.name} · ${n}/${seatCount(t)}`, { size: 1.2 });
+    if (tag) { tag.position.set(0, t.high ? 7 : 6, 0); g.add(tag); }
     tableInfo.set(t.id, { group: g, tag, n, total: seatCount(t), table: t });
     g.scale.setScalar(0.001);
     popIns.push({ g, delay: 0.25 + i * 0.06 });
@@ -425,7 +509,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
 
   /* ---- areas ---- */
   const danceMat = new THREE.MeshStandardMaterial({ color: '#fff3d6', emissive: '#ffd79a', emissiveIntensity: 0.05, transparent: true, opacity: 0.55, roughness: 0.12, metalness: 0.15 });
-  state.room.areas.forEach((a) => {
+  ROOM.areas.forEach((a) => {
     const cx = X(a.x + a.w / 2), cz = Z(a.y + a.h / 2);
     let m;
     if (a.preset === 'dance') {
@@ -443,6 +527,12 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
       [[1.4, 1.1], [1.0, 0.9], [0.65, 0.8]].reduce((y, [r, hh]) => { const tier = new THREE.Mesh(new THREE.CylinderGeometry(r, r, hh, 32), new THREE.MeshStandardMaterial({ color: '#fbf7ee' })); tier.position.y = y + hh / 2; m.add(tier); return y + hh; }, 2.6);
       const stand = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(a.w, a.h) / 2, Math.min(a.w, a.h) / 2, 2.6, 32), cloth); stand.position.y = 1.3; m.add(stand);
       m.position.set(cx, 0, cz);
+    } else if (a.preset === 'aisle') {
+      m = new THREE.Mesh(new THREE.PlaneGeometry(a.w, a.h), new THREE.MeshStandardMaterial({ color: '#d9cfb8', roughness: 0.95 }));
+      m.rotation.x = -Math.PI / 2; m.position.set(cx, 0.05, cz);
+    } else if (a.preset === 'altar') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(a.w, 0.6, a.h), new THREE.MeshStandardMaterial({ color: '#e7dcc6', roughness: 0.8 }));
+      m.position.set(cx, 0.3, cz); m.receiveShadow = true;
     } else if (a.preset === 'lounge') {
       m = new THREE.Mesh(new THREE.BoxGeometry(a.w, 1.6, a.h), new THREE.MeshStandardMaterial({ color: '#3c4a2c', roughness: 0.9 }));
       m.position.set(cx, 0.8, cz);
@@ -450,11 +540,11 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
       m = new THREE.Mesh(new THREE.BoxGeometry(a.w, 0.3, a.h), new THREE.MeshStandardMaterial({ color: '#dcd2bb', roughness: 0.8 }));
       m.position.set(cx, 0.15, cz);
     }
-    if (a.preset !== 'dance') m.rotation.y = -((a.rot || 0) * Math.PI) / 180;
+    if (a.preset !== 'dance' && a.preset !== 'aisle') m.rotation.y = -((a.rot || 0) * Math.PI) / 180;
     const up = onStage(a.x + a.w / 2, a.y + a.h / 2) ? PLATFORM : 0; // the cake table in the bay stands on the platform
     m.position.y += up;
     scene.add(m);
-    const tag = label(a.label, { size: 1.2, color: '#6b1f2a' }); tag.position.set(cx, 5 + up, cz); scene.add(tag);
+    if (a.preset !== 'aisle') { const tag = label(a.label, { size: 1.2, color: '#6b1f2a' }); tag.position.set(cx, 5 + up, cz); scene.add(tag); }
   });
 
   /* ---- size ---- */
@@ -487,7 +577,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   /* ---- intro + "Experience the evening" camera moves ---- */
   // The home view is framed for a wide screen. On a tall narrow one (a phone) the room is wider than the picture, so pull the camera back until the room's width fits.
   const calcHome = () => {
-    const target = new THREE.Vector3(0, 0, -4), base = new THREE.Vector3(0, 52, h * 0.78), d0 = base.distanceTo(target);
+    const span = Math.max(h, w * 0.8); // the other spaces: 45 degrees down, far enough back that the whole room is in frame
+    const target = new THREE.Vector3(0, 0, ballroom ? -4 : 0), base = ballroom ? new THREE.Vector3(0, 52, h * 0.78) : new THREE.Vector3(0, span, span), d0 = base.distanceTo(target);
     const need = (w * 1.12) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(0.3, camera.aspect));
     const k = Math.min(controls.maxDistance * 0.95 / d0, Math.max(1, need / d0));
     return { pos: target.clone().add(base.sub(target).multiplyScalar(k)), target };
@@ -578,7 +669,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     if (!hit) return closePrompt();
     const ch = hit.object.userData.chair;
     focusTable(ch.userData.tableId);
-    if (ch.userData.taken) return;
+    if (ch.userData.taken || !onSeat) return;
     openPrompt(ch, e.clientX - r.left, e.clientY - r.top);
   }
 
@@ -674,7 +765,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
     }
     popChairs.forEach((p) => { p.t += dt * 4; p.ch.scale.setScalar(1 + Math.max(0, 0.25 * (1 - p.t))); });
     // the ceiling only exists from below: looking down from above you see straight into the room
-    ceilingG.visible = camera.position.y < WALL_H - 1.5;
+    ceilingG.visible = camera.position.y < WH - 1.5;
     if (walking && !flight) { /* camera already aimed */ }
     else if (!tour) controls.update();
     else camera.lookAt(controls.target);
