@@ -3565,3 +3565,29 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .vm-area.hot .vm-poly { stroke-width: 1.9; }
 .vm-area.hot .vm-halo { stroke-width: 3; }
 .vm-area:not(.edit) .vm-poly, .vm-area.out .vm-poly { stroke-dasharray: 4 4; }
+
+/* --- phones: guest rows on ONE line (name, side, RSVP, relationship, details, remove); menus always scroll --- */
+.gd-diet-menu, .tc-menu, .gf-menu, .gc-menu, .chipmenu, .live-pop, .glass-pop { max-height: min(78vh, 560px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+@media (max-width: 760px) {
+  table.guests tr.row { display: flex !important; flex-wrap: nowrap !important; align-items: center !important; gap: 4px !important; padding: 6px 4px 6px 10px !important; }
+  table.guests tr.row td { display: block !important; padding: 0 !important; border: 0 !important; min-width: 0; flex: none; order: 2; margin: 0 !important; }
+  table.guests tr.row td::before { content: none !important; }
+  table.guests tr.row td.c-name { order: 0 !important; flex: 1 1 0 !important; min-width: 64px; grid-column: auto !important; }
+  table.guests tr.row td.c-name .g-name { width: 100%; font-size: 15px; font-weight: 600; padding: 7px 2px; }
+  table.guests tr.row td.c-side { order: 1 !important; width: 64px; }
+  table.guests tr.row td.c-couple { width: auto; }
+  table.guests tr.row td.c-rsvp { order: 2 !important; width: 48px; }
+  table.guests tr.row td.c-relation { order: 3 !important; width: 88px; }
+  table.guests tr.row td.c-table, table.guests tr.row td.c-household, table.guests tr.row td.c-plusOne, table.guests tr.row td.c-notes, table.guests tr.row td:empty { display: none !important; }
+  table.guests tr.row td.row-actions { order: 9 !important; display: flex !important; flex-direction: row !important; align-items: center; gap: 0 !important; width: auto !important; min-width: 0 !important; }
+  table.guests tr.row .bs-btn { width: 100% !important; min-height: 36px; padding: 0 4px !important; font-size: 12px; gap: 2px; }
+  table.guests tr.row td.row-actions .more, table.guests tr.row td.row-actions .x { min-width: 34px; width: 34px; padding: 0; }
+  /* dietary menu: a centred, scrollable sheet instead of a dropdown that runs off the screen */
+  .gd-diet-menu { position: fixed !important; left: 50% !important; top: 50% !important; right: auto !important; bottom: auto !important; transform: translate(-50%, -50%) !important; width: min(320px, calc(100vw - 32px)); max-height: 70vh; z-index: 130; box-shadow: 0 0 0 100vmax rgba(20, 12, 14, .35), 0 20px 50px -10px rgba(0, 0, 0, .5); }
+  .gd-diet-menu label { padding: 11px 10px; font-size: 15px; }
+}
+@media (max-width: 760px) {
+  /* a blurred ancestor would trap the fixed dietary sheet: no blur on the guest card and its details row on phones */
+  body[data-route="guests"] .card, body[data-route="guests"] .table-wrap, table.guests .detail-row td, table.guests tr { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; transform: none !important; filter: none !important; }
+  body[data-route="guests"] .card.flush { background: rgba(253, 250, 244, .94) !important; }
+}
