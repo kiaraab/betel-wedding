@@ -233,7 +233,7 @@ export function ceilingDecor(kind, ctx) {
 /* ---------- hangout / tasting ---------- */
 
 /** Footprints (ft, half sizes) used to find each piece a clear spot on the plan. */
-export const FOOT = { grazing: { hw: 9.5, hh: 3.6 }, bar: { hw: 6, hh: 7.5 }, drinks: { hw: 5.5, hh: 3.4 }, skee: { hw: 2.6, hh: 7 }, cars: { hw: 7.6, hh: 5.6 }, polaroid: { hw: 3.9, hh: 3 } };
+export const FOOT = { grazing: { hw: 8.2, hh: 2.2 }, bar: { hw: 4.8, hh: 6.2 }, drinks: { hw: 4.8, hh: 2 }, skee: { hw: 1.8, hh: 5.8 }, cars: { hw: 7.4, hh: 5.3 }, polaroid: { hw: 3, hh: 1.8 } };
 
 const tableBox = (L, hgt, D, color = C.ivory) => { const m = new THREE.Mesh(new THREE.BoxGeometry(L, hgt, D), new THREE.MeshStandardMaterial({ color, roughness: 0.9 })); m.position.y = hgt / 2; m.castShadow = m.receiveShadow = true; return m; };
 

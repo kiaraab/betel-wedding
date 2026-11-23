@@ -923,8 +923,10 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   if (sp && (sp.id === 'cocktail' || sp.id === 'tasting') && (STY.station !== 'none' || STY.extras.length)) {
     const taken = []; // plan-space boxes already used by these pieces
     const place = (foot) => {
-      const spot = findFreeSpot(ROOM, [...TABLES, ...taken], { box: { hw: foot.hw + 1, hh: foot.hh + 1 } });
-      taken.push({ id: 'look' + taken.length, shape: 'round', x: spot.x, y: spot.y, box: { hw: foot.hw + 1, hh: foot.hh + 1 } });
+      const box = { hw: foot.hw + 0.6, hh: foot.hh + 0.6 };
+      let spot = findFreeSpot(ROOM, [...TABLES, ...taken], { box });
+      if (spot.x === ROOM.w / 2 && spot.y === ROOM.h / 2 && taken.length) spot = { x: Math.min(ROOM.w - box.hw - 1, box.hw + 1 + taken.length * 2), y: ROOM.h - box.hh - 2 }; // no clear spot left: keep it inside the room along the front edge
+      taken.push({ id: 'look' + taken.length, shape: 'round', x: spot.x, y: spot.y, box });
       return spot;
     };
     const drop = (obj, foot, rot = 0) => { const s = place(foot); obj.position.set(X(s.x), 0, Z(s.y)); obj.rotation.y = rot; obj.scale.setScalar(0.001); popIns.push({ g: obj, delay: 0.5 + taken.length * 0.1 }); scene.add(obj); };
