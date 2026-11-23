@@ -137,3 +137,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Overview: Next up is now three numbered steps with status and date, next to the guest dots.
 
 - Tasks can have a due date (shown on the card and in Next up); the guest-dots legend is tidier.
+
+- Dates can be changed right where they show (Next up, task cards, milestones).
