@@ -40,6 +40,8 @@ A static, vanilla-JS wedding planner for the couple's team. Pages: Overview, Tea
 - The top row is **Next up** (left) and the **guest dots** (right); on phones they stack. Tasks done and Days left sit under them.
 - **Next up** shows the 3 most useful things right now, numbered 1-3, each with a status line (and a date plus days left for a milestone). Sources, in priority order (built in `app.js`, `pool`): tasks due within 14 days or overdue; tasks Waiting on bride; a milestone within 45 days; tasks In progress; guests still to seat; an empty agenda; guests still to add; tasks Not started; the next milestone whenever it is. To add a source, add it to `pool` in the right priority spot and give it a short status line.
 
+- **Editable dates:** use `dateEdit(kind, id, iso, text)` in `app.js` for any date the user should be able to change in place; the global `.dt-in` change handler at the end of `app.js` saves it (`kind` = `role` or `ms`). Never add a date where none exists.
+
 ## Seating specifics
 - Reception = `state.room` + `state.tables`; other spaces = `state.spaces[id]`. `kindOf()` is `reception | ceremony | cocktail`.
 - Default reception: rounds of 8 for 100 guests, no dance floor (add one from More). The ballroom seats at most 84 at rounds; 100 needs long family rows (Suggest switches to them and says so). Suggest picks the style closest to the chosen one that seats everyone, else the one that seats the most, and says how many.

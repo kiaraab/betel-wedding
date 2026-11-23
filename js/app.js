@@ -29,7 +29,9 @@ let guestView = 'list'; // 'list' | 'graph'
 const openGuests = new Set();
 
 const dueText = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-const dueChip = (iso) => { const n = daysUntil(iso); return `<small class="tc-due${n < 0 ? ' late' : n <= 14 ? ' soon' : ''}" title="Due ${esc(dueText(iso))}">Due ${esc(dueText(iso))}</small>`; };
+// A date she can change right where it is shown: the text is the control (a transparent date input sits over it)
+const dateEdit = (kind, id, iso, text, cls = '') => `<label class="dt-edit ${cls}" title="Change the date"><span>${text}</span><input type="date" class="dt-in" data-dt="${kind}" data-id="${esc(id)}" value="${esc(iso)}" aria-label="Change the date"/></label>`;
+const dueChip = (iso, id) => { const n = daysUntil(iso); return `<small class="tc-due${n < 0 ? ' late' : n <= 14 ? ' soon' : ''}">${dateEdit('role', id, iso, `Due ${esc(dueText(iso))}`)}</small>`; };
 const rolesOf = (pid) => state.roles.filter((r) => r.people.includes(pid));
 const personName = (id) => state.people.find((p) => p.id === id)?.name || id;
 const statusKey = (s) => s.toLowerCase().replace(/\s+/g, '-');
@@ -104,7 +106,7 @@ function milestonesHTML(H = 420) {
   let i = 0;
   const item = (p) => `<div class="mtl-item ${p.at < now ? 'past' : ''} ${p.m.id === 'wedding' ? 'big' : ''} ${p.m.id === justAddedMs ? 'fresh' : ''}" style="top:${p.y}px;--i:${i++}">
             <div class="what" title="${esc(p.m.label)}">${esc(p.m.label)}</div>
-            <div class="when">${shortDate(p.m.date)}</div>
+            <div class="when">${LOCKED_MS.includes(p.m.id) ? shortDate(p.m.date) : dateEdit('ms', p.m.id, p.m.date, shortDate(p.m.date))}</div>
             ${!LOCKED_MS.includes(p.m.id) ? `<button class="x mtl-x" data-delms="${esc(p.m.id)}" aria-label="Remove ${esc(p.m.label)}">×</button>` : ''}
           </div>`;
   const last = Math.max(todayY, ...pts.map((p) => p.y));
@@ -186,8 +188,8 @@ function overview() {
   const todayIso = iso(new Date());
   const dateOf = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const nextMs = (state.milestones || []).filter((m) => m.id !== 'wedding' && m.date >= todayIso).sort((x, y) => x.date.localeCompare(y.date))[0];
-  const msItem = nextMs && { t: nextMs.label, s: `${dateOf(nextMs.date)} · in ${daysUntil(nextMs.date)} days`, soon: daysUntil(nextMs.date) <= 45 };
-  const roleItem = (r, s0) => { const n = r.due ? daysUntil(r.due) : null; const due = r.due && r.status !== 'Done' ? ` · due ${dateOf(r.due)}${n < 0 ? ' (overdue)' : ` · in ${n} day${n === 1 ? '' : 's'}`}` : ''; return { href: '#team', t: r.title, s: s0 + due, n }; };
+  const msItem = nextMs && { t: nextMs.label, s: '', dt: { kind: 'ms', id: nextMs.id, iso: nextMs.date, text: `${dateOf(nextMs.date)} · in ${daysUntil(nextMs.date)} days`, locked: LOCKED_MS.includes(nextMs.id) }, soon: daysUntil(nextMs.date) <= 45 };
+  const roleItem = (r, s0) => { const n = r.due ? daysUntil(r.due) : null; const dt = r.due && r.status !== 'Done' ? { kind: 'role', id: r.id, iso: r.due, text: `due ${dateOf(r.due)}${n < 0 ? ' (overdue)' : ` · in ${n} day${n === 1 ? '' : 's'}`}` } : null; return { href: '#team', t: r.title, s: s0, dt }; };
   const dueSoon = state.roles.filter((r) => r.due && r.status !== 'Done' && daysUntil(r.due) <= 14).sort((x, y) => x.due.localeCompare(y.due));
   const pool = [
     ...dueSoon.slice(0, 2).map((r) => roleItem(r, r.status)),
@@ -201,7 +203,8 @@ function overview() {
     msItem && !msItem.soon ? msItem : null,
   ].filter(Boolean);
   const nextUp = pool.slice(0, 3);
-  const nextUpHTML = `<section class="nextup" aria-label="Next up"><h2>Next up</h2>${nextUp.length ? `<ol>${nextUp.map((n, i) => { const body = `<span class="nu-n" aria-hidden="true">${i + 1}</span><span class="nu-t"><b>${esc(n.t)}</b><span>${esc(n.s)}</span></span>${n.href ? '<i aria-hidden="true">›</i>' : ''}`; return `<li>${n.href ? `<a href="${n.href}">${body}</a>` : `<div class="nu-row">${body}</div>`}</li>`; }).join('')}</ol>` : '<p class="nu-done">All caught up</p>'}</section>`;
+  const nuDate = (dt) => (dt.locked ? esc(dt.text) : dateEdit(dt.kind, dt.id, dt.iso, esc(dt.text)));
+  const nextUpHTML = `<section class="nextup" aria-label="Next up"><h2>Next up</h2>${nextUp.length ? `<ol>${nextUp.map((n, i) => `<li><span class="nu-n" aria-hidden="true">${i + 1}</span><span class="nu-t">${n.href ? `<a class="nu-a" href="${n.href}"><b>${esc(n.t)}</b></a>` : `<b>${esc(n.t)}</b>`}<span class="nu-s">${esc(n.s)}${n.s && n.dt ? ' · ' : ''}${n.dt ? nuDate(n.dt) : ''}</span></span>${n.href ? `<a class="nu-go" href="${n.href}" aria-label="Open ${esc(n.t)}">›</a>` : ''}</li>`).join('')}</ol>` : '<p class="nu-done">All caught up</p>'}</section>`;
 
   view.innerHTML = `
     <div class="ov">
@@ -319,7 +322,7 @@ function personCard(p) {
             <label class="tc-due-f">Due <input type="date" name="due" value="${esc(r.due || '')}" aria-label="Due date (optional)"/></label>
             <div class="tc-redit-foot"><button type="button" class="tc-no" data-delrole="${r.id}">Delete role</button><span class="spacer"></span><button type="button" class="tc-no" data-canceledit>Cancel</button><button class="tc-yes">Save</button></div>
           </form></li>`;
-          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}</span><button class="tc-btn tc-edit" data-editrole="${r.id}" aria-label="Edit role ${esc(r.title)}" title="Edit role">${EDIT_ICON}</button><div class="tc-meta">${statusDots(r)}${r.due && r.status !== 'Done' ? dueChip(r.due) : ''}${w ? `<small class="tc-with">with ${esc(w)}</small>` : ''}</div></li>`;
+          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}</span><button class="tc-btn tc-edit" data-editrole="${r.id}" aria-label="Edit role ${esc(r.title)}" title="Edit role">${EDIT_ICON}</button><div class="tc-meta">${statusDots(r)}${r.due && r.status !== 'Done' ? dueChip(r.due, r.id) : ''}${w ? `<small class="tc-with">with ${esc(w)}</small>` : ''}</div></li>`;
         }).join('')}
       </ul>
       ${agendaOf(p.id)}
@@ -952,3 +955,14 @@ initGuide(() => document.body.dataset.route || 'overview');
 initHistory();
 initSaved();
 route({ enter: true });
+
+// Editable dates (Next up, task chips, milestones): open the picker on tap, save on change
+document.addEventListener('click', (e) => { const i = e.target.closest?.('.dt-in'); if (i) { try { i.showPicker?.(); } catch { /* the browser opens its own picker */ } } });
+document.addEventListener('change', (e) => {
+  const i = e.target.closest?.('.dt-in'); if (!i) return;
+  const v = i.value, id = i.dataset.id;
+  if (i.dataset.dt === 'role') { const r = state.roles.find((x) => x.id === id); if (!r) return; if (v) r.due = v; else delete r.due; }
+  else if (i.dataset.dt === 'ms') { const m = (state.milestones || []).find((x) => x.id === id); if (!m || LOCKED_MS.includes(m.id) || !v) return; m.date = v; }
+  else return;
+  commit(); toast('Date updated');
+});
