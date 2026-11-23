@@ -15,6 +15,7 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 ---
 
 ## Unreleased (on main, not tagged yet)
+- **Two editors at once (REQ-103):** if Betel edits one guest while Carter edits another (or each adds a guest), both changes now survive. Guests, tables, roles, Agenda, team and milestones merge item by item; if both change the same item, the person who is saving wins. Tests: `tests/merge-items.test.mjs`. Still not covered: the save to Firestore is still a whole-plan write, so two saves in the same instant can race; and Revision history does not record other people's changes.
 - **Install on the phone (REQ-120):** `manifest.webmanifest`, home screen icons (drawn from the B and C hearts: `assets/icon-192.png`, `icon-512.png`, `apple-touch-icon.png`) and a theme color. The bell has **Add to Home Screen** with iPhone and Android steps (edit the text in `js/homescreen.js`). The icon is an approximation of the logo (two hearts with a script B and C), not the exact artwork. Not tested on a real phone.
 - **Expected guests minimum is 2** everywhere (the couple always counts) (REQ-94).
 - **One photo gallery on the Seating map:** clicking an area no longer shows a second set of photos. The pop-up has the name, Edit seats and "See N photos below"; the gallery below starts as one page (12 on phones, 24 on desktop) with a **See all** button, and follows the area you pick (the map lights it up). Show fewer collapses it.
