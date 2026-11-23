@@ -652,8 +652,8 @@ export function renderSeating(root) {
   const PLANFILE = `<div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>`;
   if (vow && mode === 'plan' && vsTab !== 'guests') refTab = vsTab === 'look' ? 'venue' : 'ideas';
   const toolsHTML = `
+          ${THREE_SPACES.includes(space) ? `<div class="viewseg tool-seg view-fixed" role="tablist" aria-label="View"><button type="button" role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button><button type="button" role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Plan</button></div>` : ''}
           <div class="plan-tools">
-            ${THREE_SPACES.includes(space) ? `<div class="viewseg tool-seg" role="tablist" aria-label="View"><button type="button" role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button><button type="button" role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Plan</button></div>` : ''}
             ${mode === 'plan' ? `
               ${info.add === 'row' ? toolIcon('row', 'Add row', 'data-add="row"')
                 : info.add === 'high' ? toolIcon('high', 'Add high-top', 'data-add="high"')
@@ -681,7 +681,6 @@ export function renderSeating(root) {
           </div>
 `;
   root.innerHTML = `
-    ${vow && mode === 'plan' ? planHeroHTML() : ''}
     <div class="page-head">
       <div>
         <h1 class="sr-only">${esc(info.label)}</h1>

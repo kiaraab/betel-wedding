@@ -107,3 +107,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Fixed: Look picks on the Reception now update the 3D scene (and Undo does too); on a phone the 3D stays pinned while you pick; a ceiling pick glides up to show it.
 - One 3D | Plan switch in the same place on every space.
 - A short "what got easier" guide shows once on next open.
+
+- The 3D | Plan switch stays in exactly the same spot when you switch views; the Reception floor plan lost its extra banner and duplicate 3D buttons.
