@@ -3765,3 +3765,8 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .ug-dots { display: flex; gap: 6px; margin: 4px 0 14px; }
 .ug-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(35, 37, 28, .22); }
 .ug-dots i.on { background: var(--c-wine, #6e1f2e); }
+
+/* The 3D | Plan switch sits at the same spot (top-left of the scene or plan card) in both views */
+.plan-card > .view-fixed, .stage-wrap > .view-fixed { position: absolute; left: 12px; top: 10px; z-index: 12; margin: 0; background: rgba(253, 250, 244, .94); }
+@media (min-width: 761px) { .plan-card .plan-tools { padding-left: 134px; } .stage-wrap > .plan-tools.plan-tools { padding-left: 0; } .stage-wrap > .plan-tools { left: 146px; } }
+@media (max-width: 760px) { .plan-card .plan-tools { padding-top: 56px; } .vow .stage-wrap > .plan-tools { top: 58px; padding-top: 0; } }
