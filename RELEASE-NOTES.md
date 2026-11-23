@@ -15,6 +15,8 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 ---
 
 ## Unreleased (on main, not tagged yet)
+- **Install on the phone (REQ-120):** `manifest.webmanifest`, home screen icons (drawn from the B and C hearts: `assets/icon-192.png`, `icon-512.png`, `apple-touch-icon.png`) and a theme color. The bell has **Add to Home Screen** with iPhone and Android steps (edit the text in `js/homescreen.js`). The icon is an approximation of the logo (two hearts with a script B and C), not the exact artwork. Not tested on a real phone.
+- **Expected guests minimum is 2** everywhere (the couple always counts) (REQ-94).
 - **One photo gallery on the Seating map:** clicking an area no longer shows a second set of photos. The pop-up has the name, Edit seats and "See N photos below"; the gallery below starts as one page (12 on phones, 24 on desktop) with a **See all** button, and follows the area you pick (the map lights it up). Show fewer collapses it.
 - **Connections graph (REQ-115):** Love is a thick solid line with a heart, Like is thin and dotted, Apart is long grey dashes (so they differ by shape, not only colour). With a long guest list the canvas grows (phones scroll sideways inside it) and people keep a minimum distance. The list under the graph has Love / Like / Apart buttons per link, so you can change a relationship without redrawing it. Tested with 100 guests and 42 links at 375px.
 - **Seating map page on phones (REQ-113):** the photo gallery shows 12 at a time (24 on desktop) with Show more; the page went from about 6,700 px tall to about 1,500 px. The Reception, Ceremony and Hangout editor pages were not changed.
