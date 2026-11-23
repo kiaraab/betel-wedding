@@ -3770,3 +3770,24 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .plan-card > .view-fixed, .stage-wrap > .view-fixed { position: absolute; left: 12px; top: 10px; z-index: 12; margin: 0; background: rgba(253, 250, 244, .94); }
 @media (min-width: 761px) { .plan-card .plan-tools { padding-left: 134px; } .stage-wrap > .plan-tools.plan-tools { padding-left: 0; } .stage-wrap > .plan-tools { left: 146px; } }
 @media (max-width: 760px) { .plan-card .plan-tools { padding-top: 56px; } .vow .stage-wrap > .plan-tools { top: 58px; padding-top: 0; } }
+
+/* Phones: 44px touch targets (audit), calmer Overview scroll (no blur + mask + animation stacking on the scrolling card), room under the toolbar for the Clearance line */
+@media (max-width: 760px) {
+  .tool-seg button, .viewseg button, .cer-seg button, .pm-clear, .pm-units, .rowstep button, .ag-ib, .vm-view { min-height: 44px; }
+  .rowstep button, .vm-more, .vm-view, .linkbtn, .addr-btn, .more.addr-btn, .ag-ib { min-width: 44px; }
+  .vm-more { min-height: 44px; }
+  .addr-btn, .more.addr-btn, button.x, .g-x { min-height: 44px; min-width: 44px; }
+  .stbtn, .gf-menu button, .gfilter button, .rsvp-pill { min-height: 44px; }
+  .glance a, .tc-name, .foot-name, .brand, .vm-label { position: relative; }
+  .glance a::after, .tc-name::after, .foot-name::after { content: ""; position: absolute; inset: -13px -8px; }
+  .plan-card .plan-meta, #planMeta { margin-top: 10px; }
+  .ov .ov-card, .ov .stat, .ov .nextup { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 253, 250, .9); }
+  .ov-scroll { -webkit-mask-image: none; mask-image: none; }
+  .mtl-item, .mtl-item.fresh { animation: none; }
+}
+@media (max-width: 760px) {
+  table.guests .addr-btn, table.guests .more.addr-btn, table.guests button.x { min-width: 44px !important; min-height: 44px !important; }
+  input.g-name, .tc-add input, input[placeholder^="Add a role"], input[placeholder^="New team"] { min-height: 44px; }
+  details > summary { min-height: 44px; display: flex; align-items: center; }
+  .brand { display: inline-flex; align-items: center; min-height: 44px; }
+}
