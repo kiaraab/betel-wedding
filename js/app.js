@@ -7,6 +7,7 @@ import { renderSeating } from './seating.js';
 import { renderConnections, stopConnections } from './connections.js';
 import { openCatering } from './catering.js';
 import { enableAddressLookup } from './address.js';
+import { FEATURES } from './features.js';
 import { initSaved } from './saved.js';
 import { esc, toast, daysUntil, confirmDialog, initTablists, initSlideInk, bubbleSelects, BS_CHECK } from './util.js';
 import { wireTeamDrag } from './team-drag.js';
@@ -488,10 +489,12 @@ const DETAIL_FIELDS = [
   ['household', 'Household', 'text'], ['plusOne', 'Plus-one', 'text'],
   ['diet', 'Dietary', 'text'], ['notes', 'Notes', 'text'],
 ];
-const CSV_COLS = [['name', 'Name'], ['side', 'Side'], ['relation', 'Relation'], ['rsvp', 'RSVP'], ['table', 'Table'], ...DETAIL_FIELDS.map(([k, l]) => [k, l])];
+const ADDR_KEYS = ['street', 'street2', 'city', 'state', 'zip'];
+const CSV_COLS = [['name', 'Name'], ['side', 'Side'], ['relation', 'Relation'], ['rsvp', 'RSVP'], ['table', 'Table'], ...DETAIL_FIELDS.map(([k, l]) => [k, l])]
+  .filter(([k]) => (FEATURES.rsvp || k !== 'rsvp') && (FEATURES.address || !ADDR_KEYS.includes(k))); // flags off: those columns are left out of the export
 
 /* Guest table columns: the person picks which to show (state.guestCols, saved with the plan). Name and the Details button are always there. */
-const GCOLS = [
+const GCOLS_ALL = [
   { k: 'side', label: 'Side', w: 104 },
   { k: 'rsvp', label: 'RSVP', w: 78 },
   { k: 'relation', label: 'Relationship', w: 156 },
@@ -500,7 +503,8 @@ const GCOLS = [
   { k: 'plusOne', label: 'Plus-one', w: 140 },
   { k: 'notes', label: 'Notes', w: 220 },
 ];
-const GCOLS_DEFAULT = ['side', 'rsvp', 'relation'];
+const GCOLS = GCOLS_ALL.filter((c) => FEATURES.rsvp || c.k !== 'rsvp'); // RSVP column only when the flag is on
+const GCOLS_DEFAULT = FEATURES.rsvp ? ['side', 'rsvp', 'relation'] : ['side', 'relation'];
 const visibleCols = () => { const on = Array.isArray(state.guestCols) ? state.guestCols : GCOLS_DEFAULT; return GCOLS.filter((c) => on.includes(c.k)); };
 const SLIDERS = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="15" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
 const FUNNEL = '<svg class="gf-ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 5.5h16l-6 7.2V19l-4-2v-4.3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
@@ -539,14 +543,15 @@ function guestsCSV() {
 const going = (g) => g.rsvp !== 'Declined';
 const GUEST_FILTERS = [
   [['all', 'Everyone', () => true],
-   ['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !isSeated(g))],
+   ...(FEATURES.rsvp ? [['action', 'Needs action', (g) => g.party !== 'couple' && going(g) && (g.rsvp === 'Not invited yet' || !isSeated(g))]] : []),
    ['unseated', 'Still to seat', (g) => going(g) && !isSeated(g) && g.party !== 'couple'],
    ['reception', 'Reception guests', going],
-   ['notinvited', 'Not invited yet', (g) => g.rsvp === 'Not invited yet'],
-   ['awaiting', 'Awaiting RSVP', (g) => g.rsvp === 'Invited' || g.rsvp === 'Maybe'],
-   ['yes', 'Said yes', (g) => g.party === 'couple' || g.rsvp === 'Yes'],
-   ['declined', 'Declined', (g) => g.rsvp === 'Declined'],
-   ['noaddr', 'Need address', needsAddress]],
+   ...(FEATURES.rsvp ? [
+     ['notinvited', 'Not invited yet', (g) => g.rsvp === 'Not invited yet'],
+     ['awaiting', 'Awaiting RSVP', (g) => g.rsvp === 'Invited' || g.rsvp === 'Maybe'],
+     ['yes', 'Said yes', (g) => g.party === 'couple' || g.rsvp === 'Yes'],
+     ['declined', 'Declined', (g) => g.rsvp === 'Declined']] : []),
+   ...(FEATURES.address ? [['noaddr', 'Need address', needsAddress]] : [])],
   [['couple', 'The couple', (g) => g.party === 'couple'],
    ['Betel', 'Betel’s side', (g) => g.side === 'Betel' && g.party !== 'couple'],
    ['Carter', 'Carter’s side', (g) => g.side === 'Carter' && g.party !== 'couple'],
@@ -608,7 +613,7 @@ function guests() {
   const q = guestQuery.toLowerCase();
   const fil = filterDef(guestFilter)[2];
   const list = state.guests.filter((g) => fil(g)
-    && (!q || [g.name, g.city, g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
+    && (!q || [g.name, FEATURES.address ? g.city : '', g.household, relationOf(g)].join(' ').toLowerCase().includes(q)));
   const c = (fn) => state.guests.filter(fn).length;
   const cols = visibleCols();
   const colW = () => { try { return JSON.parse(localStorage.getItem('betel-colw') || '{}'); } catch { return {}; } };   // resizable widths: per device (not shared with the plan)
@@ -621,7 +626,7 @@ function guests() {
     <div class="page-head">
       <div>
         <h1>Guests</h1>
-        <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()} · ${c((g) => g.party === 'couple' || g.rsvp === 'Yes')} yes</p>
+        <p class="lede">${c((g) => g.rsvp !== 'Declined')} of ${guestCountHTML()}${FEATURES.rsvp ? ` · ${c((g) => g.party === 'couple' || g.rsvp === 'Yes')} yes` : ''}</p>
       </div>
       <form class="guest-add" id="gForm">
       <input class="input" name="name" placeholder="Add guests" aria-label="Guest name" required/>
@@ -669,7 +674,7 @@ function guests() {
   gcols.querySelectorAll('[data-gcol]').forEach((b) => b.onclick = () => {
     const on = new Set(visibleCols().map((x) => x.k));
     on.has(b.dataset.gcol) ? on.delete(b.dataset.gcol) : on.add(b.dataset.gcol);
-    state.guestCols = GCOLS.filter((x) => on.has(x.k)).map((x) => x.k);
+    state.guestCols = [...GCOLS_ALL.filter((x) => on.has(x.k) || (!GCOLS.includes(x) && (state.guestCols || []).includes(x.k))).map((x) => x.k)]; // a hidden column's saved choice is kept
     commit({ silent: true });
     colsOpen = true;
     guests();
@@ -891,7 +896,7 @@ addEventListener('ai-key-ready', () => { const r = document.body.dataset.route; 
 document.addEventListener('storage-full', () => toast('Storage full — remove a few photos'));
 
 // Street autocomplete: picking an address fills street, city, state and ZIP for that guest
-enableAddressLookup((k, v, row) => {
+if (FEATURES.address) enableAddressLookup((k, v, row) => {
   const g = state.guests.find((x) => x.id === row?.dataset.id);
   if (g) { g[k] = v; commit(); }
 });

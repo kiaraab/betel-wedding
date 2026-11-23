@@ -2,6 +2,7 @@
 // The caterer's own contact (name, phone, email, notes) is kept in the plan as state.catering.
 import { state, commit } from './store.js';
 import { esc, trapFocus } from './util.js';
+import { FEATURES } from './features.js';
 
 const going = (g) => g.rsvp !== 'Declined';
 const LIMIT = 'Limit alcohol';
@@ -19,14 +20,14 @@ function rows() {
 function csv() {
   const c = state.catering || {};
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const head = ['Name', 'Table', 'Dietary needs', 'Plus-one', 'Household', 'RSVP', 'Address', 'Notes'];
+  const cols = [['Name', 'name'], ['Table', 'table'], ['Dietary needs', 'diet'], ['Plus-one', 'plus'], ['Household', 'household'], ...(FEATURES.rsvp ? [['RSVP', 'rsvp']] : []), ...(FEATURES.address ? [['Address', 'address']] : []), ['Notes', 'notes']];
   const lines = [
     ['Caterer', c.name || '', 'Phone', c.phone || '', 'Email', c.email || ''].map(q).join(','),
     ['Guests going', rows().length].map(q).join(','),
     ['Limit alcohol (bar staff)', rows().filter((r) => r.diet.includes(LIMIT)).map((r) => r.name).join('; ') || 'none'].map(q).join(','),
     '',
-    head.map(q).join(','),
-    ...rows().map((r) => [r.name, r.table, r.diet, r.plus, r.household, r.rsvp, r.address, r.notes].map(q).join(',')),
+    cols.map(([h]) => q(h)).join(','),
+    ...rows().map((r) => cols.map(([, k]) => q(r[k])).join(',')),
   ];
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }));
@@ -55,8 +56,8 @@ export function openCatering() {
         ${list.some((r) => r.diet.includes(LIMIT)) ? `<div class="cat-limit" role="note"><b>Limit alcohol</b> (let bar staff know quietly): ${list.filter((r) => r.diet.includes(LIMIT)).map((r) => esc(r.name)).join(', ')}</div>` : ''}
         <div class="cat-sum"><b>${list.length}</b> guests going${Object.keys(counts).length ? ' · ' + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${esc(k)} <b>${n}</b>`).join(' · ') : ''}</div>
         <div class="cat-wrap"><table class="cat-table">
-          <thead><tr><th>Name</th><th>Table</th><th>Dietary needs</th><th>Plus-one</th><th>Address</th></tr></thead>
-          <tbody>${list.map((r) => `<tr${r.diet.includes(LIMIT) ? ' class="lim"' : ''}><td>${esc(r.name)}</td><td>${esc(r.table)}</td><td>${esc(r.diet) || '—'}</td><td>${esc(r.plus)}</td><td>${esc(r.address)}</td></tr>`).join('')}</tbody>
+          <thead><tr><th>Name</th><th>Table</th><th>Dietary needs</th><th>Plus-one</th>${FEATURES.address ? '<th>Address</th>' : ''}</tr></thead>
+          <tbody>${list.map((r) => `<tr${r.diet.includes(LIMIT) ? ' class="lim"' : ''}><td>${esc(r.name)}</td><td>${esc(r.table)}</td><td>${esc(r.diet) || '—'}</td><td>${esc(r.plus)}</td>${FEATURES.address ? `<td>${esc(r.address)}</td>` : ''}</tr>`).join('')}</tbody>
         </table></div>
       </div>
       <footer class="cat-foot"><button type="button" class="btn line sm" data-print>Print</button><span class="spacer"></span><button type="button" class="btn line sm" data-x>Close</button><button type="button" class="btn moss sm" data-csv>Download CSV</button></footer>
