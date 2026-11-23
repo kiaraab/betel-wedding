@@ -178,7 +178,7 @@ function overview() {
   const hearts = couple.slice(0, 2).map(() => `<i class="d-heart">${HEART}</i>`).join('');
   const dotsOf = (cls, n) => `<i class="${cls}"></i>`.repeat(Math.min(Math.max(0, n), 300));
   const guestDotsHTML = `<section class="stat dotstat" aria-label="${seatedN} seated, ${addedN} added and not seated, ${openN} still to add">
-    <div class="ds-head"><div><b>${going.length}<small>/${guestCountHTML()}</small></b><span>Guests added</span></div><a class="ds-seat" href="#seating"><b>${seatedN}</b><span>Seated</span></a></div>
+    <div class="ds-head"><div class="ds-one"><b>${going.length}<small>/${guestCountHTML()}</small></b><span>guests added</span></div></div>
     <div class="dots" aria-hidden="true">${hearts}${dotsOf('d-seated', seatedN - coupleSeated)}${dotsOf('d-added', addedN - (couple.length - coupleSeated))}${dotsOf('d-open', openN)}</div>
     <ul class="dots-key">${couple.length ? '<li><i class="d-heart">' + HEART + '</i><span class="k-l">Betel &amp; Carter</span></li>' : ''}<li><i class="d-seated"></i><span class="k-l">Seated</span><span class="k-n">${seatedN}</span></li><li><i class="d-added"></i><span class="k-l">Not seated</span><span class="k-n">${addedN}</span></li><li><i class="d-open"></i><span class="k-l">Still to add</span><span class="k-n">${openN}</span></li></ul>
   </section>`;

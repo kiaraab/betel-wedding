@@ -4027,3 +4027,19 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .tc-due-f input[type="date"]::-webkit-calendar-picker-indicator { opacity: .8; cursor: pointer; }
 .tc-due-x { border: 0; background: none; color: inherit; font: 500 12.5px var(--sans); text-decoration: underline; text-underline-offset: 3px; opacity: .8; cursor: pointer; min-height: 36px; padding: 0 4px; }
 .tcard.c-none .tc-due-f input[type="date"], .tcard.c-cream .tc-due-f input[type="date"], .tcard.c-pink .tc-due-f input[type="date"] { border-color: rgba(35, 37, 28, .4); color-scheme: light; }
+
+/* Overview: "104 / 150 guests added" on one line; milestone date beside its title; task dots side by side */
+.ds-head .ds-one { display: flex !important; flex-direction: row; align-items: baseline; gap: 10px; }
+.ds-head .ds-one span { text-transform: none; letter-spacing: 0; font: 400 13px var(--sans); color: #6b6b60; }
+.mtl-item { display: flex; align-items: baseline; justify-content: flex-start; gap: 10px; padding-right: 34px; }
+.mtl-item .what { flex: 1 1 auto; min-width: 0; }
+.mtl-item .when { flex: 0 0 auto; white-space: nowrap; }
+.mtl-item .mtl-x { position: absolute; right: 0; top: 0; }
+.glance li .dots { display: flex !important; flex-direction: row !important; flex-wrap: nowrap; align-items: center; gap: 5px; }
+
+/* Venue map key: a quiet line under the map (it used to float over the photo) */
+.vm-key { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 8px 4px 0; font: 400 12px var(--sans); color: rgba(255, 255, 255, .8); }
+.vm-key[hidden] { display: none; }
+.vm-key span { display: inline-flex; align-items: center; gap: 8px; }
+.vm-key i { width: 20px; height: 0; border-top: 3px solid #fff; }
+.vm-key .lg-photo { border-top: 2px dashed rgba(255, 255, 255, .85); }
