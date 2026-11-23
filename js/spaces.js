@@ -1,8 +1,8 @@
 // Ceremony + hangout-spot helpers: suggest layouts, auto-seat the ceremony, the wedding party dots, and their side-panel tools.
 // Units: feet. Sizes of the garden courtyard / tasting room are NOT venue facts (see VENUE.md) — these are working layouts.
+import { esc } from './util.js';
 import { togetherGroups, relationOf, blockers, footprint } from './layout.js';
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const DOT_STEP = 2.8, DOT_X0 = 4.4, DOT_Y0 = 6.4, DOT_R = 1.25; // the wedding party stands in ONE lateral row per side of the 5 ft aisle (1 = nearest the altar/aisle)
 
 /* ---------------- wedding party ---------------- */
