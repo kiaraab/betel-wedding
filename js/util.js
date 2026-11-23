@@ -25,7 +25,6 @@ export function daysUntil(iso) {
   return Math.ceil((new Date(iso) - new Date()) / 86400000);
 }
 
-export const fmtDate = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 /** Friendly in-page confirm (glass modal). Resolves true on Confirm, false on Cancel / Esc / click outside. */
 export function confirmDialog({ title = 'Are you sure?', body = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel' } = {}) {

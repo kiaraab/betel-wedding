@@ -2,6 +2,7 @@
 // Needs a Google Maps Platform key with "Maps JavaScript API" and "Places API (New)" enabled, restricted to this site's address
 // (https://kiaraab.github.io/*). A web key is public by design; the restriction is what protects it.
 // The key can be replaced from "AI & map keys" (saved in that browser only).
+import { esc } from './util.js';
 const BUILT_IN_KEY = 'AIzaSyCgWQNhQh8kBZNGDvaBfHhB73o6t8wGJrw';
 const mapsKey = () => { try { return localStorage.getItem('betel-maps-key') || BUILT_IN_KEY; } catch { return BUILT_IN_KEY; } };
 
@@ -43,7 +44,6 @@ function attach(input, save) {
     list.innerHTML = items.map((it, i) => `<li role="option" data-i="${i}"><span>${it.main}</span><em>${it.sub}</em></li>`).join('');
     list.onmousedown = (e) => { const li = e.target.closest('li'); if (li) { e.preventDefault(); pick(+li.dataset.i); } };
   };
-  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   async function pick(i) {
     const it = items[i]; if (!it) return;
     close();

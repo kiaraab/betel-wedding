@@ -11,7 +11,6 @@ const PLACES = ['Ceremony', 'Reception', 'Hangout spot', 'Other'];
 const VENUES = [['Chapel', 'ceremony'], ['Pergola', 'ceremony'], ['Indoor ceremony', 'ceremony'], ['Courtyard', 'cocktail'], ['Ballroom', 'reception'], ['Balcony', 'cocktail'], ['Bar room', 'cocktail'], ['Foyer', 'cocktail'], ['Bridal suite', ''], ['Groom suite', ''], ['Redondo Room', 'reception']];
 const venueSp = (v) => (VENUES.find((x) => x[0] === v) || [])[1] || 'reception';
 const DAY = 1440;
-const placeKey = (p) => (PLACES.includes(p) ? p : 'Other').toLowerCase().replace(/\s+/g, '-');
 const PX = 1.6; // pixels per minute (96 px an hour, so a 10-minute block still reads)
 const SNAP = 15;
 const PREFS = [['firstlook', 'First look'], ['dinner', 'Longer dinner'], ['dancing', 'More dancing']];

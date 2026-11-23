@@ -129,12 +129,6 @@ export const MOODS = [
   },
 ];
 
-export const BOARD_SECTIONS = [
-  'Wedding venues vibes', 'Wedding flowers', 'Ideas', 'Pictures', 'Main dress', 'Reception dress',
-  'Wedding hair', 'Makeup looks', 'Bridesmaids', 'Groom', 'Ring', 'Wedding cakes', 'Wedding veils',
-  'Wedding nails', 'Henna', 'Ethiopian wedding vibes', 'Ethiopian traditional dress', 'Unique wedding website',
-];
-
 /* ---------- Reception floor plan (units: feet) ----------
    Morais ballroom (the Palacio hall), drawn the way guests see it walking in: the balcony-end doors at the bottom,
    5 arched French doors on the far wall at the top, the domed columned stage bay in the LEFT LONG WALL (outside the hall; only its ~3 steps reach in).
@@ -348,15 +342,6 @@ export function seedTables() {
   const head = headTable();
   return [head, ...suggestTables(seedRoom(), 100, 'family', head).tables];
 }
-
-/* ---------- Photos ---------- */
-export const US_PHOTOS = [
-  { src: 'assets/us/sunset-toast.jpg', caption: 'Engagement toast' },
-  { src: 'assets/us/the-ring.jpg', caption: 'The ring!' },
-  { src: 'assets/us/the-hike.jpg', caption: 'Trail days' },
-  { src: 'assets/us/sunny-selfie.jpg', caption: 'Golden hour' },
-  { src: 'assets/us/night-out.jpg', caption: 'Night out' },
-];
 
 // Cropped from Betel's "Wedding day" board (private planning reference — credit belongs to the original pinners)
 const I = (name, caption, ratio) => ({ src: `assets/inspo/${name}.jpg`, caption, ratio });

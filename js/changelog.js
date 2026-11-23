@@ -18,7 +18,6 @@ const writeD = (ids) => { try { localStorage.setItem(DKEY, JSON.stringify(ids));
 const shown = () => { const d = new Set(readD()); return ENTRIES.filter((e) => !d.has(e.id)); };
 const unread = () => { const seen = new Set(read()); return shown().filter((e) => !seen.has(e.id)); };
 const fmt = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-const asText = (e) => `${e.title} (${fmt(e.date)})\n${e.items.map((i) => `• ${i}`).join('\n')}`;
 
 export function mountBell(btn) {
   if (!btn) return;

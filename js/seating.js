@@ -1,5 +1,5 @@
 import { state, commit as baseCommit, uid, undoable, exportJSON, importJSON, isSeated } from './store.js';
-import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
+import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces } from './data.js';
 import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers, clearanceIssues } from './layout.js';
 import { esc, toast, heartLoaderHTML } from './util.js';
 import { photosForSpace, photoById } from './venue-map.js';
@@ -596,23 +596,6 @@ async function sharePicture(source) {
   a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   return 'saved';
-}
-
-/* ---------------- images (inspo strip uploads) ---------------- */
-function readImage(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const k = Math.min(1, 520 / Math.max(img.width, img.height));
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(img.src);
-      resolve({ src: c.toDataURL('image/jpeg', 0.8), ratio: img.width / img.height });
-    };
-    img.onerror = () => reject(new Error('Could not read that image'));
-    img.src = URL.createObjectURL(file);
-  });
 }
 
 /* ---------------- page ---------------- */
