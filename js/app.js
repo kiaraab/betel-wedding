@@ -974,11 +974,16 @@ document.addEventListener('change', (e) => {
   commit(); toast('Date updated');
 });
 
-// slow background drift while scrolling (skipped for reduced motion)
+// background follows the page: top of page = top of photo, bottom = bottom (skipped for reduced motion)
 if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
   let pyTick = false;
-  addEventListener('scroll', () => {
-    if (pyTick) return; pyTick = true;
-    requestAnimationFrame(() => { pyTick = false; document.body.style.setProperty('--py', Math.max(-50, -scrollY * 0.06) + 'px'); });
-  }, { passive: true });
+  const setP = () => {
+    pyTick = false;
+    const max = document.documentElement.scrollHeight - innerHeight;
+    document.body.style.setProperty('--p', max > 0 ? Math.min(1, Math.max(0, scrollY / max)).toFixed(4) : 0);
+  };
+  const kick = () => { if (!pyTick) { pyTick = true; requestAnimationFrame(setP); } };
+  addEventListener('scroll', kick, { passive: true });
+  addEventListener('resize', kick);
+  addEventListener('hashchange', kick);
 }

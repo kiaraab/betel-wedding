@@ -4094,8 +4094,8 @@ html body .team-views button.on { background: #fff !important; color: var(--c-wi
 .pp-sm button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; padding: 0 10px; background: transparent; border: 0; color: #2a1a1d; font: inherit; text-align: left; cursor: pointer; }
 .pp-sm button.on { background: #f3e1e3; }
 
-/* Slow background drift on scroll (set by --py in app.js) */
-body[data-route="team"]::before, body:is([data-route="overview"], [data-route="guests"], [data-route="agenda"])::before { inset: -60px -16px; transform: translate3d(0, var(--py, 0px), 0); will-change: transform; }
+/* Background follows the page: top of page = top of the photo, bottom of page = bottom of the photo (--p is 0..1, set in app.js) */
+body[data-route="team"]::before, body:is([data-route="overview"], [data-route="guests"], [data-route="agenda"])::before { inset: auto; top: -16px; left: -16px; right: -16px; height: calc(150vh + 32px); background-size: cover; transform: translate3d(0, calc(var(--p, 0) * -50vh), 0); will-change: transform; }
 @media (prefers-reduced-motion: reduce) { body::before { transform: none !important; } }
 
 /* Connections: key sits above the graph, hint on its own line on phones */
