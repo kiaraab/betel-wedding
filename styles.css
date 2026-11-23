@@ -3905,3 +3905,16 @@ body[data-route="guests"] { background: #fbfaf8; }
 .live-pop .live-ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--wine); cursor: pointer; }
 .live-pop .live-ic:hover { color: #4a1520; background: none; }
 .live-pop .live-ic:focus-visible { outline: 2px solid var(--wine); outline-offset: -6px; }
+
+/* 3D Look pickers (js/style-options.js): one flat chip row per group, square corners, no hover motion, 44px targets on touch */
+.vow-side[data-tab="look"] .vs-pane[data-pane="look"] { display: block; }
+.look-pick { display: grid; gap: 14px; }
+.lk-row { display: grid; gap: 6px; }
+.lk-lab { font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: #5f6152; }
+.lk-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.lk-chip { min-height: 36px; padding: 0 12px; border: 1px solid var(--c-line-strong, #d3cab3); border-radius: 2px; background: #fff; color: #23251c; font: 500 13px/1.2 var(--sans); cursor: pointer; text-align: left; transition: background-color .15s, color .15s, border-color .15s; }
+.lk-chip:hover { border-color: var(--c-wine, #6e1f2e); }
+.lk-chip.on { background: var(--c-wine, #6e1f2e); border-color: var(--c-wine, #6e1f2e); color: #fff; }
+.lk-chip:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
+@media (pointer: coarse), (max-width: 760px) { .lk-chip { min-height: 44px; } }
+.look-card h3 { margin: 0 0 12px; }

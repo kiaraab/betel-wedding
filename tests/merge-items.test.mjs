@@ -24,4 +24,10 @@ m = mergeById(base, [g('a', 'Anna'), g('b', 'Ben'), g('c', 'Cy')], [g('a', 'Anni
 assert.equal(m[0].name, 'Anna');
 // items without ids can't be merged by id
 assert.equal(mergeById([{ x: 1 }], [{ x: 1 }], [{ x: 2 }]), null);
+// the 3D Look choices (state.style) merge key by key
+import { mergeFlat } from '../js/merge-items.js';
+assert.deepEqual(mergeFlat({}, { canopy: 'ivory' }, { aisle: 'petals' }), { canopy: 'ivory', aisle: 'petals' });
+assert.deepEqual(mergeFlat({ canopy: 'ivory' }, {}, { canopy: 'ivory', aisle: 'petals' }), { aisle: 'petals' }); // we cleared canopy, they picked an aisle
+assert.deepEqual(mergeFlat({ canopy: 'ivory' }, { canopy: 'wine' }, { canopy: 'sage' }), { canopy: 'wine' });   // same key: ours wins
+assert.equal(mergeFlat(null, {}, {}), null);
 console.log('merge-items: ok');

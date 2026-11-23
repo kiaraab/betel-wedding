@@ -5,6 +5,7 @@ import { esc, toast, heartLoaderHTML } from './util.js';
 import { photosForSpace, photoById } from './venue-map.js';
 import { spaceToolsHTML, wireSpaceTools, partySVG, suggestHangout } from './spaces.js';
 import { renderVenueMap, MAP_PHOTO } from './venue-map.js';
+import { lookHTML, syncLook, withPick, resolveStyle, groupsFor } from './style-options.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const M = 3; // margin around the room (ft)
@@ -732,6 +733,7 @@ export function renderSeating(root) {
       </div>
       ${vow ? '' : `<aside class="side-panel">
         ${rec ? '' : spaceToolsHTML(kindOf(), { state, SP, pool: partyPool })}
+        ${groupsFor(space).length ? `<section class="card look-card" aria-label="Look"><h3>Look</h3>${lookHTML(space, state.style)}</section>` : ''}
         ${refHTML(rec)}
       </aside>`}
       ${vow ? '' : PLANFILE}
@@ -1252,6 +1254,7 @@ export function renderSeating(root) {
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
       three = host.__three = threeInst = await m.mount(host, state, moodNow(), {
+        style: resolveStyle(state.style),
         ...(rec ? {} : { sp: { id: space, room: SP().room, tables: SP().tables }, countAt: (t) => guestsAt(t.id).length, pool: partyPool() }),
         unseated: () => going().filter((g) => !isSeated(g)),
         // Seat someone from the 3D view (an existing unseated guest, or a new name)
@@ -1281,6 +1284,16 @@ export function renderSeating(root) {
     };
     open3d();
   }
+
+  // Look pickers (reception sidebar tab, ceremony / hangout side panels): one pick saves, then the 3D scene rebuilds (it eases in again). In the plan view it just saves.
+  root.querySelectorAll('.look-pick').forEach((pick) => pick.addEventListener('click', (e) => {
+    const b = e.target.closest('.lk-chip');
+    if (!b) return;
+    state.style = withPick(state.style, b.dataset.lk, b.dataset.v);
+    commit({ silent: true });
+    syncLook(root, state.style);
+    if (mode === '3d' && threeInst && open3d) { threeInst.dispose(); threeInst = null; open3d(); }
+  }));
 
   root.querySelector('#share').onclick = async (e) => {
     const btn = e.currentTarget;
@@ -1464,6 +1477,7 @@ function vowSideHTML(info) {
         <div class="vs-sec"><h3 class="caps">Set the scene</h3><p class="vs-note">Drag to look around, scroll to zoom. Tap a chair to seat someone.</p>
           <button type="button" class="btn moss sm" data-mode="plan">Edit the floor plan</button></div>`}</section>
       <section class="vs-pane" data-pane="guests">${plan ? seatPanelHTML() : `<div class="vs-sec"><h3 class="caps">Seat guests</h3><p class="vs-note" id="vsUn">${(() => { const n = going().filter((g) => !isSeated(g) && g.party !== 'couple').length; return n ? `${n} guest${n > 1 ? 's' : ''} still need${n > 1 ? '' : 's'} a seat.` : 'Everyone has a seat.'; })()}</p><button type="button" class="btn moss sm" data-mode="plan">Seat in the floor plan</button></div>`}</section>
+      <section class="vs-pane vs-look" data-pane="look"><div class="vs-sec"><h3 class="caps">Style the scene</h3>${lookHTML('reception', state.style)}</div></section>
       <section class="vs-pane vs-ref" data-pane="ref">${refHTML(true)}</section>
     </div>`;
 }
