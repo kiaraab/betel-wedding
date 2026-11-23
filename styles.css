@@ -3846,3 +3846,9 @@ body[data-route="guests"] { background: #fbfaf8; }
   body[data-route="guests"] table.guests tr.row .bs-btn .bs-chev { display: none; }
   body[data-route="guests"] table.guests tr.row .bs-btn .bs-gt { margin-left: 4px; }
 }
+
+/* Seating on phones: the plan/3D toolbar fits inside the picture (it was wider than the screen and clipped on the left) */
+@media (max-width: 760px) {
+  .stage-wrap .plan-tools { left: 8px !important; right: 8px !important; width: auto !important; max-width: none !important; justify-content: space-between; gap: 0 !important; padding: 4px !important; flex-wrap: nowrap; }
+  .stage-wrap .plan-tools .tool.icon { width: 40px; min-width: 0; }
+}
