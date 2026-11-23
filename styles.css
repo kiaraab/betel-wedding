@@ -3997,3 +3997,33 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
   html body[data-route="guests"] table.guests thead tr { padding: 7px 8px !important; grid-template-columns: minmax(0, 1fr) 58px 94px 62px !important; gap: 0 4px !important; }
   html body[data-route="guests"] table.guests thead th:first-child { padding-left: 2px !important; }
 }
+
+/* Phone Guests: smaller type and tighter rows (about 20 guests per screen) */
+@media (max-width: 760px) {
+  html body[data-route="guests"] table.guests tr.row { padding: 2px 8px !important; }
+  html body[data-route="guests"] table.guests tr.row input.g-name { font-size: 13px !important; height: 28px !important; }
+  html body[data-route="guests"] table.guests tr.row > td.c-name, html body[data-route="guests"] table.guests tr.row > td.row-actions { height: 28px !important; }
+  html body[data-route="guests"] table.guests tr.row .bs-btn { height: 24px !important; font-size: 11px !important; padding: 0 4px !important; }
+  html body[data-route="guests"] table.guests tr.row .couple-tag { font-size: 11px; padding: 2px 8px; }
+  html body[data-route="guests"] table.guests tr.row .addr-btn, html body[data-route="guests"] table.guests tr.row button.x { width: 26px !important; min-width: 26px !important; height: 28px !important; min-height: 0 !important; font-size: 14px; }
+  html body[data-route="guests"] table.guests tr.row .addr-btn svg { width: 14px; height: 14px; }
+  html body[data-route="guests"] table.guests thead th { font-size: 9.5px !important; letter-spacing: .1em; }
+  html body[data-route="guests"] table.guests thead tr { padding: 5px 8px !important; grid-template-columns: minmax(0, 1fr) 58px 94px 56px !important; }
+  html body[data-route="guests"] table.guests tr.row { grid-template-columns: minmax(0, 1fr) 58px 94px 56px !important; }
+  html body[data-route="guests"] .guest-tools .gf-btn, html body[data-route="guests"] .guest-tools .gcols-btn { font-size: 12.5px; }
+  html body[data-route="guests"] .page-head h1 { font-size: 24px; }
+  html body[data-route="guests"] .page-head .lede { font-size: 12.5px; }
+}
+@media (max-width: 760px) {
+  /* iPhones zoom the page when you tap a text box under 16px, so the name stays 16px in the box and is scaled down to 13px visually */
+  html body[data-route="guests"] table.guests tr.row .name-cell { overflow: hidden; }
+  html body[data-route="guests"] table.guests tr.row input.g-name { font-size: 16px !important; width: 123% !important; height: 34px !important; transform: scale(.8125); transform-origin: left center; }
+}
+
+/* Task edit form: the Due row is a quiet inline control, not a full-width bar */
+.tc-due-f { display: flex; align-items: center; gap: 10px; margin: 10px 0 2px; font: 500 13px var(--sans); }
+.tc-due-f > span { opacity: .85; letter-spacing: .04em; }
+.tc-due-f input[type="date"] { flex: 0 0 auto; width: auto; min-width: 150px; height: 36px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .55); background: transparent; color: inherit; font: 500 14px var(--sans); text-align: left; border-radius: 0; color-scheme: dark; }
+.tc-due-f input[type="date"]::-webkit-calendar-picker-indicator { opacity: .8; cursor: pointer; }
+.tc-due-x { border: 0; background: none; color: inherit; font: 500 12.5px var(--sans); text-decoration: underline; text-underline-offset: 3px; opacity: .8; cursor: pointer; min-height: 36px; padding: 0 4px; }
+.tcard.c-none .tc-due-f input[type="date"], .tcard.c-cream .tc-due-f input[type="date"], .tcard.c-pink .tc-due-f input[type="date"] { border-color: rgba(35, 37, 28, .4); color-scheme: light; }

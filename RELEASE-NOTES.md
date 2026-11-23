@@ -141,3 +141,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Dates can be changed right where they show (Next up, task cards, milestones).
 
 - Guests on phones: a header row (Name, Side, Relationship) stays pinned while you scroll, and the columns line up.
+
+- Guests on phones: smaller type and tighter rows. Task due date control is neater, with a Clear link.

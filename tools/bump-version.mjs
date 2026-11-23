@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const file = join(root, 'index.html');
 let html = readFileSync(file, 'utf8');
-const id = new Date().toISOString().replace(/\D/g, '').slice(0, 12);
+const id = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
 html = html.replace(/styles\.css(\?v=[\w.-]*)?/, `styles.css?v=${id}`);
 const imports = {
   three: 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',

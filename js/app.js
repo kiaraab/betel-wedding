@@ -319,7 +319,7 @@ function personCard(p) {
           if (editingRole === r.id) return `<li class="tc-role editing"><form class="tc-redit" data-saverole="${r.id}" autocomplete="off">
             <input name="title" value="${esc(r.title)}" required maxlength="80" aria-label="Role name"/>
             <div class="tc-chips" role="group" aria-label="Who has this role">${state.people.map((x) => `<button type="button" class="tc-chip" data-rwith="${x.id}" aria-pressed="${r.people.includes(x.id)}">${esc(x.name)}</button>`).join('')}</div>
-            <label class="tc-due-f">Due <input type="date" name="due" value="${esc(r.due || '')}" aria-label="Due date (optional)"/></label>
+            <div class="tc-due-f"><span>Due</span><input type="date" name="due" value="${esc(r.due || '')}" aria-label="Due date (optional)"/><button type="button" class="tc-due-x" data-cleardue aria-label="Clear the due date" title="Clear the date">Clear</button></div>
             <div class="tc-redit-foot"><button type="button" class="tc-no" data-delrole="${r.id}">Delete role</button><span class="spacer"></span><button type="button" class="tc-no" data-canceledit>Cancel</button><button class="tc-yes">Save</button></div>
           </form></li>`;
           return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}</span><button class="tc-btn tc-edit" data-editrole="${r.id}" aria-label="Edit role ${esc(r.title)}" title="Edit role">${EDIT_ICON}</button><div class="tc-meta">${statusDots(r)}${r.due && r.status !== 'Done' ? dueChip(r.due, r.id) : ''}${w ? `<small class="tc-with">with ${esc(w)}</small>` : ''}</div></li>`;
@@ -441,6 +441,7 @@ function team() {
   view.querySelectorAll('[data-canceledit]').forEach((b) => b.onclick = () => { const rid = editingRole; editingRole = null; team(); backToEdit(rid); });
   view.querySelectorAll('[data-saverole]').forEach((f) => f.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); const rid = editingRole; editingRole = null; team(); backToEdit(rid); } }));
   view.querySelectorAll('[data-rwith]').forEach((b) => b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')));
+  view.querySelectorAll('[data-cleardue]').forEach((b) => b.onclick = () => { const i = b.closest('form').elements.due; i.value = ''; });
   view.querySelectorAll('[data-saverole]').forEach((f) => f.onsubmit = (e) => {
     e.preventDefault();
     const r = state.roles.find((x) => x.id === f.dataset.saverole);
