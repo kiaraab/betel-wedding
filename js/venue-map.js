@@ -218,7 +218,6 @@ export function renderVenueMap(root, { signal } = {}) {
       ${viewIcons()}
     </div></div>
     <div class="vm-mapcol">${mapHTML()}<aside class="vm-pop" id="vmPop" hidden aria-label="Area details"></aside></div>
-    <nav class="vm-plan" id="vmPlan" aria-label="Plan seats"><span class="vm-plan-h">Plan seats</span>${editable.map((a) => `<a href="#seating/${a.space}" data-plan="${a.id}" style="--a:${a.color || '#fff'}"><b>${esc(a.name)}</b><small data-planst="${a.id}">${esc(statusOf(a))}</small><i aria-hidden="true">${svgIcon('edit', 16)}</i></a>`).join('')}</nav>
     <section class="vm-all" aria-label="All venue photos">
       <div class="vm-filters" role="group" aria-label="Filter photos by place" id="vmFilters"></div>
       <p class="vm-fhead" id="vmHead" hidden></p>
@@ -288,8 +287,7 @@ export function renderVenueMap(root, { signal } = {}) {
     const onB = filters.querySelector('.on'); if (onB) filters.scrollLeft = Math.max(0, onB.offsetLeft - (filters.clientWidth - onB.offsetWidth) / 2);
     const fa = areaById(filter);
     head.hidden = !fa;
-    root.querySelectorAll('[data-plan]').forEach((el) => { el.classList.toggle('on', el.dataset.plan === filter); const st = root.querySelector(`[data-planst="${el.dataset.plan}"]`); const ar = areaById(el.dataset.plan); if (st && ar) st.textContent = statusOf(ar); });
-    head.innerHTML = fa ? `<span><b>${esc(fa.name)}</b> · ${esc(fa.place)} · ${esc(statusOf(fa))}</span>` : '';
+    head.innerHTML = fa ? `<span><b>${esc(fa.name)}</b> · ${esc(fa.place)} · ${esc(statusOf(fa))}</span>${fa.space ? `<a class="vm-edit" href="#seating/${fa.space}">${svgIcon('edit', 16)} Edit seats</a>` : ''}` : '';
     const list = order0.map(byId).filter((p) => p && (filter === 'all' || areaOf(p) === filter));
     if (!list.length) { allGrid.innerHTML = '<p class="vm-empty">No photos yet</p>'; AREAS.forEach((a) => { const sEl = map.querySelector(`[data-st="${a.id}"]`); if (sEl) sEl.textContent = statusOf(a); }); return; }
     const shown = expanded ? list.length : PAGE();
