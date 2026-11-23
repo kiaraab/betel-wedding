@@ -3849,6 +3849,17 @@ body[data-route="guests"] { background: #fbfaf8; }
 
 /* Seating on phones: the plan/3D toolbar fits inside the picture (it was wider than the screen and clipped on the left) */
 @media (max-width: 760px) {
-  .stage-wrap .plan-tools { left: 8px !important; right: 8px !important; width: auto !important; max-width: none !important; justify-content: space-between; gap: 0 !important; padding: 4px !important; flex-wrap: nowrap; }
+  .stage-wrap .plan-tools { left: 0 !important; right: 0 !important; margin: 8px 8px 0 !important; width: auto !important; max-width: none !important; justify-content: space-between; gap: 0 !important; padding: 4px !important; flex-wrap: nowrap; }
   .stage-wrap .plan-tools .tool.icon { width: 40px; min-width: 0; }
+}
+
+
+/* Seat guests / Layout / Look panels on phones: natural height (no tiny scroll box inside the card), bigger rows and controls */
+@media (max-width: 760px) {
+  .seat-layout .side-panel { max-height: none !important; height: auto !important; }
+  .seat-layout .side-panel .vs-body { max-height: none !important; height: auto !important; overflow: visible !important; }
+  .seat-layout .sp-list { max-height: 62vh !important; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  .seat-layout .sp-list li { min-height: 46px; padding: 6px 8px; font-size: 15px; }
+  .seat-layout .sp-list li select { min-height: 38px; font-size: 14px; max-width: 48%; }
+  .seat-layout .sp-q { font-size: 16px; min-height: 42px; }
 }
