@@ -192,16 +192,10 @@ function groupHTML(a) {
   </section>`;
 }
 
-/** Other ways to see the venue: the aerial map (with outlines) plus wide scenic photos, one tap each. Ids point into PHOTOS. */
-const VIEWS = [
-  { id: 'aerial', name: 'Aerial', src: MAP_PHOTO },
-  { id: 'v-courtyard', name: 'Courtyard', photo: 'site-courtyard-dusk' },
-  { id: 'v-lawn', name: 'Ceremony lawn', photo: 'site-pergola-path' },
-  { id: 'v-ballroom', name: 'Ballroom', photo: 'ballroom' },
-  { id: 'v-vineyard', name: 'Vineyard', photo: 'site-vineyard-rows' },
-  { id: 'v-gate', name: 'Gate', photo: 'site-gate' },
-].map((v) => ({ ...v, src: v.src || PHOTOS.find((p) => p.id === v.photo)?.src })).filter((v) => v.src);
-const viewsHTML = () => `<div class="vm-views" role="tablist" aria-label="Views of the venue">${VIEWS.map((v, i) => `<button type="button" role="tab" class="vm-view${i ? '' : ' on'}" data-view="${v.id}" aria-selected="${!i}" title="${esc(v.name)}"><img src="${v.src}" alt="" loading="lazy" draggable="false"/><span>${esc(v.name)}</span></button>`).join('')}</div>`;
+/** Two ways to see the property: the close aerial (with the outlined areas) and a zoomed-out satellite map of the whole estate. */
+const OVERVIEW_SRC = 'https://www.google.com/maps?q=Morais+Vineyards,+11409+Marsh+Road,+Bealeton,+VA+22716&t=k&z=17&output=embed';
+const VIEWS = [{ id: 'aerial', name: 'Aerial' }, { id: 'overview', name: 'Overview map' }];
+const viewsHTML = () => `<div class="vm-views vm-seg" role="tablist" aria-label="Map view">${VIEWS.map((v, i) => `<button type="button" role="tab" class="vm-view${i ? '' : ' on'}" data-view="${v.id}" aria-selected="${!i}">${esc(v.name)}</button>`).join('')}</div>`;
 
 /** Draw the map + grouped photos into `root`. `go(space)` opens a space's editor. */
 export function renderVenueMap(root, { signal } = {}) {
@@ -217,11 +211,13 @@ export function renderVenueMap(root, { signal } = {}) {
   /* ---- views: aerial map, or a plain wide photo of the venue ---- */
   const baseImg = map.querySelector('.vm-photo');
   root.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
-    const v = VIEWS.find((x) => x.id === b.dataset.view);
+    const over = b.dataset.view === 'overview';
     root.querySelectorAll('[data-view]').forEach((o) => { const on = o === b; o.classList.toggle('on', on); o.setAttribute('aria-selected', on); });
-    map.classList.toggle('plain', v.id !== 'aerial');
-    baseImg.src = v.src; baseImg.alt = v.id === 'aerial' ? 'Morais Vineyards from above' : v.name;
-    map.querySelector('.vm-cap').textContent = v.id === 'aerial' ? '' : v.name;
+    map.classList.toggle('plain', over);
+    let fr = map.querySelector('.vm-embed');
+    if (over && !fr) { fr = document.createElement('iframe'); fr.className = 'vm-embed'; fr.title = 'Satellite map of Morais Vineyards'; fr.loading = 'lazy'; fr.referrerPolicy = 'no-referrer'; fr.src = OVERVIEW_SRC; map.append(fr); }
+    if (fr) fr.hidden = !over;
+    map.querySelector('.vm-cap').textContent = over ? 'Satellite overview · drag to explore' : '';
   }, { signal }));
 
   /* ---- highlight: an area on the map <-> its photo group ---- */
