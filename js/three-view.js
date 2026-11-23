@@ -2,6 +2,7 @@
 // Loaded on demand (three.js comes from a CDN via the import map in index.html).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { seatCount, tableR, rectDims, chairPositions } from './layout.js';
 import { partyDots } from './spaces.js';
@@ -208,6 +209,25 @@ function longDecor(L, D, seatsTop, runnerColor, th) {
   parts.forEach((g) => g.dispose()); tips.forEach((g) => g.dispose());
   _decorCache.set(key, out); return out;
 }
+/** Cross-back chair frame (turned legs, raked back posts, top rail, X splat), merged into one geometry. Seat height 1.5 ft, back at +z. */
+let _chairFrame = null, _cushion = null;
+function chairFrame() {
+  if (_chairFrame) return _chairFrame;
+  const b = (sx, sy, sz, x, y, z, rz = 0, rx = 0) => new THREE.BoxGeometry(sx, sy, sz).applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, rz)), new THREE.Vector3(1, 1, 1)));
+  const parts = [
+    b(0.11, 1.45, 0.11, -0.55, 0.72, -0.55), b(0.11, 1.45, 0.11, 0.55, 0.72, -0.55),        // front legs
+    b(0.11, 1.5, 0.11, -0.55, 0.75, 0.55, 0, -0.07), b(0.11, 1.5, 0.11, 0.55, 0.75, 0.55, 0, -0.07), // rear legs, raked
+    b(0.11, 1.9, 0.11, -0.55, 2.4, 0.66, 0, 0.07), b(0.11, 1.9, 0.11, 0.55, 2.4, 0.66, 0, 0.07),     // back posts
+    b(1.2, 0.12, 0.1, 0, 1.38, -0.55), b(1.2, 0.12, 0.1, 0, 1.38, 0.55), b(0.1, 0.12, 1.1, -0.55, 1.38, 0), b(0.1, 0.12, 1.1, 0.55, 1.38, 0), // seat rails
+    b(1.2, 0.2, 0.1, 0, 3.3, 0.7), b(1.15, 0.1, 0.08, 0, 2.05, 0.64),                        // top rail, low rail
+    b(0.07, 1.5, 0.06, 0, 2.7, 0.67, 0.55), b(0.07, 1.5, 0.06, 0, 2.7, 0.67, -0.55),        // crossed splat
+  ];
+  _chairFrame = mergeGeometries(parts); parts.forEach((g) => g.dispose());
+  _cushion = new RoundedBoxGeometry(1.25, 0.24, 1.2, 2, 0.08).translate(0, 1.58, 0.0);
+  return _chairFrame;
+}
+const chairCushion = () => (chairFrame(), _cushion);
+
 /** Floor-length cloth for a round table: pooled hem and soft radial pleats (cached). */
 function clothGeo(r, th) {
   const key = ['c', round1(r), th].join();
@@ -613,7 +633,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const clothIdx = (t, i) => (t.id === 'head' ? 2 : i % 3 === 2 ? 1 : 0); // mostly chocolate, a wine one now and then
   const topMat = look && sp.id === 'tasting' ? new THREE.MeshStandardMaterial({ color: look.top, roughness: 0.7 }) : null; // null = pick a linen per table
   const decorMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 });
-  const chairMat = look ? new THREE.MeshStandardMaterial({ color: look.chair, roughness: 0.6 }) : new THREE.MeshStandardMaterial({ color: '#c9a45c', metalness: 0.55, roughness: 0.35 });
+  const chairMat = look ? new THREE.MeshStandardMaterial({ color: look.chair, roughness: 0.6 }) : new THREE.MeshStandardMaterial({ color: '#4a2f1e', roughness: 0.6 }); // dark walnut cross-back chairs
+  const cushionMat = new THREE.MeshStandardMaterial({ color: sp?.id === 'cocktail' ? '#2b2b2b' : '#e9dfc8', roughness: 0.95 }); // ivory linen seat pad
   const seatedMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.7 });
   const bloomMat = new THREE.MeshStandardMaterial({ color: mood.swatches[3], roughness: 0.8 });
   const leafMat = new THREE.MeshStandardMaterial({ color: mood.swatches[1], roughness: 0.8 });
@@ -623,19 +644,12 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const chairMeshes = []; // for tap-to-seat
   const tableInfo = new Map(); // tableId -> { group, tag, n, total }
   const chair = (x, z, faceX, faceZ, seated) => {
-    const c = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.14, 1.3), seated ? seatedMat : chairMat);
-    seat.position.y = 1.5;
-    const back = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.7, 0.12), chairMat);
-    back.position.set(0, 2.4, 0.62);
-    for (const [lx, lz] of [[-.55, -.55], [.55, -.55], [-.55, .55], [.55, .55]]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5), chairMat);
-      leg.position.set(lx, 0.75, lz); c.add(leg);
-    }
-    c.add(seat, back);
+    const c = new THREE.Group(); // two draw calls per chair, both on shared geometry: the wooden frame and the cushion (the cushion changes colour when someone sits)
+    const seat = new THREE.Mesh(chairCushion(), seated ? seatedMat : cushionMat);
+    c.add(new THREE.Mesh(chairFrame(), chairMat), seat);
     c.position.set(x, 0, z);
     c.rotation.y = Math.atan2(x - faceX, z - faceZ);
-    c.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+    c.children[0].castShadow = true; // the frame only: fewer shadow draws
     c.userData.seat = seat;
     return c;
   };
@@ -916,7 +930,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     prompt.who.value = ''; prompt.who.focus();
   }
   function closePrompt(keep) {
-    if (promptChair && !keep && !promptChair.userData.taken) promptChair.userData.seat.material = chairMat;
+    if (promptChair && !keep && !promptChair.userData.taken) promptChair.userData.seat.material = cushionMat;
     promptChair = null; prompt.hidden = true;
   }
   prompt.onsubmit = (e) => {
