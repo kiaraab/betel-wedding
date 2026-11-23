@@ -117,3 +117,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Overview: guests in one dot picture (seated, added, still to add) with a key; Days left is a metric; RSVP tile removed (RSVPs live in RSVPify).
 
 - Overview dots start with two dark red hearts for Betel and Carter.
+
+- RSVP and address tracking are hidden (RSVPify handles those); the data is kept and one switch (js/features.js) brings them back.
