@@ -10,7 +10,7 @@ import { enableAddressLookup } from './address.js';
 import { esc, toast, daysUntil, fmtDate, confirmDialog, initTablists, initSlideInk, bubbleSelects, BS_CHECK } from './util.js';
 import { wireTeamDrag } from './team-drag.js';
 import { openPerson } from './person.js';
-import { detailsHTML, wireDetails } from './guest-details.js';
+import { detailsHTML, wireDetails, householdSelectHTML, wireHouseholdSelect } from './guest-details.js';
 import { renderAgenda } from './agenda.js';
 import { initGuide, refreshGuide } from './guide.js';
 import { initHistory } from './history.js';
@@ -517,6 +517,7 @@ function guestCell(g, k, cols) {
   if (k === 'rsvp') return bare(`<select class="select rsvp" aria-label="RSVP" data-k="rsvp" data-bub="rsvp" data-v="${esc(g.rsvp)}">${RSVP.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select>`);
   if (k === 'relation') return bare(`<select class="select" data-k="relation" data-bub aria-label="Relationship" data-v="${esc(relationOf(g))}"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select>`);
   if (k === 'table') return bare(`<span class="c-txt">${esc(tableLabel(g)) || '—'}</span>`);
+  if (k === 'household') return bare(householdSelectHTML(g, 'data-bub')); // a dropdown (typing free text let typos make new households); same control as the Details panel
   const label = GCOLS.find((c) => c.k === k).label;
   return bare(`<input class="input" data-k="${k}" value="${esc(g[k] || '')}" placeholder="—" aria-label="${label}" spellcheck="false"/>`);
 }
@@ -775,6 +776,8 @@ function guests() {
       };
     });
   });
+  // household cells: pick or add a household (links the household together, feeds the Connections suggestions)
+  view.querySelectorAll('tr.row[data-id] [data-hh]').forEach((el) => { const g = state.guests.find((x) => x.id === el.closest('tr').dataset.id); if (g) wireHouseholdSelect(el, g, () => commit()); });
   // address & details panels (household / plus-one / photo changes redraw the list in place)
   openGuests.forEach((id) => { const g = state.guests.find((x) => x.id === id); if (g) wireDetails(view, g, { onRedraw: () => commit() }); });
   view.querySelectorAll('[data-delg]').forEach((b) => b.onclick = () => {
