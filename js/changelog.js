@@ -1,23 +1,10 @@
-// "What's new": the bell in the footer. Each time something changes for Betel & the team, add an entry at the TOP of ENTRIES.
+// "What's new": the bell in the footer. Keep it SHORT. Only add an entry when the owner asks (she says Betel and the team don't want detail).
 // Write it for them: short, plain, what they can now do. { id (unique, never reuse), date (YYYY-MM-DD), title, items: [..] }
 // The bell shows a dot for entries a person has not opened yet (remembered per device).
 import { esc, trapFocus, toast } from './util.js';
 
 export const ENTRIES = [
-  { id: '2026-11-23-100', date: '2026-11-23', title: 'Planning for 100 guests',
-    items: ['Seating now plans for 100 guests. If your chosen tables can’t seat everyone, Suggest picks a layout that can and tells you why.', 'The satellite map opens close in on the buildings and fits your phone.'] },
-  { id: '2026-11-23-ceremony', date: '2026-11-23', title: 'Ceremony planning',
-    items: ['Chairs on the ceremony plan are easier to see.', 'Adding a groomsman adds them to the Guests page too. Rename them there.', 'A small Agenda card shows when the ceremony or hangout is planned.'] },
-  { id: '2026-11-23-phone-plan', date: '2026-11-23', title: 'Easier on your phone',
-    items: ['The Agenda now scrolls with the page. Tap an event to edit it, or press and hold to move it.', 'Ceremony: a new Chairs per row list lets you add or remove chairs from each row.'] },
-  { id: '2026-11-23-phone-guests', date: '2026-11-23', title: 'Guest list on your phone',
-    items: ['The guest list now has column names.', 'Choosing columns works on your phone: Table, Household, Plus-one and Notes show under each name.', 'The B and C in the logo are centered in their hearts.'] },
-  { id: '2026-11-23-look', date: '2026-11-23', title: 'A softer guest list',
-    items: ['The guest list now has a lighter, thinner look.', 'Tap the bell any time to see what’s new.'] },
-  { id: '2026-11-23-seats', date: '2026-11-23', title: 'Seats and guests',
-    items: ['The dot on a guest’s ⋮ now means no seat yet. Addresses are optional.', 'The save-as-picture button on the seating plan is easier to see.'] },
-  { id: '2026-11-22-ai', date: '2026-11-22', title: 'Smarter and faster',
-    items: ['Reading a guest list with AI is faster and no longer gets stuck.', 'Anything you add before signing in is kept when you sign in.', 'The B C logo has a bigger C.'] },
+  { id: 'bell', date: '2026-11-23', title: 'What’s new', items: ['Tap the bell any time to see updates.'] },
 ];
 
 const KEY = 'bc-seen-updates';
