@@ -3,6 +3,7 @@
 // The bell shows a dot for entries a person has not opened yet (remembered per device).
 import { esc, trapFocus } from './util.js';
 import { openFeedback } from './feedback.js';
+import { openHomeScreen } from './homescreen.js';
 
 export const ENTRIES = [
   { id: 'bell', date: '2026-11-23', title: 'What’s new', items: ['Tap the bell any time to see updates.'] },
@@ -42,7 +43,7 @@ export function mountBell(btn) {
     pop.innerHTML = `<h3>What’s new</h3>${list.length ? list.map((e) => `
       <section class="bell-e${fresh.has(e.id) ? ' new' : ''}" data-id="${esc(e.id)}"><div class="bell-h"><b>${esc(e.title)}</b><span>${esc(fmt(e.date))}</span><button type="button" class="bell-x" data-dismiss="${esc(e.id)}" aria-label="Dismiss ${esc(e.title)}" title="Dismiss">×</button></div>
         <ul>${e.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></section>`).join('') : '<p class="muted small" style="margin:6px 0 10px">Nothing new</p>'}
-      <div class="bell-f"><button type="button" class="linklike" data-fb>Send feedback</button></div>`;
+      <div class="bell-f"><button type="button" class="linklike" data-fb>Send feedback</button><button type="button" class="linklike" data-hs>Add to Home Screen</button></div>`;
     document.body.append(pop);
     btn.setAttribute('aria-expanded', 'true');
     document.body.classList.add('live-open'); // the help button rides above the panel (styles.css)
@@ -52,6 +53,7 @@ export function mountBell(btn) {
     pop.tabIndex = -1; pop.focus({ preventScroll: true });
     pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
     pop.querySelector('[data-fb]').onclick = () => { close(false); openFeedback(); };
+    pop.querySelector('[data-hs]').onclick = () => { close(false); openHomeScreen(); };
     document.addEventListener('pointerdown', outside, true);
     pop.querySelectorAll('[data-dismiss]').forEach((x) => x.onclick = () => {
       writeD([...new Set([...readD(), x.dataset.dismiss])]);
