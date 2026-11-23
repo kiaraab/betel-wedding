@@ -54,3 +54,18 @@ test('earlier cases still hold', () => {
 test('a hint with nobody before it on the line is not a guest', () => {
   assert.deepEqual(names('coworker\nBo'), ['Bo']);
 });
+
+test('QA-26: side headings, totals, dates, work, kids, numbered names', () => {
+  const r = parseGuestList("Carter's side:\n- Uncle Dawit & Aunt Hiwot Bekele (+ their 2 kids, Liya and Nahom)\n- Mike from work, bringing a date\nBetel side: Grandma Almaz; cousin Ruth T.\nTotal: 8");
+  const by = (n) => r.find((g) => g.name === n);
+  assert.deepEqual(r.map((g) => g.name), ['Uncle Dawit', 'Hiwot Bekele', 'Liya', 'Nahom', 'Mike', 'Grandma Almaz', 'cousin Ruth T']);
+  assert.equal(by('Uncle Dawit').side, 'Carter');
+  assert.equal(by('Nahom').side, 'Carter');
+  assert.equal(by('Mike').side, 'Carter');
+  assert.equal(by('Mike').relation, 'Colleague');
+  assert.equal(by('Mike').plusOne, true);
+  assert.equal(by('Grandma Almaz').side, 'Betel');
+  assert.equal(by('cousin Ruth T').side, 'Betel');
+  assert.deepEqual(names('Guest 1\nGuest 2\nRose Tadesse'), ['Guest 1', 'Guest 2', 'Rose Tadesse']);
+  assert.equal(one('Betel: Selam Haile').side, 'Betel');
+});

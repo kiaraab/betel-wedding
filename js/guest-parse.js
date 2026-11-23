@@ -8,7 +8,7 @@ const REL_HINTS = [
   [/\b(mom|mother|mum|dad|father|parents?|step-?(mom|dad|mother|father))\b/gi, 'Parent'],
   [/\b(grand(ma|pa|mother|father|parents?)|nana|papa|sister|brother|sibling|sis|bro)\b/gi, 'Close relative'],
   [/\b(aunt|auntie|uncle|cousin|niece|nephew|relatives?|family)\b/gi, 'Relative'],
-  [/\b(co-?workers?|colleagues?|work|boss|office)\b/gi, 'Colleague'],
+  [/\b(?:(?:from|at)\s+)?(co-?workers?|colleagues?|work|boss|office)\b/gi, 'Colleague'],
   [/\bfriends?\b/gi, 'Friend'],
 ];
 // Tags rather than titles: always removed from the name
@@ -20,7 +20,7 @@ const SIDE_HINTS = [
   [/\(?\b(carter|groom)('?s)?\b(\s+side)?\)?/i, 'Carter'],
   [/\(?\b(both|shared|mutual)\b(\s+sides?)?\)?/i, 'Both'],
 ];
-const PLUS_ONE = /\s*(\+\s*1\b|\+\s*one\b|plus\s*(one|1)\b|and guest\b|& guest\b|\+\s*guest\b)\s*/i;
+const PLUS_ONE = /\s*(\+\s*1\b|(?:bring(?:ing)?|with|plus)\s+(?:a|an|their|his|her)\s+(?:date|guest|partner|plus[- ]?one)\b|\+\s*one\b|plus\s*(one|1)\b|and guest\b|& guest\b|\+\s*guest\b)\s*/i;
 
 const tidy = (s) => {
   s = s.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, ' ')                 // emoji
@@ -52,14 +52,22 @@ function readHints(raw) {
       return ' ';
     });
   }
-  return { rest: raw.replace(/\b(sides?|guest)\b/gi, ' '), side, relation, plusOne, onlyWord };
+  // "guest" is noise next to a side ("Betel's guest"), but "Guest 1" is a name: only strip it when something else is left
+  const cleaned = raw.replace(/\b(sides?|guest)\b/gi, ' ');
+  return { rest: /\p{L}/u.test(cleaned) ? cleaned : raw, side, relation, plusOne, onlyWord };
 }
 
 /** Parse pasted text into [{ name, side, relation, plusOne }] (no de-dupe here). */
 export function parseGuestList(text) {
   const out = [];
   const lines = String(text || '').replace(/\r/g, '').split('\n');
-  for (const line of lines) {
+  let sideNow = null; // set by a heading line such as "Carter's side:" and kept for the lines after it
+  for (let line of lines) {
+    if (/^\s*(?:total|subtotal|count|headcount|guest count)\b/i.test(line)) continue; // "Total: 8" is not a guest
+    const head = /^\s*(?:[-–—*•]\s*)?(betel|bride|carter|groom|both|shared)(?:['’]?s)?(?:\s+side)?\s*:\s*(.*)$/i.exec(line);
+    if (head) { sideNow = /^(betel|bride)/i.test(head[1]) ? 'Betel' : /^(carter|groom)/i.test(head[1]) ? 'Carter' : 'Both'; line = head[2]; }
+    // "(+ their 2 kids, Liya and Nahom)" → the kids are guests too
+    line = line.replace(/\(\s*\+\s*(?:their|his|her)?\s*\d*\s*(?:kids?|children)\s*,?\s*/gi, ' & ');
     let prev = []; // guests from the previous chunk on this line — a hint-only chunk belongs to them
     const chunks = line.split(/;|\t|,(?![^()]*\))|\s[•·▪●◦‣]\s/)
       .map((c) => c.replace(/^\s*(?:[-–—*•·▪●◦‣>]+|\(?\d{1,3}[.)\]:]|\(?[a-z][.)])\s+/i, '').trim())
@@ -84,7 +92,7 @@ export function parseGuestList(text) {
       parts.forEach((n, i) => {
         if (n.length > 60) return;
         const name = last && i < parts.length - 1 && n.split(' ').length === 1 ? `${n} ${last}` : n;
-        const g = { name, side: h.side, relation: h.relation, plusOne: h.plusOne && i === parts.length - 1 };
+        const g = { name, side: h.side || sideNow, relation: h.relation, plusOne: h.plusOne && i === parts.length - 1 };
         out.push(g); prev.push(g);
       });
     }
