@@ -93,6 +93,28 @@ function archShape(w, h) { // rectangle with a round top, base at y=0
   return s;
 }
 
+/* Palette read straight off Betel's board (assets/inspo): wine, olive/sage, chocolate, ivory, candlelight. */
+const PAL = { wine: '#5a1624', wineLt: '#7d2c38', blush: '#d9a3a8', olive: '#6b7340', oliveDk: '#4b522b', sage: '#a9b38a', choc: '#3b2418', ivory: '#f2ead8', candle: '#ffcf8a' };
+
+/** Soft round glow (canvas radial fade) used for candle / bulb halos. */
+function glowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, 'rgba(255,214,150,1)'); r.addColorStop(0.25, 'rgba(255,190,110,.45)'); r.addColorStop(1, 'rgba(255,170,80,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/** Sky for the open spaces: zenith at the top, horizon band, then ground colour below (used on the upper hemisphere only). */
+function skyTexture(stops) {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128);
+  stops.forEach(([o, col]) => gr.addColorStop(o, col));
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  g.fillStyle = stops[stops.length - 1][1]; g.fillRect(0, 128, 4, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
 /** `sp` = { room, tables } of another space (ceremony / hangout / tasting room); omit it for the ballroom reception. `countAt(t)` = guests seated at a table, `pool` = the ceremony's wedding party pool. */
 export async function mount(host, state, mood, { onSeat, unseated = () => [], sp = null, countAt = null, pool = [] } = {}) {
   host.innerHTML = '';
@@ -116,7 +138,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   host.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const dayBg = new THREE.Color('#e9e2d2'), nightBg = new THREE.Color('#15180f');
+  const dayBg = new THREE.Color('#e9e2d2'), nightBg = new THREE.Color('#1a1310');
   scene.background = dayBg.clone();
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 600);
@@ -128,6 +150,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   /* ---- light ---- */
   const hemi = new THREE.HemisphereLight('#fff7e6', '#7a6748', 1.3);
   scene.add(hemi);
+  const hemiSky = { day: new THREE.Color('#fff7e6'), night: new THREE.Color('#ffc58a') }, hemiGnd = { day: new THREE.Color('#7a6748'), night: new THREE.Color('#2a1a14') };
   const sun = new THREE.DirectionalLight('#ffe9c4', 1.6);
   sun.position.set(-20, 40, -h); sun.castShadow = true;
   const coarse = matchMedia('(pointer: coarse)').matches;
@@ -135,6 +158,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   Object.assign(sun.shadow.camera, { left: -w, right: w, top: h, bottom: -h, near: 1, far: 200 });
   sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3; // softer edges, no extra pass
   scene.add(sun);
+  const moon = new THREE.DirectionalLight('#9fb0e0', 0); // a faint cool fill for the evening, so the lawn and trees are not pitch black
+  moon.position.set(30, 50, 40); scene.add(moon);
 
   /* ---- shared materials (the ballroom block below and the other spaces both light these) ---- */
   const ceilingG = new THREE.Group();
@@ -152,6 +177,43 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, h), floorMat);
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
   scene.add(floor);
+
+  /* ---- backdrop for the open spaces (lawn, courtyard): a dusk sky, layered hills and a ring of trees, like the villa photos on the board.
+         Hills and trees are instanced, so the whole backdrop is a handful of draw calls. ---- */
+  const skyDomes = [];
+  if (!closed) {
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(420, 32), new THREE.MeshStandardMaterial({ color: ROOM.floor === 'lawn' ? '#6f8a58' : '#9b9588', roughness: 1 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.06; ground.receiveShadow = true; scene.add(ground);
+    const domeGeo = new THREE.SphereGeometry(400, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    [skyTexture([[0, '#7fb0d6'], [0.7, '#cfe2e6'], [1, '#f3e8c9']]), skyTexture([[0, '#1b2038'], [0.55, '#5d3b52'], [1, '#f0a066']])].forEach((tex, i) => {
+      const m = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, depthWrite: false, fog: false, transparent: true, opacity: i ? 0 : 1 }));
+      m.renderOrder = -2 + i; scene.add(m); skyDomes.push(m);
+    });
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S = new THREE.Vector3(), C = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
+    const R0 = Math.max(w, h) * 0.5;
+    // two ranks of low hills (far = hazy sage, near = deeper olive)
+    const hills = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ roughness: 1 }), 22);
+    for (let i = 0; i < 22; i++) {
+      const far = i < 12, a = (far ? i / 12 : (i - 12) / 10) * Math.PI * 2 + rnd() * 0.4, R = far ? 230 + rnd() * 30 : 140 + R0 * 0.4 + rnd() * 25;
+      P.set(Math.cos(a) * R, -2, Math.sin(a) * R); S.set(far ? 70 + rnd() * 40 : 40 + rnd() * 25, far ? 22 + rnd() * 16 : 10 + rnd() * 8, far ? 60 : 45);
+      Q.setFromAxisAngle(UP, -a); M.compose(P, Q, S); hills.setMatrixAt(i, M);
+      hills.setColorAt(i, C.set(far ? '#7f8c63' : '#566a3f').offsetHSL(0, 0, (rnd() - 0.5) * 0.05));
+    }
+    scene.add(hills);
+    // trees ringed outside the room: round canopies + a few cypress, each on a trunk
+    const NT = 34, trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.4, 0.6, 1, 6), new THREE.MeshStandardMaterial({ color: '#4a3524', roughness: 1 }), NT);
+    const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ roughness: 1 }), NT);
+    Q.identity();
+    for (let i = 0; i < NT; i++) {
+      const a = rnd() * Math.PI * 2, ex = w / 2 + 14 + rnd() * 55, ez = h / 2 + 14 + rnd() * 55, px = Math.cos(a) * ex, pz = Math.sin(a) * ez;
+      const cyp = i % 5 === 0, ht = cyp ? 20 + rnd() * 8 : 9 + rnd() * 6, cr = cyp ? 2.2 : 5 + rnd() * 3.5;
+      P.set(px, ht * 0.15, pz); S.set(1, ht * 0.3, 1); M.compose(P, Q, S); trunks.setMatrixAt(i, M);
+      P.set(px, ht * 0.3 + (cyp ? ht * 0.35 : cr * 0.7), pz); S.set(cr, cyp ? ht * 0.5 : cr * 0.85, cr); M.compose(P, Q, S); crowns.setMatrixAt(i, M);
+      crowns.setColorAt(i, C.set(cyp ? '#2f4128' : '#4f6a3a').offsetHSL((rnd() - 0.5) * 0.04, 0, (rnd() - 0.5) * 0.08));
+    }
+    scene.add(trunks, crowns);
+  }
 
   if (ballroom) {
   // Shimmery gold-taupe walls (a touch of metalness catches the light)
@@ -547,6 +609,42 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     if (a.preset !== 'aisle') { const tag = label(a.label, { size: 1.2, color: '#6b1f2a' }); tag.position.set(cx, 5 + up, cz); scene.add(tag); }
   });
 
+  /* ---- string lights: swags of warm bulbs across the room (wire = one LineSegments, bulbs = one InstancedMesh, halos = one Points) ---- */
+  const bulbMat = new THREE.MeshStandardMaterial({ color: '#fff0cf', emissive: '#ffbf66', emissiveIntensity: 0.3 });
+  const glowTex = glowTexture();
+  const bulbHalo = new THREE.PointsMaterial({ map: glowTex, size: 2.4, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: '#ffc98a' });
+  const candleHalo = new THREE.PointsMaterial({ map: glowTex, size: 1.9, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: '#ffc27a' });
+  {
+    const topY = ballroom ? 16 : closed ? WH - 1.3 : 13.5, sag = ballroom ? 2.6 : 1.7;
+    const strands = []; // [x1, y1, z1, x2, y2, z2]
+    const rows = ballroom ? [22, 42, 62] : closed ? [h * 0.3, h * 0.6] : [Math.max(26, h * 0.4), Math.max(42, h * 0.62), h - 6];
+    rows.forEach((y) => strands.push([-w / 2 + 0.6, topY, Z(y), w / 2 - 0.6, topY, Z(y)]));
+    (fixed.decor || []).filter((d) => d.kind === 'pergola').forEach((d) => [d.y + 0.5, d.y + d.h - 0.5].forEach((y) => strands.push([X(d.x), 10, Z(y), X(d.x + d.w), 10, Z(y)])));
+    const wire = [], bulbs = [], halos = [];
+    strands.forEach(([x1, y1, z1, x2, y2, z2]) => {
+      const len = Math.hypot(x2 - x1, z2 - z1), n = Math.max(4, Math.round(len / 2.4)), dip = y1 === 10 ? 0.9 : sag;
+      let prev = null;
+      for (let i = 0; i <= n; i++) {
+        const u = i / n, p = [x1 + (x2 - x1) * u, y1 + (y2 - y1) * u - dip * 4 * u * (1 - u), z1 + (z2 - z1) * u];
+        if (prev) wire.push(...prev, ...p);
+        if (i > 0 && i < n) { bulbs.push(p); halos.push(...p); }
+        prev = p;
+      }
+    });
+    const lines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(wire, 3)), new THREE.LineBasicMaterial({ color: '#2b2118' }));
+    const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 6, 5), bulbMat, bulbs.length), m4 = new THREE.Matrix4();
+    bulbs.forEach((p, i) => { m4.makeTranslation(...p); inst.setMatrixAt(i, m4); });
+    const pts = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(halos, 3)), bulbHalo);
+    (closed ? ceilingG : scene).add(lines, inst); scene.add(pts);
+    if (!closed) { // slim poles at both ends of each open-air strand
+      const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.22, topY + 0.4, 6), new THREE.MeshStandardMaterial({ color: '#3a2a1e', roughness: 0.9 }), rows.length * 2);
+      let k = 0; rows.forEach((y) => [-w / 2 + 0.6, w / 2 - 0.6].forEach((x) => { m4.makeTranslation(x, (topY + 0.4) / 2 - 0.1, Z(y)); poles.setMatrixAt(k++, m4); }));
+      scene.add(poles);
+    }
+    // two warm lamps stand in for the whole string for the shared light budget (the ballroom already has its chandelier lamps)
+    if (!ballroom) [0.35, 0.7].forEach((f) => { const pl = new THREE.PointLight('#ffc27a', 0, 60, 1.3); pl.position.set(0, 10, Z(h * f)); scene.add(pl); lamps.push(pl); });
+  }
+
   /* ---- size ---- */
   let refitHome = () => {}; // set below, once the home view exists: re-frames it when the picture changes shape
   const resize = () => {
@@ -561,10 +659,15 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   /* ---- light moods ---- */
   const dayGlass = new THREE.Color('#fff4d6'), duskGlass = new THREE.Color('#334063');
   let evening = 0, eveningTarget = 0;
+  const LAMP = ballroom ? 55 : 80; // candlelight, not floodlight: the evening should read dim and warm
   const applyLight = (k) => {
-    hemi.intensity = 1.3 - 1.12 * k;
-    sun.intensity = 1.6 * (1 - k);
-    lamps.forEach((l) => { l.intensity = 150 * k; });
+    hemi.intensity = 1.3 - 1.05 * k;
+    hemi.color.copy(hemiSky.day).lerp(hemiSky.night, k); hemi.groundColor.copy(hemiGnd.day).lerp(hemiGnd.night, k);
+    sun.intensity = 1.6 * (1 - k); moon.intensity = closed ? 0 : 0.5 * k;
+    bulbMat.emissiveIntensity = 0.3 + 2.8 * k; bulbHalo.opacity = 0.85 * k; candleHalo.opacity = 0.9 * k;
+    bulbHalo.visible = k > 0.01;
+    if (skyDomes.length) { skyDomes[1].material.opacity = k; skyDomes[1].visible = k > 0.01; }
+    lamps.forEach((l) => { l.intensity = LAMP * k; });
     glowMat.emissiveIntensity = 0.6 + 2.4 * k;
     flameMat.emissiveIntensity = 0.4 + 3.2 * k;
     danceMat.emissiveIntensity = 0.05 + 0.5 * k;
@@ -753,7 +856,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     }
     if (evening > 0) {
       flames.forEach((f, i) => { f.scale.y = 1 + Math.sin(clock * 9 + i) * 0.15 * evening; });
-      lamps.forEach((l, i) => { l.intensity = 150 * evening * (1 + Math.sin(clock * 3 + i * 2) * 0.02); });
+      lamps.forEach((l, i) => { l.intensity = LAMP * evening * (1 + Math.sin(clock * 3 + i * 2) * 0.02); });
     }
     if (walking && !flight) {
       const speed = 14 * dt, fwd = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0), side = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
