@@ -692,7 +692,7 @@ export function renderSeating(root) {
         </div>
         ${kindOf() === 'ceremony' ? `<div class="viewseg cer-seg" role="tablist" aria-label="Ceremony setting">${CER_VARIANTS.map(([id, l]) => `<button role="tab" data-variant="${id}" aria-selected="${space === id}" class="${space === id ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
         <p class="lede" id="lede"></p>
-        ${kindOf() === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
+        ${kindOf() === 'cocktail' ? `<p class="space-note">Optional · ${SP().room.name === 'Tasting room' ? 'wine tasting and mingling' : 'just for mingling'}</p>` : ''}
       </div>
 
       <div class="ph-right"><nav class="vm-crumb" aria-label="Breadcrumb"><a href="#seating" title="Back to the venue map"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Morais map</a><span aria-hidden="true">/</span><b aria-current="page">${esc(info.label)}</b></nav>
@@ -1005,7 +1005,7 @@ export function renderSeating(root) {
     flip = from; drawPlan(); flip = null; lede();
     root.querySelectorAll('#sCount,#hCount').forEach((i) => { i.value = state.guestTarget; });
     root.querySelectorAll('#cCount').forEach((i) => { i.value = SP().room.chairs ?? state.guestTarget; });
-    preview(); seatPanelRefresh();
+    preview(); seatPanelRefresh(); syncLook(root, state.style);
   }
   function localUndo(message, mutate) {
     const snap = JSON.stringify(state), from = tablePos();
@@ -1277,11 +1277,7 @@ export function renderSeating(root) {
   root.querySelectorAll('.look-pick').forEach((pick) => pick.addEventListener('click', (e) => {
     const b = e.target.closest('.lk-chip');
     if (!b) return;
-    state.style = withPick(state.style, b.dataset.lk, b.dataset.v);
-    commit({ silent: true });
-    syncLook(root, state.style);
-    if (mode === '3d' && threeInst && open3d) { const old = threeInst; threeInst = null; open3d({ view: old.getView(), old }); }
-    else if (mode === '3d' && open3d) pending3d = true;
+    localUndo(`Look: ${b.textContent.trim()}`, () => { state.style = withPick(state.style, b.dataset.lk, b.dataset.v); }); // saves, swaps the scene in place, and the toast offers Undo
   }));
 
   root.querySelector('#share').onclick = async (e) => {

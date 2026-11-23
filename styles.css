@@ -3689,3 +3689,12 @@ body[data-route="guests"] { background: #fbfaf8; }
 
 /* Phone: the Layout / Seat guests / Look panel grows to its content (a 46vh cap clipped long lists such as Look, with no way to scroll) */
 @media (max-width: 900px) { .seat-layout.vow, .seat-layout.vow.is-plan { grid-template-rows: minmax(480px, 70vh) max-content; } .seat-layout.vow .vow-side { max-height: none; } }
+
+/* ADHD quick wins: visible "Saved", calm help button, bigger footer taps */
+.foot-saved { margin-left: 10px; font: 500 12px var(--sans); letter-spacing: .04em; opacity: 0; transition: opacity .25s var(--ease); white-space: nowrap; }
+.foot-saved.on { opacity: .85; }
+.foot-saved::before { content: "¹3 a0"; }
+.guide-q.new::after { animation: none; opacity: .7; }
+.foot-ic { min-width: 44px; height: 38px; }
+@media (max-width: 760px) { .foot-saved { margin-left: 6px; } }
+@media (prefers-reduced-motion: reduce) { .foot-saved { transition: none; } }

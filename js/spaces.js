@@ -201,7 +201,7 @@ export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' |
   if (space === 'cocktail') {
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
       <div class="field-row"><label class="field">Guests<input class="input" id="hCount" type="number" min="2" max="300" value="${ctx.state.guestTarget}"/></label></div>
-      <div class="acts"><div class="act"><button class="btn moss sm" id="hGo">Suggest hangout</button><span class="tip" tabindex="0" role="note" data-tip="Tables spread through the open middle, clear of the fountain, building and entrance.">ⓘ</span></div></div></section>${agendaWidgetHTML('cocktail', ctx.state)}`;
+      <div class="acts"><div class="act"><button class="btn moss sm" id="hGo">Suggest ${space === 'cocktail' && ctx.SP().room.name === 'Tasting room' ? 'tasting layout' : 'hangout'}</button><span class="tip" tabindex="0" role="note" data-tip="Tables spread through the open middle, clear of the fountain, building and entrance.">ⓘ</span></div></div></section>${agendaWidgetHTML('cocktail', ctx.state)}`;
   }
   return '';
 }
