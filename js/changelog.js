@@ -6,6 +6,7 @@ import { openFeedback } from './feedback.js';
 import { openHomeScreen } from './homescreen.js';
 
 export const ENTRIES = [
+  { id: 'u1123', date: '2026-11-23', title: 'New', items: ['Seating: 3D view for Ceremony, Hangout and Tasting.', 'Send feedback from the bell.'] },
   { id: 'bell', date: '2026-11-23', title: 'What’s new', items: ['Tap the bell any time to see updates.'] },
 ];
 
