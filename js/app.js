@@ -1,4 +1,5 @@
 import { mountBell } from './changelog.js';
+import { initFeedback } from './feedback.js';
 import { state, commit, subscribe, reset, uid, ensureAutoGuests, undoable, isSeated } from './store.js';
 import { WEDDING, STATUSES, MILESTONES, MOODS, INSPO } from './data.js';
 import { seatCount, RELATIONS, relationOf } from './layout.js';
@@ -862,6 +863,7 @@ function tickCountdown() { // the header pill is gone (REQ-21); the count lives 
 
 mountLive(document.getElementById('liveBtn'));
 mountBell(document.getElementById('bellBtn'));
+initFeedback();
 initSync();
 initTablists();
 document.getElementById('resetBtn').onclick = async () => {

@@ -235,6 +235,17 @@ async function signOutLive() {
 async function requestAccess() {
   await fb.F.setDoc(fb.F.doc(fb.db, 'requests', user.email), { email: user.email, at: fb.F.serverTimestamp() });
 }
+/** Feedback box: a short note from Betel or the team, saved to the `feedback` collection (only the owner can read it). Throws when not signed in as an editor. */
+export async function sendFeedback({ type, text, page }) {
+  if (!fb || !user || !isEditor()) throw new Error('not-live');
+  await fb.F.addDoc(fb.F.collection(fb.db, 'feedback'), { type, text, page: page || '', by: user.email, at: fb.F.serverTimestamp() });
+}
+/** Owner only: everything in the feedback collection, oldest first. */
+export async function listFeedback() {
+  if (role !== 'owner') return [];
+  const snap = await fb.F.getDocs(fb.F.collection(fb.db, 'feedback'));
+  return snap.docs.map((d) => { const x = d.data(); return { id: d.id, type: x.type, text: x.text, page: x.page || '', by: x.by || '', at: x.at?.toDate?.().toISOString() || '' }; }).sort((a, b) => a.at.localeCompare(b.at));
+}
 async function listRequests() {
   if (role !== 'owner') return [];
   const s = await fb.F.getDocs(fb.F.collection(fb.db, 'requests'));
@@ -359,7 +370,8 @@ export function mountLive(btn) {
         pop.querySelectorAll('[data-unpre]').forEach((b) => { b.onclick = async () => { await removePreapproved(b.dataset.unpre); draw(); }; });
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });
       }
-      pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-reset>Start over</button></div>');
+      pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-reset>Start over</button>' + (role === 'owner' ? '<button type="button" class="live-txt" data-fbx>Feedback</button>' : '') + '</div>');
+      pop.querySelector('[data-fbx]')?.addEventListener('click', async () => { try { const list = await listFeedback(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' })); a.download = 'betel-feedback.json'; a.click(); URL.revokeObjectURL(a.href); toast(`${list.length} feedback saved to a file`); } catch { toast('Could not read feedback (is the rule published?)'); } });
       pop.querySelector('[data-hist]').onclick = () => { close(false); document.getElementById('historyBtn')?.click(); };
       pop.querySelector('[data-reset]').onclick = () => { close(false); document.getElementById('resetBtn')?.click(); };
       pop.querySelector('[data-out]')?.addEventListener('click', async () => { await signOutLive(); close(true); });

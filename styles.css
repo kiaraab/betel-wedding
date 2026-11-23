@@ -3742,3 +3742,9 @@ body[data-route="guests"] .lede { font-weight: 300; }
   body[data-route="guests"] .page-head .guest-add .input { flex: 1 1 100%; min-width: 0; }
   body[data-route="guests"] .lede { font-size: 13px; }
 }
+
+/* Feedback dialog (opened from the bell) */
+.fb-type { display: flex; gap: 6px; }
+.fb-type button { flex: 1; height: 36px; border: 1px solid var(--line-strong); background: rgba(255, 253, 250, .8); color: var(--ink-soft); font: 500 13px var(--sans); cursor: pointer; }
+.fb-type button[aria-checked="true"] { background: var(--c-wine, #6e1f2e); border-color: var(--c-wine, #6e1f2e); color: #fff; }
+#fbDlg textarea { width: 100%; resize: vertical; font: 400 16px var(--sans); }
