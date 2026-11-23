@@ -1,5 +1,5 @@
 import { state, commit as baseCommit, uid, undoable, exportJSON, importJSON, isSeated } from './store.js';
-import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces, MORAIS_PHOTOS } from './data.js';
+import { MOODS, headTable, AREA_PRESETS, SPACES, seedSpaces } from './data.js';
 import { TABLE_STYLES, relationOf, seatCount, tableR, rectDims, chairPositions, suggestTables, autoSeat, findFreeSpot, footprint, openingRect, blockers, clearanceIssues } from './layout.js';
 import { esc, toast, heartLoaderHTML } from './util.js';
 import { photosForSpace, photoById } from './venue-map.js';
