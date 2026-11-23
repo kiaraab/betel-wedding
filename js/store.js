@@ -14,7 +14,7 @@ function fresh() {
     roles: structuredClone(SEED_ROLES),
     guests: [],
     autoGuests: {},          // personId -> true once added, so a deleted guest isn't re-added
-    guestTarget: 60,         // expected headcount, drives the layout suggestion
+    guestTarget: 100,        // expected headcount (Betel's list is about 100), drives the layout suggestion
     tables: seedTables(),
     inspo: seedInspoStrip(),
     links: [],               // guest connections: { a, b, type: 'love' | 'like' | 'apart' (older 'together' = like) }

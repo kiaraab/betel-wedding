@@ -1306,9 +1306,23 @@ export function renderSeating(root) {
     const head = SP().tables.find((t) => t.id === 'head') || headTable();
     const room = structuredClone(SP().room);
     // (the dance floor's size and spot are chosen by suggestTables: ~20 x 20 mid-hall, smaller only when the tables need the room)
-    return { n, head, room, s: suggestTables(room, n, style.value, head) };
+    const s = suggestTables(room, n, style.value, head);
+    // this style can't seat everyone: find the style that can (the one with the most seats), so a big guest list isn't a dead end
+    let alt = null;
+    if (!s.fits) for (const st of Object.keys(TABLE_STYLES)) {
+      if (st === style.value) continue;
+      const r2 = structuredClone(SP().room), s2 = suggestTables(r2, n, st, head);
+      if (s2.fits && (!alt || seatsOf(s2) > seatsOf(alt.s))) alt = { style: st, s: s2, room: r2 };
+    }
+    return { n, head, room, s, alt };
   };
-  preview = () => { const { n, s } = plan(); prev.innerHTML = `${s.needed} tables + sweetheart${s.fits ? '' : ` · <b>needs a bigger room for ${n}</b>`}`; };
+  const seatsOf = (s) => s.tables.reduce((a, t) => a + seatCount(t), 0);
+  preview = () => {
+    const { n, s, alt } = plan();
+    prev.innerHTML = s.fits ? `${s.needed} tables + sweetheart`
+      : alt ? `${TABLE_STYLES[style.value].label} seat ${seatsOf(s)} of ${n} here · <b>${TABLE_STYLES[alt.style].label} fit all ${n}</b>`
+      : `${s.needed} tables + sweetheart · <b>needs a bigger room for ${n}</b>`;
+  };
   count.oninput = preview;
   // the one guest-count control: edits state.guestTarget (also set from Overview) and re-lays out
   count.onchange = () => { const n = Math.max(2, Math.min(300, +count.value || 2)); count.value = n; if (n !== state.guestTarget) suggest(); };
@@ -1317,10 +1331,15 @@ export function renderSeating(root) {
   root.querySelectorAll('[data-style]').forEach((b) => b.onclick = () => { style.value = b.dataset.style; markStyle(); preview(); });
   // One code path for the popover and the Layout ideas cards. In 3D the scene is rebuilt (it eases in) instead of redrawing the plan.
   const suggest = () => {
-    const { n, head, room, s } = plan();
+    let { n, head, room, s, alt } = plan();
     closePop(); closeSug();
-    if (!s.fits) { toast(`Needs a bigger room for ${n}`); return; } // never lay out a plan with conflicts
-    localUndo(s.fits ? `${s.tables.length} tables laid out` : `Only ${s.tables.length} of ${s.needed} tables fit`, () => {
+    let note = '';
+    if (!s.fits) {
+      if (!alt) { toast(`Needs a bigger room for ${n}`); return; } // never lay out a plan with conflicts
+      note = ` · ${TABLE_STYLES[style.value].label} seat only ${seatsOf(s)} of ${n}, so I used ${TABLE_STYLES[alt.style].label}`;
+      style.value = alt.style; markStyle(); ({ room, s } = alt);
+    }
+    localUndo(`${s.tables.length} tables laid out${note}`, () => {
       state.guestTarget = n; state.lastStyle = style.value;
       SP().room.areas = room.areas;
       SP().tables = [s.head || head, ...s.tables];

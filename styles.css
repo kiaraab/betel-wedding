@@ -3708,3 +3708,8 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .agw li:last-child { border-bottom: 0; }
 .agw b { font-weight: 500; font-size: 12px; letter-spacing: .04em; color: var(--wine, #6e1f2e); }
 .agw span { color: var(--ink-soft); }
+
+/* Satellite map on phones: fit the screen (the outlined aerial photo is wider than the screen and pans, the satellite is not) and a little taller */
+@media (max-width: 760px) {
+  .vm-map.plain { width: 100%; min-width: 100%; aspect-ratio: 4 / 5; }
+}

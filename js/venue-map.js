@@ -189,8 +189,8 @@ function mapHTML() {
 const cellHTML = (p, { chip = false } = {}) => `<div class="vm-cell"><button type="button" class="vm-th" data-ph="${p.id}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" alt="${esc(p.name)}" loading="lazy" decoding="async" draggable="false"/>${chip ? `<span class="vm-chip">${esc(AREAS.find((a) => a.id === areaOf(p))?.name || '')}</span>` : ''}</button>
   <button type="button" class="vm-more" data-move="${p.id}" aria-label="Move ${esc(p.name)} to another place" aria-haspopup="menu" title="Move to…">${svgIcon('more', 14)}</button></div>`;
 
-/** Two ways to see the property, as icons next to the title: the close aerial (outlined areas) and a zoomed-out satellite map. */
-const OVERVIEW_SRC = 'https://www.google.com/maps?q=Morais+Vineyards,+11409+Marsh+Road,+Bealeton,+VA+22716&t=k&z=17&output=embed';
+/** Two ways to see the property, as icons next to the title: the close aerial (outlined areas) and a satellite map close in on the buildings. */
+const OVERVIEW_SRC = 'https://www.google.com/maps?q=Morais+Vineyards,+11409+Marsh+Road,+Bealeton,+VA+22716&t=k&z=18&output=embed';
 const VIEWS = [{ id: 'aerial', name: 'Aerial view', icon: 'aerial' }, { id: 'overview', name: 'Overview map', icon: 'globe' }];
 const viewIcons = () => `<div class="vm-viewicons" role="tablist" aria-label="Map view">${VIEWS.map((v, i) => `<button type="button" role="tab" class="vm-view${i ? '' : ' on'}" data-view="${v.id}" aria-selected="${!i}" aria-label="${v.name}" title="${v.name}">${svgIcon(v.icon, 20)}</button>`).join('')}</div>`;
 
@@ -231,6 +231,7 @@ export function renderVenueMap(root, { signal } = {}) {
     if (over && !fr) { fr = document.createElement('iframe'); fr.className = 'vm-embed'; fr.title = 'Satellite map of Morais Vineyards'; fr.loading = 'lazy'; fr.referrerPolicy = 'no-referrer'; fr.src = OVERVIEW_SRC; map.append(fr); }
     if (fr) fr.hidden = !over;
     map.querySelector('.vm-cap').textContent = over ? 'Satellite overview · drag to explore' : '';
+    const mcol = root.querySelector('.vm-mapcol'); if (mcol) { mcol.scrollLeft = over ? 0 : Math.max(0, (mcol.scrollWidth - mcol.clientWidth) / 2); } // phones: the satellite fits the screen; the aerial photo is wider and pans
   }, { signal }));
 
   /* ---- hover: a quiet highlight only ---- */

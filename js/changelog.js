@@ -4,6 +4,8 @@
 import { esc, trapFocus, toast } from './util.js';
 
 export const ENTRIES = [
+  { id: '2026-11-23-100', date: '2026-11-23', title: 'Planning for 100 guests',
+    items: ['Seating now plans for 100 guests. If your chosen tables can’t seat everyone, Suggest picks a layout that can and tells you why.', 'The satellite map opens close in on the buildings and fits your phone.'] },
   { id: '2026-11-23-ceremony', date: '2026-11-23', title: 'Ceremony planning',
     items: ['Chairs on the ceremony plan are easier to see.', 'Adding a groomsman adds them to the Guests page too. Rename them there.', 'A small Agenda card shows when the ceremony or hangout is planned.'] },
   { id: '2026-11-23-phone-plan', date: '2026-11-23', title: 'Easier on your phone',
