@@ -37,7 +37,6 @@ function showOnPlan(tableId) {
   setTimeout(tap, 120);
 }
 
-export function closePerson() { open?.close(); }
 
 export function openPerson(idOrPerson) {
   open?.close(true);

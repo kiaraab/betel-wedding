@@ -598,23 +598,6 @@ async function sharePicture(source) {
   return 'saved';
 }
 
-/* ---------------- images (inspo strip uploads) ---------------- */
-function readImage(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const k = Math.min(1, 520 / Math.max(img.width, img.height));
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(img.src);
-      resolve({ src: c.toDataURL('image/jpeg', 0.8), ratio: img.width / img.height });
-    };
-    img.onerror = () => reject(new Error('Could not read that image'));
-    img.src = URL.createObjectURL(file);
-  });
-}
-
 /* ---------------- page ---------------- */
 /** Older plans may have tables under the balcony rail: move those to the nearest free spot (seats move with the table). */
 function clearBalcony() {

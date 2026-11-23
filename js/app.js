@@ -24,11 +24,9 @@ let guestQuery = '';
 let colsOpen = false;   // keep the column menu open while toggling several
 let guestView = 'list'; // 'list' | 'graph'
 const openGuests = new Set();
-const openRoles = new Set();
 
 const rolesOf = (pid) => state.roles.filter((r) => r.people.includes(pid));
 const personName = (id) => state.people.find((p) => p.id === id)?.name || id;
-const relDate = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 const statusKey = (s) => s.toLowerCase().replace(/\s+/g, '-');
 
 /* ---------------- Overview ---------------- */
@@ -225,21 +223,6 @@ function overview() {
 }
 
 /* ---------------- Team ---------------- */
-function linkMeta(url) {
-  let host = '';
-  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { /* not a URL */ }
-  if (/pin\.it|pinterest/.test(host)) return { host: 'Pinterest', cls: 'pinterest' };
-  if (/spotify/.test(host)) return { host: 'Spotify', cls: 'spotify' };
-  if (/instagram/.test(host)) return { host: 'Instagram', cls: '' };
-  if (/tiktok/.test(host)) return { host: 'TikTok', cls: '' };
-  return { host: host || 'Link', cls: '' };
-}
-
-const linkChip = (l, del) => {
-  const m = linkMeta(l.url);
-  return `<a class="lchip ${m.cls}" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(m.host)}">${esc(l.label || m.host)}<span aria-hidden="true">↗</span>${del ? `<button class="lx" data-dellink="${del}" aria-label="Remove link">×</button>` : ''}</a>`;
-};
-
 /* Team v2 (REQ-51). Bridesmaids' cards are filled with their group colour; anyone else is a plain cream card.
    The colour can be changed per person from the card's menu (stored as p.color: 'pink' | 'burgundy' | 'green' | 'none'). */
 let teamFilter = 'all';   // 'all' | 'st:<status-key>' | 'role:<title>'
@@ -476,7 +459,6 @@ const RSVP = ['Not invited yet', 'Invited', 'Yes', 'Maybe', 'Declined'];
 const needsAddress = (g) => !g.street && g.party !== 'couple'; // a nice-to-have: only the "Need address" filter uses it
 const noSeat = (g) => g.party !== 'couple' && g.rsvp !== 'Declined' && !isSeated(g); // the dot on a guest's ⋮ button
 // small map-pin: the row's address & details button
-const PIN = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>';
 const SIDES = ['Betel', 'Carter', 'Both'];
 const DETAIL_FIELDS = [
   ['street', 'Street', 'text'], ['street2', 'Apt / suite', 'text'], ['city', 'City', 'text'], ['state', 'State', 'text'], ['zip', 'ZIP', 'text'],
@@ -497,7 +479,6 @@ const GCOLS = [
 ];
 const GCOLS_DEFAULT = ['side', 'rsvp', 'relation'];
 const visibleCols = () => { const on = Array.isArray(state.guestCols) ? state.guestCols : GCOLS_DEFAULT; return GCOLS.filter((c) => on.includes(c.k)); };
-const RSVP_HEAD = '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.4" y="3.9" width="11.2" height="8.2" rx="1.6"/><path d="M3 5l5 4 5-4"/></g></svg>';
 const SLIDERS = '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="15" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
 const FUNNEL = '<svg class="gf-ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 5.5h16l-6 7.2V19l-4-2v-4.3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
 const tableLabel = (g) => { const t = state.tables.find((x) => x.id === g.tableId); return t ? (t.id === 'head' ? 'Sweetheart' : /^\d+$/.test(t.name) ? `Table ${t.name}` : t.name) : ''; };
