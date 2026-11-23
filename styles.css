@@ -4043,3 +4043,61 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .vm-key span { display: inline-flex; align-items: center; gap: 8px; }
 .vm-key i { width: 20px; height: 0; border-top: 3px solid #fff; }
 .vm-key .lg-photo { border-top: 2px dashed rgba(255, 255, 255, .85); }
+
+.add-catlist { display: inline-flex; align-items: center; gap: 8px; width: fit-content; min-height: 36px; padding: 0 2px; border: 0; background: none; color: #5f6152; font: 500 13px var(--sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.add-catlist:hover { color: var(--c-wine, #6e1f2e); }
+.add-panel.mode-list .add-catlist { display: none; }
+
+/* Team: three layouts (Cards = as before, Compact = two small cards side by side, List = one row per person) */
+.team-head-r { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.team-views { display: inline-flex; border: 1px solid rgba(255, 255, 255, .45); }
+.team-views button { min-height: 36px; padding: 0 12px; border: 0; background: transparent; color: #fff; font: 500 13px var(--sans); cursor: pointer; }
+.team-views button.on { background: #fff; color: var(--c-wine, #6e1f2e); }
+.t-add { display: grid; gap: 8px; align-content: start; }
+.t-add .ta-h { font: 600 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.t-add input { min-height: 40px; }
+.t-add .tc-yes { min-height: 40px; }
+
+.tgrid.tv-compact { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; grid-auto-rows: auto !important; }
+@media (min-width: 1000px) { .tgrid.tv-compact { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+.tv-compact .tcard { padding: 10px 11px !important; }
+.tv-compact .tc-name { font-size: 17px; }
+.tv-compact .tc-tag, .tv-compact .tc-with, .tv-compact .tc-share, .tv-compact .tc-sharebtn, .tv-compact .tc-grip { display: none !important; }
+.tv-compact .tc-title { font-size: 12.5px; }
+.tv-compact .tc-role { padding: 5px 0; }
+.tv-compact .tc-meta { font-size: 11px; }
+
+.tgrid.tv-list { grid-template-columns: minmax(0, 1fr) !important; gap: 0 !important; grid-auto-rows: auto !important; }
+.tv-list .tcard { display: grid !important; grid-template-columns: minmax(110px, 30%) minmax(0, 1fr); align-items: start; column-gap: 12px; padding: 8px 12px !important; border-radius: 0 !important; min-height: 0 !important; }
+.tv-list .tc-head { grid-column: 1; }
+.tv-list .tc-roles, .tv-list .tc-add, .tv-list .tc-confirm, .tv-list .tc-agenda, .tv-list .tc-ag { grid-column: 2; }
+.tv-list .tc-roles { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; }
+.tv-list .tc-role { padding: 2px 0; border: 0; }
+.tv-list .tc-title { font-size: 13px; }
+.tv-list .tc-tag, .tv-list .tc-with, .tv-list .tc-share, .tv-list .tc-sharebtn { display: none !important; }
+.tv-list .tc-add { margin: 0; }
+.tv-list .tcard.t-add { grid-template-columns: 1fr; }
+@media (max-width: 640px) { .team-head-r { justify-content: flex-start; } .tv-list .tcard { grid-template-columns: minmax(84px, 34%) minmax(0, 1fr); column-gap: 8px; } }
+html body .team-views { background: rgba(42, 21, 25, .6) !important; border: 1px solid rgba(255, 255, 255, .4) !important; border-radius: 0 !important; }
+html body .team-views button { color: #fff !important; background: transparent !important; box-shadow: none !important; }
+html body .team-views button.on { background: #fff !important; color: var(--c-wine, #6e1f2e) !important; }
+
+/* Person popup: side as a dot menu (top right) */
+.pp-side { position: relative; align-self: flex-start; }
+.pp-sd { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 8px; background: transparent; border: 0; color: inherit; cursor: pointer; }
+.pp-sd b { font-size: 14px; line-height: 1; font-weight: 400; }
+.sd-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #b8955a; flex: none; }
+.sd-dot[data-s="Betel"] { background: #6e1f2e; }
+.sd-dot[data-s="Carter"] { background: #56694b; }
+.pp-sm { position: absolute; right: 0; top: 100%; z-index: 5; min-width: 130px; background: #fff; border: 1px solid rgba(0,0,0,.15); padding: 4px; }
+.pp-sm[hidden] { display: none; }
+.pp-sm button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; padding: 0 10px; background: transparent; border: 0; color: #2a1a1d; font: inherit; text-align: left; cursor: pointer; }
+.pp-sm button.on { background: #f3e1e3; }
+
+/* Slow background drift on scroll (set by --py in app.js) */
+body[data-route="team"]::before, body:is([data-route="overview"], [data-route="guests"], [data-route="agenda"])::before { inset: -60px -16px; transform: translate3d(0, var(--py, 0px), 0); will-change: transform; }
+@media (prefers-reduced-motion: reduce) { body::before { transform: none !important; } }
+
+/* Connections: key sits above the graph, hint on its own line on phones */
+.graph-legend { border-top: 0; border-bottom: 1px solid var(--line); }
+@media (max-width: 640px) { .graph-legend { gap: 8px 12px; padding: 10px 12px; font-size: 12px; } .graph-legend .legend-tip { flex-basis: 100%; order: 9; } .graph-legend .suggest-btn { margin-left: 0; } }

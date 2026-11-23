@@ -61,6 +61,8 @@ export function openPerson(idOrPerson) {
           <input class="pp-name" data-k="name" value="${esc(name)}" aria-label="Name" spellcheck="false"/>
           <div class="pp-sub">${sub.map(esc).join(' · ')}</div>
         </div>
+        ${g && !couple ? `<div class="pp-side"><button type="button" class="pp-sd" aria-haspopup="true" aria-expanded="false" aria-label="Side: ${esc(g.side)}"><i class="sd-dot" data-s="${esc(g.side)}"></i><b aria-hidden="true">⌄</b></button>
+          <div class="pp-sm" hidden>${SIDES.map((s) => `<button type="button" data-side="${s}" class="${s === g.side ? 'on' : ''}"><i class="sd-dot" data-s="${s}"></i>${s === 'Both' ? 'Shared' : s}</button>`).join('')}</div></div>` : ''}
         <button class="x pp-x" aria-label="Close">×</button>
       </header>
       ${g ? `
@@ -69,7 +71,6 @@ export function openPerson(idOrPerson) {
           ${FEATURES.rsvp ? `<label class="pp-f"><span>Status</span><select class="pp-in rsvp" data-k="rsvp" data-v="${esc(g.rsvp)}">${STATUS.map((s) => `<option ${s === g.rsvp ? 'selected' : ''}>${s}</option>`).join('')}</select></label>` : ''}
           ${couple ? '' : `<label class="pp-f"><span>Relation</span><select class="pp-in" data-k="relation"><option value="none">—</option>${RELATIONS.map((r) => `<option ${r === relationOf(g) ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`}
         </div>` : ''}
-        <div class="pp-f"><span>Side</span><div class="pp-seg" role="radiogroup" aria-label="Side">${SIDES.map((s) => `<button type="button" role="radio" data-side="${s}" aria-checked="${s === g.side}" class="${s === g.side ? 'on' : ''}">${s === 'Both' ? 'Shared' : s}</button>`).join('')}</div></div>
         ${roles.length ? `<div class="pp-f"><span>Role</span><div class="pp-roles">${roles.map((r) => `<em>${esc(r)}</em>`).join('')}</div></div>` : ''}
         <div class="pp-sec">Details ${FEATURES.address && !g.street ? '<b class="need-addr">Need address</b>' : ''}</div>
         ${detailsHTML(g)}
@@ -107,10 +108,19 @@ export function openPerson(idOrPerson) {
     el.addEventListener('change', write);
     if (el.dataset.k === 'name') el.addEventListener('blur', () => { if (!el.value.trim()) el.value = g?.name || p?.name || ''; });
   });
-  card.querySelectorAll('[data-side]').forEach((b) => b.onclick = () => {
-    g.side = b.dataset.side; dirty = true; commit({ silent: true });
-    card.querySelectorAll('[data-side]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
-  });
+  const sdBtn = card.querySelector('.pp-sd'), sdMenu = card.querySelector('.pp-sm');
+  if (sdBtn) {
+    sdBtn.onclick = () => { sdMenu.hidden = !sdMenu.hidden; sdBtn.setAttribute('aria-expanded', String(!sdMenu.hidden)); };
+    card.querySelectorAll('[data-side]').forEach((b) => b.onclick = () => {
+      g.side = b.dataset.side; dirty = true; commit({ silent: true });
+      card.querySelectorAll('[data-side]').forEach((x) => x.classList.toggle('on', x === b));
+      sdBtn.querySelector('.sd-dot').dataset.s = g.side;
+      sdBtn.setAttribute('aria-label', 'Side: ' + g.side);
+      const sub = card.querySelector('.pp-sub');
+      if (sub) sub.textContent = sub.textContent.replace(/^(Shared|Betel’s side|Carter’s side)/, g.side === 'Both' ? 'Shared' : g.side + '’s side');
+      sdMenu.hidden = true; sdBtn.setAttribute('aria-expanded', 'false');
+    });
+  }
 
   // details (address, household, plus-one, dietary, notes, photo): redraw just that block in place
   const wireGd = () => {

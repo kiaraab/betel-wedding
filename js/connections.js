@@ -80,15 +80,16 @@ export function renderConnections(host) {
   const REP = many ? 1900 : 1100, RANGE = many ? 260 : 220, MINGAP = many ? 34 : 26;
   host.innerHTML = `
     <div class="graph-wrap">
-      <div class="graph-scroll"><svg class="graph" viewBox="0 0 ${W} ${H}" role="img" aria-label="Guest connections"${W > hostW ? ` style="width:${W}px;max-width:none"` : ''}></svg></div>
-      <div class="graph-choose" hidden></div>
-      <div class="graph-suggest" hidden></div>
       <div class="graph-legend">
         <span><i style="background:${SIDE_COLOR.Betel}"></i>Betel</span><span><i style="background:${SIDE_COLOR.Carter}"></i>Carter</span><span><i style="background:${SIDE_COLOR.Both}"></i>Both</span>
         <span class="lg-ln"><span class="ln love"></span>Love · next to</span><span class="lg-ln"><span class="ln like"></span>Like · same table</span><span class="lg-ln"><span class="ln apart"></span>Apart</span>
         <span class="legend-tip">Drop one person on another to link · tap a line to edit</span>
         <button class="btn line sm suggest-btn" id="suggestBtn">Suggest links</button>
       </div>
+      <div class="graph-scroll"><svg class="graph" viewBox="0 0 ${W} ${H}" role="img" aria-label="Guest connections"${W > hostW ? ` style="width:${W}px;max-width:none"` : ''}></svg></div>
+      <div class="graph-choose" hidden></div>
+      <div class="graph-suggest" hidden></div>
+
       <ul class="link-list"></ul>
     </div>`;
   const svg = host.querySelector('svg');
