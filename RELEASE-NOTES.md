@@ -99,3 +99,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - A quiet "Saved" appears after every change; Look picks can be undone; the help button no longer pulses; Tasting room has its own wording.
 
 - Overview opens with a Next up card (1-3 things to do now). Look shows one group at a time, with your current pick in the header.
+
+- Phone header is one row with a menu button; the sections open as a list. The Overview title no longer touches the photo on narrower phones.
