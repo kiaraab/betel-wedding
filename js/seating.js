@@ -1322,12 +1322,23 @@ export function renderSeating(root) {
       const r2 = structuredClone(SP().room), s2 = suggestTables(r2, n, st, head);
       if (s2.fits && (!alt || seatsOf(s2) > seatsOf(alt.s))) alt = { style: st, s: s2, room: r2 };
     }
+    // nothing seats everyone: use the style that seats the MOST (laid out without conflicts), and say how many it holds
+    if (!s.fits && !alt) {
+      let best = { style: style.value, s, room };
+      for (const st of Object.keys(TABLE_STYLES)) {
+        if (st === style.value) continue;
+        const r2 = structuredClone(SP().room), s2 = suggestTables(r2, n, st, head);
+        if (seatsOf(s2) > seatsOf(best.s)) best = { style: st, s: s2, room: r2 };
+      }
+      alt = { ...best, partial: true };
+    }
     return { n, head, room, s, alt };
   };
   const seatsOf = (s) => s.tables.reduce((a, t) => a + seatCount(t), 0);
   preview = () => {
     const { n, s, alt } = plan();
     prev.innerHTML = s.fits ? `${s.needed} tables + sweetheart`
+      : alt?.partial ? `Most this room seats: <b>${seatsOf(alt.s)} of ${n}</b> (${TABLE_STYLES[alt.style].label})`
       : alt ? `${TABLE_STYLES[style.value].label} seat ${seatsOf(s)} of ${n} here · <b>${TABLE_STYLES[alt.style].label} fit all ${n}</b>`
       : `${s.needed} tables + sweetheart · <b>needs a bigger room for ${n}</b>`;
   };
@@ -1344,7 +1355,7 @@ export function renderSeating(root) {
     let note = '';
     if (!s.fits) {
       if (!alt) { toast(`Needs a bigger room for ${n}`); return; } // never lay out a plan with conflicts
-      note = ` · ${TABLE_STYLES[style.value].label} seat only ${seatsOf(s)} of ${n}, so I used ${TABLE_STYLES[alt.style].label}`;
+      note = alt.partial ? ` · most this room seats is ${seatsOf(alt.s)} of ${n} (${TABLE_STYLES[alt.style].label})` : ` · ${TABLE_STYLES[style.value].label} seat only ${seatsOf(s)} of ${n}, so I used ${TABLE_STYLES[alt.style].label}`;
       style.value = alt.style; markStyle(); ({ room, s } = alt);
     }
     localUndo(`${s.tables.length} tables laid out${note}`, () => {
