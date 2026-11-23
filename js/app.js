@@ -9,6 +9,7 @@ import { openCatering } from './catering.js';
 import { enableAddressLookup } from './address.js';
 import { FEATURES } from './features.js';
 import { initSaved } from './saved.js';
+import { exampleName } from './easter.js';
 import { esc, toast, daysUntil, confirmDialog, initTablists, initSlideInk, bubbleSelects, BS_CHECK } from './util.js';
 import { wireTeamDrag } from './team-drag.js';
 import { openPerson } from './person.js';
@@ -635,7 +636,7 @@ function guests() {
     <section class="add-panel" id="addPanel" hidden aria-label="Add guests">
       <div class="viewseg add-seg" role="tablist" aria-label="What to add"><button type="button" role="tab" id="addOne" class="on" aria-selected="true">One person</button><button type="button" role="tab" id="pasteBtn" aria-selected="false" aria-expanded="false">A list</button></div>
       <form class="guest-add" id="gForm">
-        <input class="input" name="name" placeholder="Name" aria-label="Guest name" autocomplete="off" required/>
+        <input class="input" name="name" placeholder="${esc(exampleName())}" aria-label="Guest name" autocomplete="off" required/>
         <select class="select" name="side" data-bub aria-label="Side">${SIDES.map((s) => `<option>${s}</option>`).join('')}</select>
         <label class="add-cater"><input type="checkbox" name="cater" checked/> On the catering list</label>
         <button class="btn moss">Add</button>
