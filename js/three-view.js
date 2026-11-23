@@ -328,6 +328,11 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.domElement.classList.add('three');
   host.appendChild(renderer.domElement);
+  // Idle saver: the scene only redraws while something moves (or for 1.5 s after any input, so camera damping finishes); a slow heartbeat covers anything missed.
+  let wakeUntil = performance.now() + 4000, lastDraw = 0;
+  const wake = (ms = 1500) => { wakeUntil = Math.max(wakeUntil, performance.now() + ms); };
+  ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'touchstart', 'touchmove', 'contextmenu'].forEach((ev) => renderer.domElement.addEventListener(ev, () => wake(), { passive: true }));
+  addEventListener('keydown', () => wake()); addEventListener('keyup', () => wake());
 
   const scene = new THREE.Scene();
   const dayBg = new THREE.Color('#e9e2d2'), nightBg = new THREE.Color('#1a1310');
@@ -942,6 +947,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     const W = host.clientWidth || 600;
     const H = host.closest('.vow') ? Math.max(320, host.clientHeight || innerHeight - 190) : Math.max(320, Math.min(W * 0.8, innerHeight - 230));
     renderer.setSize(W, H, !host.closest('.vow'));
+    wake(600);
     camera.aspect = W / H; camera.updateProjectionMatrix();
     refitHome();
   };
@@ -1111,6 +1117,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   let raf, last = performance.now(), clock = 0, lit = -1;
   const mountedAt = performance.now(); // tables pop in on REAL time: the frame clock below is capped per frame, so a slow device (or a throttled tab) used to leave them invisible for ages
   const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  let popEndN = -1, popEndV = 0; // when the last table finishes popping in (recomputed only when the list changes)
+  const popEnd = () => { if (popEndN !== popIns.length) { popEndN = popIns.length; popEndV = popIns.reduce((m, p) => Math.max(m, p.delay), 0) + 0.7; } return popEndV; };
   function frame(now) {
     if (document.hidden) { last = now; raf = requestAnimationFrame(frame); return; }
     const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
@@ -1136,9 +1144,11 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
       p.g.scale.setScalar(Math.max(0.001, s));
     });
     // Labels hide during the tour, and fade out when you walk close so they never fill the screen
+    let labelsMoving = false;
     allLabels.forEach((l) => {
       let target = tour ? 0 : 1;
       if (walking && !tour) { l.getWorldPosition(_v); target = Math.max(0, Math.min(1, (camera.position.distanceTo(_v) - 9) / 12)); }
+      if (Math.abs(target - l.material.opacity) > 0.004) labelsMoving = true;
       l.material.opacity += (target - l.material.opacity) * Math.min(1, dt * 5);
       l.visible = l.material.opacity > 0.02;
     });
@@ -1163,19 +1173,23 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     popChairs.forEach((p) => { p.t += dt * 4; p.ch.scale.setScalar(1 + Math.max(0, 0.25 * (1 - p.t))); });
     // the ceiling only exists from below: looking down from above you see straight into the room
     ceilingG.visible = camera.position.y < WH - 1.5;
+    let moved = false;
     if (walking && !flight) { /* camera already aimed */ }
-    else if (!tour) controls.update();
+    else if (!tour) moved = controls.update();
     else camera.lookAt(controls.target);
-    renderer.render(scene, camera);
+    const t = performance.now();
+    const animating = moved || flight || tour || walking || evening > 0 || evening !== eveningTarget || lantern || labelsMoving || t < wakeUntil
+      || (t - mountedAt) / 1000 < popEnd() || popChairs.some((p) => p.t < 1);
+    if (animating || t - lastDraw > 400) { renderer.render(scene, camera); lastDraw = t; }
     raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
 
   return {
-    toggleLight() { eveningTarget = eveningTarget ? 0 : 1; return !!eveningTarget; },
-    walk(on) { return setWalk(on ?? !walking); },
+    toggleLight() { wake(); eveningTarget = eveningTarget ? 0 : 1; return !!eveningTarget; },
+    walk(on) { wake(); return setWalk(on ?? !walking); },
     experience,
-    zoom(f) { camera.position.sub(controls.target).multiplyScalar(f).add(controls.target); },
+    zoom(f) { wake(); camera.position.sub(controls.target).multiplyScalar(f).add(controls.target); },
     stats() { const i = renderer.info; return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, pixelRatio: renderer.getPixelRatio() }; },
     snapshot() { renderer.render(scene, camera); return renderer.domElement; },
     dispose() {
