@@ -3903,3 +3903,35 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
   /* 3D on a phone: the toolbar sits under the 3D | Plan switch, not behind it */
   html body .seat-layout.vow .stage-wrap > .plan-tools { top: 62px !important; padding-top: 0 !important; left: 12px !important; right: 12px; }
 }
+
+/* Phones: the 3D | Plan switch and the toolbar share ONE line (the switch overlays a spacer at the start of the toolbar; extra tools wrap under it) */
+@media (max-width: 760px) {
+  html body .plan-card .plan-tools { padding: 8px 12px !important; }
+  html body .seat-layout.vow .stage-wrap > .plan-tools { top: 12px !important; left: 12px !important; right: 12px !important; padding: 6px 8px !important; }
+  html body .plan-card .plan-tools::before, html body .stage-wrap > .plan-tools::before { content: ""; flex: 0 0 108px; height: 36px; }
+  html body .plan-card > .view-fixed, html body .stage-wrap > .view-fixed { top: 12px; left: 14px; }
+  html body .plan-tools .tool-seg button { min-height: 38px; min-width: 40px; padding: 0 10px; }
+}
+@media (max-width: 760px) {
+  /* plan tools on a phone: pinch to zoom, so the zoom group goes; the rest packs into two lines */
+  html body .plan-card .plan-tools .zoom #zIn, html body .plan-card .plan-tools .zoom #zOut { display: none !important; }
+  html body .plan-card .plan-tools .spacer { display: none; }
+  html body .plan-card .plan-tools { gap: 2px 4px !important; }
+  html body .plan-card .plan-tools .colorby { margin: 0; }
+}
+@media (max-width: 760px) {
+  html body .plan-card .plan-tools .colorby { font-size: 0; gap: 0; }
+  html body .plan-card .plan-tools .colorby select, html body .plan-card .plan-tools .colorby .bs-btn { font-size: 13px; }
+}
+@media (max-width: 760px) {
+  html body .plan-tools #full3 { display: none !important; }
+  html body .plan-tools .tool.icon { flex: 0 0 36px; min-width: 36px; width: 36px; }
+  html body .plan-tools #share, html body .plan-tools .btn.icon-btn { flex: 0 0 40px; }
+  html body .plan-card .plan-tools::before, html body .stage-wrap > .plan-tools::before { flex-basis: 104px; }
+  html body .seat-layout.vow .stage-wrap > .plan-tools { padding: 6px 6px !important; }
+}
+@media (max-width: 760px) {
+  html body .plan-tools #hdrUndo { padding: 0 6px !important; min-width: 0 !important; }
+  html body .plan-card .plan-tools { gap: 2px 2px !important; }
+  html body .plan-card .plan-tools::before, html body .stage-wrap > .plan-tools::before { flex-basis: 100px; }
+}
