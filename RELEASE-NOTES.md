@@ -15,6 +15,7 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 ---
 
 ## Unreleased (on main, not tagged yet)
+- **One photo gallery on the Seating map:** clicking an area no longer shows a second set of photos. The pop-up has the name, Edit seats and "See N photos below"; the gallery below starts as one page (12 on phones, 24 on desktop) with a **See all** button, and follows the area you pick (the map lights it up). Show fewer collapses it.
 - **Connections graph (REQ-115):** Love is a thick solid line with a heart, Like is thin and dotted, Apart is long grey dashes (so they differ by shape, not only colour). With a long guest list the canvas grows (phones scroll sideways inside it) and people keep a minimum distance. The list under the graph has Love / Like / Apart buttons per link, so you can change a relationship without redrawing it. Tested with 100 guests and 42 links at 375px.
 - **Seating map page on phones (REQ-113):** the photo gallery shows 12 at a time (24 on desktop) with Show more; the page went from about 6,700 px tall to about 1,500 px. The Reception, Ceremony and Hangout editor pages were not changed.
 - **Photo filter lights up its place (REQ-114):** choosing Ceremony, Reception and so on dims the rest of the map and lights up that area; on phones the map pans to it.
