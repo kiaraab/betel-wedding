@@ -9,31 +9,46 @@ const write = (k) => { try { localStorage.setItem(k, '1'); } catch { /* storage 
 /** Steps point at real elements; any that aren't on screen right now are skipped. */
 const TOURS = {
   overview: [
-    ['.hero .hero-count', 'Days to go.'],
-    ['.stats', 'Tap a number to open it.'],
-    ['.mtl-add', 'Add a date, like “Mar 3”.'],
+    ['.banner-date', 'Your countdown to June 17.'],
+    ['.stats', 'Tap a number to jump to that page.'],
+    ['.mtl-add', 'Add a milestone: type a date like “Mar 3”, then a name.'],
+    ['.glance', 'Everyone’s tasks at a glance.'],
+    ['#liveBtn', 'Sign in here so your changes are saved and shared with everyone.'],
   ],
   team: [
-    ['#tFilter', 'Show people by status.'],
-    ['.sdots', 'Tap a dot to set status.'],
-    ['.tc-name', 'Tap a name for details.'],
+    ['#tFilter', 'Filter by status. The number is how many.'],
+    ['.tcard .stbtn', 'Tap a status to change it: not started, in progress, waiting on bride, done.'],
+    ['.tcard .tc-grip', 'Drag a card to rearrange. Or use Alt and the arrow keys.'],
+    ['[data-menu]', 'Change a card’s colour or position.'],
     ['#addPerson', 'Add someone.'],
   ],
   guests: [
-    ['.gf-btn', 'Filter.'],
-    ['.g-name, [data-person]', 'Tap a name for details.'],
-    ['.viewseg', 'See connections.'],
+    ['#gForm', 'Type a name and press Add. Pick a side once you start typing.'],
+    ['#pasteBtn', 'Paste a whole list, or a photo of one.'],
+    ['.gf-btn', 'Filter the list.'],
+    ['.gcols-btn', 'Choose which columns to show. Drag a column’s edge to resize it.'],
+    ['.addr-btn', 'Tap ⋮ for address, household and notes.'],
+    ['.viewseg', 'Connections: link people who should sit together.'],
+    ['#csv', 'Download the list.'],
   ],
   agenda: [
-    ['#agSuggest', 'Start from a typical day.'],
+    ['#agSuggest', 'Start from a typical wedding day, or describe yours.'],
     ['.ab', 'Drag to move. Pull the bottom edge to resize. Tap to edit.'],
     ['#agAdd', 'Add an event.'],
+    ['#agToday', 'Jump to the current time.'],
   ],
   seating: [
-    ['.spaces', 'Ceremony, Reception, Hangout spot.'],
-    ['.plan-tools', 'Add tables and areas.'],
-    ['#planHost', 'Drag to move. Tap for details.'],
-    ['.viewseg', 'See it in 3D.'],
+    ['#vmTitle', 'Tap Morais Vineyards to show the areas you can plan seats in.'],
+    ['.vm-label.edit', 'Tap an area to see its photos. The pencil ones have seats you can edit.'],
+    ['.vm-viewicons', 'Switch between the aerial photo and a satellite map.'],
+    ['#vmAll', 'Every venue photo, mixed together. Filter by place.'],
+    ['.spaces', 'Switch between Reception, Ceremony, Hangout spot and Tasting room.'],
+    ['.vm-crumb', 'Back to the map.'],
+    ['.viewseg', 'Switch between the 3D view and the floor plan.'],
+    ['.vs-tabs', 'Layout, seat guests, and layout ideas.'],
+    ['#planHost', 'Drag tables to move them. Tap one for details.'],
+    ['#sugBtn', 'Suggest a layout that fits your guest count.'],
+    ['.venue-strip', 'Photos of this space. Tap one to see it big.'],
   ],
 };
 
@@ -65,7 +80,7 @@ function welcome() {
   scrim.innerHTML = `
     <section class="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeT">
       <p class="welcome-k" id="welcomeT">Welcome</p>
-      <p class="welcome-p">Made with love by Kiara. A little something to make the lead-up to your day easier: your flow and your wedding plan, in one place. Text me if you need help.</p>
+      <p class="welcome-p">Made with love by Kiara. A little something to make the lead-up to your day easier: your flow and your wedding plan, in one place. Sign in with the people icon at the bottom right so your changes are saved and shared. Text me if you need help.</p>
       <div class="welcome-b"><button class="btn line sm" data-w="tour">Quick tour</button><button class="btn moss sm" data-w="go">Let’s go</button></div>
     </section>`;
   document.body.append(scrim);
