@@ -36,6 +36,10 @@ A static, vanilla-JS wedding planner for the couple's team. Pages: Overview, Tea
 - Adding a top-level key: add it to `fresh()` in `store.js`, check `mergePart` handling in `store.js`/`merge-items.js`, add a label in `history.js` `LABEL`, and make sure it saves and syncs.
 - Migrations live in `healSeats()` (runs on load). Rule: change a saved plan **only** if it still equals the old default exactly; keep table ids and seatings; use fixed ids for new items (two devices must never invent different ones); never fewer tables than she has; make it a no-op on the second run. Test with a copy of the old layout, an edited layout, and a second run.
 
+## Overview: Next up and the guest dots
+- The top row is **Next up** (left) and the **guest dots** (right); on phones they stack. Tasks done and Days left sit under them.
+- **Next up** shows the 3 most useful things right now, numbered 1-3, each with a status line (and a date plus days left for a milestone). Sources, in priority order (built in `app.js`, `pool`): tasks Waiting on bride; a milestone within 45 days; tasks In progress; guests still to seat; an empty agenda; guests still to add; tasks Not started; the next milestone whenever it is. To add a source, add it to `pool` in the right priority spot and give it a short status line.
+
 ## Seating specifics
 - Reception = `state.room` + `state.tables`; other spaces = `state.spaces[id]`. `kindOf()` is `reception | ceremony | cocktail`.
 - Default reception: rounds of 8 for 100 guests, no dance floor (add one from More). The ballroom seats at most 84 at rounds; 100 needs long family rows (Suggest switches to them and says so). Suggest picks the style closest to the chosen one that seats everyone, else the one that seats the most, and says how many.

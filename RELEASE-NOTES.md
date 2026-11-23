@@ -133,3 +133,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Phones: the 3D | Plan switch and the toolbar share one line in 3D (two in the floor plan); zoom buttons and full screen are hidden on phones (pinch instead).
 
 - The what-got-easier tour is redone for phones (9 short steps incl. the + Add, the eye, Look) and shows once more; add ?tour=update to the address to replay it.
+
+- Overview: Next up is now three numbered steps with status and date, next to the guest dots.
