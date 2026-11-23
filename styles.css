@@ -3433,3 +3433,8 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .gate-card .pin-dots i { --r: 50%; }
 .gate::before { background: rgba(26, 16, 18, .56); }
 .gate-card .gate-script { color: #f3dcc0; }
+
+/* lock screen name on one row */
+.gate-card { width: min(640px, calc(100vw - 24px)); }
+.gate-card h1 { white-space: nowrap; font-size: clamp(17px, 5.2vw, 40px); letter-spacing: .06em; }
+.gate-card .gate-script { white-space: nowrap; }
