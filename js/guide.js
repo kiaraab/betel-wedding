@@ -2,7 +2,7 @@
 // "Seen" is remembered per device (localStorage); the tour can always be replayed from the "?".
 import { trapFocus } from './util.js';
 const SEEN_WELCOME = 'bc-welcome-seen';
-const SEEN_UPDATE = 'bc-update-guide-1124'; // the "what got easier" guide, shown once per device
+const SEEN_UPDATE = 'bc-update-guide-1125'; // the "what got easier" guide, shown once per device
 const seenKey = (r) => `bc-tour-${r}`;
 const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const write = (k) => { try { localStorage.setItem(k, '1'); } catch { /* storage blocked: shows again next time */ } };
