@@ -3611,7 +3611,6 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .bell-e.new .bell-h b::after { content: "New"; margin-left: 8px; padding: 1px 6px; border-radius: 3px; font: 600 10px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: #fff; background: var(--wine, #6e1f2e); }
 .bell-e ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-soft); }
 .bell-e li { margin: 2px 0; }
-.bell-f { border-top: 1px solid var(--line); padding-top: 8px; }
 @media (max-width: 760px) { .bell-pop { right: 14px; } }
 
 /* Guest list: lighter, thinner type (Inter 300) with a little air, headers in light Cinzel */
@@ -3789,10 +3788,6 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .vp-see { margin-top: 8px; width: 100%; }
 
 /* Bell footer links and the Home Screen dialog */
-.bell-f { display: flex; gap: 16px; flex-wrap: wrap; }
-.hs-sec h3 { margin: 6px 0 2px; font: 500 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
-.hs-sec ol { margin: 0 0 6px; padding-left: 20px; font-size: 14px; color: var(--ink-soft); }
-.hs-sec li { margin: 3px 0; }
 
 /* Guests: plain, bright page like Notion (the blurred photo made it feel dark), and the same flat grid look on phones */
 body[data-route="guests"]::before { display: none; }
