@@ -4,7 +4,7 @@
 import { esc, trapFocus } from './util.js';
 
 export const ENTRIES = [
-  { id: 'u1124b', date: '2026-11-23', title: 'Easier to use', items: ['Overview now shows what to do next.', 'A check shows when changes save, and Look opens one group at a time.'] },
+  { id: 'u1124b', date: '2026-11-23', title: 'Easier to use', items: ['Overview now shows what to do next.', 'A check shows when changes save.'] },
   { id: 'u1124', date: '2026-11-23', title: 'New', items: ['3D has a new evening look.', 'Pick your decor in Look: canopy, aisle, tables, candles and more.'] },
   { id: 'u1123', date: '2026-11-23', title: 'New', items: ['Seating: 3D view for Ceremony, Hangout and Tasting.'] },
   { id: 'bell', date: '2026-11-23', title: 'What’s new', items: ['Tap the bell any time to see updates.'] },
