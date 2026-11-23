@@ -1,4 +1,5 @@
-import { SEED_PEOPLE, SEED_ROLES, seedTables, seedRoom, seedInspoStrip, MILESTONES, seedSpaces, seedCeremony, seedCocktail, MORAIS_PHOTOS } from './data.js';
+import { suggestTables } from './layout.js';
+import { SEED_PEOPLE, SEED_ROLES, seedTables, seedRoom, headTable, seedInspoStrip, MILESTONES, seedSpaces, seedCeremony, seedCocktail, MORAIS_PHOTOS } from './data.js';
 
 const KEY = 'betel-carter-atelier';     // current plan lives here (versioned inside)
 const OLD_KEYS = ['betel-carter-atelier-v2'];
@@ -98,6 +99,22 @@ export function healSeats() {
       changed = true;
     });
     if (h && h.name === 'Tasting room' && h.w === 44 && h.h === 34 && !h.bistro) { sp.cocktail = seedCocktail(); changed = true; }
+  }
+  // The reception that still equals the ORIGINAL 60-guest starting layout (table positions untouched) moves to the 100-guest default (rounds of 8).
+  // Existing table ids stay (so seats and guests keep their tables); extra tables get fixed ids so two devices never create duplicates. Anything she edited is left alone.
+  if (Array.isArray(state.tables) && state.tables.length) {
+    const head = headTable(), old = suggestTables(seedRoom(), 60, 'round8', head).tables;
+    const cur = state.tables.filter((t) => t.id !== 'head');
+    const key = (t) => `${t.shape}:${Math.round(t.x * 10)}:${Math.round(t.y * 10)}:${t.rot || 0}`;
+    const hd = state.tables.find((t) => t.id === 'head');
+    if (hd && cur.length === old.length && key(hd) === key(head) && [...cur.map(key)].sort().join('|') === [...old.map(key)].sort().join('|')) {
+      const next = suggestTables(seedRoom(), 100, 'round8', head).tables;
+      if (next.length !== old.length || next.some((t, i) => key(t) !== key(old[i]))) {
+        const sortedCur = cur.slice().sort((a, b) => (a.o ?? 0) - (b.o ?? 0));
+        state.tables = [hd, ...next.map((t, i) => ({ ...t, id: sortedCur[i]?.id || `tr${i + 1}`, name: sortedCur[i]?.name ?? t.name }))];
+        changed = true;
+      }
+    }
   }
   if (Array.isArray(state.guests) && Array.isArray(state.tables)) {
     const real = new Set(state.tables.map((t) => t.id));

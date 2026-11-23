@@ -93,3 +93,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Suggest now lays out the most the room can seat when it cannot fit everyone, and says how many it holds.
 
 - Changing a look no longer reloads the 3D scene: it swaps in place and keeps your camera and lighting.
+
+- Reception starts from the 100-guest default (rounds of 8); a reception still on the original layout updates to it automatically, with everyone keeping their table.

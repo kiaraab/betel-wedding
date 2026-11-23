@@ -337,10 +337,10 @@ export const MORAIS_PHOTOS = [
 
 export const headTable = () => ({ id: 'head', name: 'Mr. & Mrs. Griffin', shape: 'rect', x: 25, y: 7, sides: { top: 2, bottom: 0, left: 0, right: 0 }, rot: 0, o: 0 });
 
-// Starting layout for 100 guests (the norm): sweetheart table at the arched doors, dance floor in front. Round tables only fit about 76 in this hall, so the starting layout uses long family rows (5 x 20).
+// Starting layout for the 100-guest norm: sweetheart table at the arched doors, dance floor in front, rounds in a U. Rounds of 8 seat about 76 in this hall (Suggest offers long family rows for all 100); she edits from here.
 export function seedTables() {
   const head = headTable();
-  return [head, ...suggestTables(seedRoom(), 100, 'family', head).tables];
+  return [head, ...suggestTables(seedRoom(), 100, 'round8', head).tables];
 }
 
 // Cropped from Betel's "Wedding day" board (private planning reference — credit belongs to the original pinners)
