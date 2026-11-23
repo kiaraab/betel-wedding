@@ -3863,3 +3863,9 @@ body[data-route="guests"] { background: #fbfaf8; }
   .seat-layout .sp-list li select { min-height: 38px; font-size: 14px; max-width: 48%; }
   .seat-layout .sp-q { font-size: 16px; min-height: 42px; }
 }
+
+/* Ceremony / Hangout / Tasting plans on phones: height follows the room (a tall fixed height left a big empty band above and below it) */
+@media (max-width: 760px) {
+  .seat-layout.is-plan .plan, .seat-layout.is-plan svg.plan { height: auto !important; min-height: 0 !important; max-height: none !important; }
+}
+@media (max-width: 760px) { .seat-layout .card.plan-card { padding-left: 0 !important; padding-right: 0 !important; } }
