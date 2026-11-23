@@ -15,6 +15,8 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 ---
 
 ## Unreleased (on main, not tagged yet)
+- **Wedding party by category (REQ-89):** who stands at the altar now comes from the Relationship on the Guests page: **Bridesmaid** on the left, **Groomsman** on the right (before, the whole Team stood on the left). Team members keep their saved order. Anyone you set to "—" leaves the party. **Action for Kiara:** Kiara and Monica show as Bridesmaid by default (team default), so set their Relationship to "—" on the Guests page if they should not stand at the altar.
+- **Venue photos (REQ-111, part):** 9 people-free photos from the visit are in the Seating gallery, tagged to places (`assets/venue/visit/`). 7 more with people in frame are held back (public repo) until Kiara says yes. Pinterest board not imported yet.
 - **Seating and floor plan on phones (mobile pass):**
   - 3D: the home view now pulls back to fit the room's width on a tall narrow screen (it only showed the middle of the room), and the toolbar fits inside the picture (it was clipped on the left).
   - **Tables always appear in 3D (old QA-24):** tables pop in on real time. Before, a per-frame-capped clock left them invisible on slow or throttled renders.
