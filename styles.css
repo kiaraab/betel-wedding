@@ -3737,3 +3737,12 @@ body[data-route="guests"] { background: #fbfaf8; }
   .masthead .nav-ink { display: none; }
 }
 @media (max-width: 760px) { .ov .banner .banner-names { font-size: min(27px, 5.8vw) !important; } }
+
+/* Venue photos: foldable strip (starts folded on phones) */
+button.vstrip-head { width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; align-items: center; margin-bottom: 12px; }
+.vstrip-chev { margin-left: auto; width: 10px; height: 10px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s var(--ease); opacity: .7; }
+.venue-strip.closed .vstrip-chev { transform: rotate(-45deg); }
+.venue-strip.closed .vstrip-grid { display: none; }
+.venue-strip.closed button.vstrip-head { margin-bottom: 0; }
+button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .vstrip-chev { transition: none; } }

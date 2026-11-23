@@ -1497,7 +1497,10 @@ function refHTML(rec) {
 function venueStripHTML() {
   const list = moraisOrder(space);
   if (!list.length) return '';
-  return `<section class="card venue-strip" aria-label="Venue photos"><div class="vstrip-head"><h3>Venue photos</h3><span class="vstrip-n">${list.length}</span></div>
+  // photos are secondary to seating: on a phone the strip starts folded (the choice is remembered on this device)
+  let open = !matchMedia('(max-width: 760px)').matches;
+  try { const v = localStorage.getItem('bc-vstrip-open'); if (v !== null) open = v === '1'; } catch { /* storage blocked: use the default */ }
+  return `<section class="card venue-strip${open ? '' : ' closed'}" aria-label="Venue photos"><button type="button" class="vstrip-head" aria-expanded="${open}"><h3>Venue photos</h3><span class="vstrip-n">${list.length}</span><i class="vstrip-chev" aria-hidden="true"></i></button>
     <div class="ref-grid morais-grid vstrip-grid">
       ${list.map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" alt="${esc(p.name)}" draggable="false" loading="lazy" decoding="async"/><span class="morais-cap">${esc(p.name)}</span></button>`).join('')}
     </div></section>`;
@@ -1505,6 +1508,8 @@ function venueStripHTML() {
 function wireMorais(root, signal) {
   const grid = root.querySelector('.morais-grid');
   if (!grid) return;
+  const strip = root.querySelector('.venue-strip'), sh = strip?.querySelector('.vstrip-head');
+  if (sh) sh.addEventListener('click', () => { const closed = strip.classList.toggle('closed'); sh.setAttribute('aria-expanded', String(!closed)); try { localStorage.setItem('bc-vstrip-open', closed ? '0' : '1'); } catch { /* not remembered */ } }, { signal });
   const thumbs = () => [...grid.querySelectorAll('.morais-th')];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const saveOrder = () => { const vis = thumbs().map((t) => t.dataset.ph); state.morais = [...vis, ...(Array.isArray(state.morais) ? state.morais : []).filter((id) => !vis.includes(id))]; commit({ silent: true }); }; // other spaces' photos keep their saved order
