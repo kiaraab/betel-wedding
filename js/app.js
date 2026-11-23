@@ -178,16 +178,26 @@ function overview() {
     <div class="dots" aria-hidden="true">${hearts}${dotsOf('d-seated', seatedN - coupleSeated)}${dotsOf('d-added', addedN - (couple.length - coupleSeated))}${dotsOf('d-open', openN)}</div>
     <ul class="dots-key">${couple.length ? '<li><i class="d-heart">' + HEART + '</i>Betel &amp; Carter</li>' : ''}<li><i class="d-seated"></i>Seated ${seatedN}</li><li><i class="d-added"></i>Added, not seated ${addedN}</li><li><i class="d-open"></i>Still to add ${openN}</li></ul>
   </section>`;
-  // "Next up": the one to three things worth doing now (ADHD rule: show what is next, not everything)
+  // "Next up": the three most useful things right now, sourced in this order (a dated milestone shows its date and days left):
+  // 1 tasks waiting on the bride, 2 a milestone within 45 days, 3 tasks in progress, 4 guests to seat, 5 an empty agenda, 6 guests still to add, 7 tasks not started, 8 the next milestone whenever it is
   const unseated = going.filter((g) => !isSeated(g) && g.party !== 'couple').length;
-  const openRole = state.roles.find((r) => r.status === 'In progress') || state.roles.find((r) => r.status === 'Not started');
-  const nextUp = [
+  const todayIso = iso(new Date());
+  const dateOf = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const nextMs = (state.milestones || []).filter((m) => m.id !== 'wedding' && m.date >= todayIso).sort((x, y) => x.date.localeCompare(y.date))[0];
+  const msItem = nextMs && { t: nextMs.label, s: `${dateOf(nextMs.date)} · in ${daysUntil(nextMs.date)} days`, soon: daysUntil(nextMs.date) <= 45 };
+  const roleItem = (r, s) => ({ href: '#team', t: r.title, s });
+  const pool = [
+    ...state.roles.filter((r) => r.status === 'Waiting on bride').slice(0, 2).map((r) => roleItem(r, 'Waiting on you')),
+    msItem && msItem.soon ? msItem : null,
+    ...state.roles.filter((r) => r.status === 'In progress').slice(0, 2).map((r) => roleItem(r, 'In progress')),
     unseated && state.guests.length > 2 ? { href: '#seating/reception', t: `Seat ${unseated} guest${unseated === 1 ? '' : 's'}`, s: `${seated} of ${going.length} seated` } : null,
-    openRole ? { href: '#team', t: openRole.title || 'Next task', s: openRole.status } : null,
     (state.agenda || []).length === 0 ? { href: '#agenda', t: 'Plan the day', s: 'The agenda is empty' } : null,
     going.length < state.guestTarget ? { href: '#guests', t: 'Add guests', s: `${going.length} of ${state.guestTarget}` } : null,
-  ].filter(Boolean).slice(0, 3);
-  const nextUpHTML = `<section class="nextup" aria-label="Next up"><h2>Next up</h2>${nextUp.length ? `<ul>${nextUp.map((n) => `<li><a href="${n.href}"><b>${esc(n.t)}</b><span>${esc(n.s)}</span><i aria-hidden="true">›</i></a></li>`).join('')}</ul>` : '<p class="nu-done">All caught up</p>'}</section>`;
+    ...state.roles.filter((r) => r.status === 'Not started').slice(0, 2).map((r) => roleItem(r, 'Not started')),
+    msItem && !msItem.soon ? msItem : null,
+  ].filter(Boolean);
+  const nextUp = pool.slice(0, 3);
+  const nextUpHTML = `<section class="nextup" aria-label="Next up"><h2>Next up</h2>${nextUp.length ? `<ol>${nextUp.map((n, i) => { const body = `<span class="nu-n" aria-hidden="true">${i + 1}</span><span class="nu-t"><b>${esc(n.t)}</b><span>${esc(n.s)}</span></span>${n.href ? '<i aria-hidden="true">›</i>' : ''}`; return `<li>${n.href ? `<a href="${n.href}">${body}</a>` : `<div class="nu-row">${body}</div>`}</li>`; }).join('')}</ol>` : '<p class="nu-done">All caught up</p>'}</section>`;
 
   view.innerHTML = `
     <div class="ov">
@@ -202,11 +212,10 @@ function overview() {
       </section>
 
       <div class="ov-side">
-        ${nextUpHTML}
+        <div class="ov-top">${nextUpHTML}${guestDotsHTML}</div>
         <div class="stats ov-metrics">
           ${stat('#team', done, state.roles.length, 'Tasks done')}
           <div class="stat"><b>${days}</b><span>Days left</span></div>
-          ${guestDotsHTML}
         </div>
 
         <div class="ov-cards">

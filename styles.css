@@ -3714,12 +3714,6 @@ body[data-route="guests"] { background: #fbfaf8; }
 .nextup h2 { margin: 0 0 4px; font: 600 11px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: #5f6152; }
 .nextup ul { list-style: none; margin: 0; padding: 0; }
 .nextup li + li { border-top: 1px solid rgba(35, 37, 28, .12); }
-.nextup a { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; min-height: 52px; padding: 6px 0; color: inherit; text-decoration: none; }
-.nextup a b { font: 600 16px var(--sans); }
-.nextup a span { grid-column: 1; font: 400 13px var(--sans); color: #5f6152; }
-.nextup a i { grid-row: 1 / 3; grid-column: 2; font-style: normal; font-size: 24px; color: var(--c-wine, #6e1f2e); }
-.nextup a:hover b { text-decoration: underline; text-underline-offset: 3px; }
-.nextup a:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
 .nextup .nu-done { margin: 4px 0 8px; font: 500 15px var(--sans); }
 
 /* Phone header: one row (logo left, menu button right); the sections open as a list under it */
@@ -3935,3 +3929,18 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
   html body .plan-card .plan-tools { gap: 2px 2px !important; }
   html body .plan-card .plan-tools::before, html body .stage-wrap > .plan-tools::before { flex-basis: 100px; }
 }
+
+/* Overview top row: Next up (big numerals, status, date) on the left, the guest dots on the right */
+.ov-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin: 0 0 14px; align-items: stretch; }
+@media (max-width: 900px) { .ov-top { grid-template-columns: minmax(0, 1fr); } }
+.ov-top > .nextup, .ov-top > .dotstat { margin: 0; }
+.nextup ol { list-style: none; margin: 0; padding: 0; }
+.nextup li + li { border-top: 1px solid rgba(35, 37, 28, .12); }
+.nextup li > a, .nextup .nu-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 52px; padding: 5px 0; color: inherit; text-decoration: none; }
+.nextup .nu-n { font: 500 28px/1 var(--display, Georgia, serif); color: var(--c-wine, #6e1f2e); }
+.nextup .nu-t { display: grid; gap: 1px; min-width: 0; }
+.nextup .nu-t b { font: 600 15.5px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nextup .nu-t span { font: 400 12.5px var(--sans); color: #5f6152; }
+.nextup li > a > i { font-style: normal; font-size: 22px; color: var(--c-wine, #6e1f2e); }
+.nextup li > a:hover .nu-t b { text-decoration: underline; text-underline-offset: 3px; }
+.nextup li > a:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
