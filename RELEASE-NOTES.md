@@ -127,3 +127,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Guests on phones: one compact line per guest (about 16 per screen); household, table and notes are in each guest's menu.
 
 - Guests: one + button opens Add (one person or a list) with a tick for the catering list; it stays open for adding several people.
+
+- 3D toolbar is calmer: Experience the evening is an eye icon in the toolbar, the zoom +/- buttons are gone (pinch or scroll), full screen only shows where the browser supports it, and the toolbar no longer sits under the 3D | Plan switch on phones.

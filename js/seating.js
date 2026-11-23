@@ -87,6 +87,7 @@ const ICONS = {
   high: '<circle cx="12" cy="9" r="4"/><path d="M12 13v7M8 20h8"/>', area: '<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 3"/>',
   photo: '<rect x="3" y="6" width="18" height="13" rx="1.5"/><circle cx="12" cy="12.5" r="3"/>', fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   evening: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', walk: '<circle cx="12" cy="5" r="2"/><path d="M12 8v6l-3 6M12 14l3 6M8 11l4-2 4 2"/>',
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   light: '<path d="M12 3v3M5 6l2 2M19 6l-2 2"/><circle cx="12" cy="13" r="4"/><path d="M10 19h4"/>',
 };
 const toolIcon = (k, label, attrs = '') => `<button class="tool icon" ${attrs} aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg></button>`;
@@ -674,8 +675,8 @@ export function renderSeating(root) {
                 </div></span>` : ''}`
             : `${toolIcon('walk', 'Walk through', 'id="walk" aria-pressed="false"')}
                ${toolIcon('light', 'Candlelight', 'id="light"')}
-               <button class="tool icon" id="zIn3" aria-label="Zoom in" title="Zoom in">+</button><button class="tool icon" id="zOut3" aria-label="Zoom out" title="Zoom out">−</button>
-               ${toolIcon('fit', 'Full screen', 'id="full3"')}`}
+               ${vow ? toolIcon('eye', 'Experience the evening', 'id="evening"') : ''}
+               ${document.fullscreenEnabled ? toolIcon('fit', 'Full screen', 'id="full3"') : ''}`}
             <button class="tool" id="hdrUndo" type="button" disabled>Undo</button>
             <button class="btn moss sm icon-btn" id="share" aria-label="Save the layout as a picture" title="Save the layout as a picture"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </div>
@@ -708,8 +709,7 @@ export function renderSeating(root) {
             <div id="planHost"></div>
             <div class="color-legend" id="legend"${rec && mode === 'plan' && legendHTML() ? '' : ' hidden'}>${rec ? legendHTML() : ''}</div>
             <div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
-            ${vow && mode === '3d' ? `<p class="hero-stats" id="heroStats">${statsText()}</p>
-            <button class="hero-exp" id="evening">Experience the evening <span aria-hidden="true">↗</span></button>` : ''}
+            ${vow && mode === '3d' ? `<p class="hero-stats" id="heroStats">${statsText()}</p>` : ''}
           </div>
         </div>
       </div>
@@ -1265,9 +1265,7 @@ export function renderSeating(root) {
       walk.onclick = () => { const on = three.walk(); walk.setAttribute('aria-pressed', String(on)); walk.classList.toggle('on', on); setLbl(walk, on ? 'Exit walk' : 'Walk through'); };
       const light = root.querySelector('#light');
       light.onclick = () => { const evening = three.toggleLight(); setLbl(light, evening ? 'Afternoon light' : 'Candlelight'); light.classList.toggle('on', evening); };
-      root.querySelector('#zIn3').onclick = () => three.zoom(0.78);
-      root.querySelector('#zOut3').onclick = () => three.zoom(1 / 0.78);
-      root.querySelector('#full3').onclick = () => { const w = root.querySelector('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen(); else w.requestFullscreen?.(); };
+      const full3 = root.querySelector('#full3'); if (full3) full3.onclick = () => { const w = root.querySelector('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen(); else w.requestFullscreen?.(); };
       const evening = root.querySelector('#evening');
       if (evening) evening.onclick = () => { three.experience(); setLbl(light, 'Afternoon light'); light.classList.add('on'); const w = root.querySelector('#walk'); setLbl(w, 'Walk through'); w.classList.remove('on'); };
     }).catch((err) => { console.error(err); host.innerHTML = '<p class="muted" style="padding:24px">3D view needs an internet connection.</p>'; });
