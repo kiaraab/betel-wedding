@@ -3300,3 +3300,18 @@ body.seat-on .spaces button.on { font-weight: 600; }
 @media (max-width: 760px) { .vm-label { font-size: 11px; padding: 3px 8px 4px; } .vm-cell { width: 42vw; } .vm-legend { font-size: 10px; gap: 8px; padding: 3px 8px; } .vm-kind { display: none; } }
 .vm-mapcol { max-width: calc((100vh - var(--top-h) - 170px) * 16 / 9); margin: 0 auto; width: 100%; } @media (max-width: 760px) { .vm-mapcol { max-width: none; } }
 .seat-layout.is-plan { grid-template-columns: minmax(0, 1fr) 330px; }
+
+/* --- round 11h: QA fixes --- */
+@media (max-width: 900px) {
+  .seat-layout.vow, .seat-layout.vow.is-plan, .seat-layout.is-plan { grid-template-columns: minmax(0, 1fr); }
+  .seat-layout.vow { grid-template-rows: auto minmax(480px, 70vh); height: auto; }
+}
+@media (max-width: 760px) {
+  .page-head .guest-add { flex-wrap: wrap; }
+  .page-head .guest-add .input { flex: 1 1 100%; }
+  .guest-add .bs-btn { min-width: 0; }
+  body:has(.ag-panel) .guide-q { display: none; }
+  .vm-legend { position: static; margin: 6px 0 0; justify-content: center; background: transparent; color: var(--c-ink); }
+  .vm-legend i { border-top-color: var(--c-ink); }
+  .vm-label { font-size: 10px; padding: 2px 6px 3px; }
+}

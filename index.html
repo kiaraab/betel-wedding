@@ -85,7 +85,7 @@
         } else {
           err.textContent = 'That is not it. Try again.';
           card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
-          setTimeout(() => { pin = ''; paint(); busy = false; }, 420);
+          setTimeout(() => { pin = ''; paint(); busy = false; card.classList.remove('shake'); err.textContent = ''; }, 420);
         }
       };
       const del = () => { if (!busy) { pin = pin.slice(0, -1); paint(); } };
