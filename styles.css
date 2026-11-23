@@ -3753,3 +3753,25 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .bell-h { align-items: center; }
 .bell-x { flex: none; width: 24px; height: 24px; padding: 0; border: 0; background: transparent; color: var(--ink-faint); font-size: 18px; line-height: 1; cursor: pointer; }
 .bell-x:hover, .bell-x:focus-visible { color: var(--wine, #6e1f2e); }
+
+/* Connections: Love and Like must look different at a glance (not only by colour). Love = thick solid wine line with a heart; Like = thin dotted green; Apart = long grey dashes. */
+.graph .edge.love { stroke: var(--c-wine, #6e1f2e); stroke-width: 3.2; stroke-dasharray: none; opacity: 1; }
+.graph .edge.like, .graph .edge.together { stroke: #4f6a45; stroke-width: 2.2; stroke-dasharray: .1 5.5; stroke-linecap: round; opacity: 1; }
+.graph .edge.apart { stroke: var(--ink-faint); stroke-width: 1.6; stroke-dasharray: 8 6; opacity: .85; }
+.graph .eheart { fill: var(--c-wine, #6e1f2e); stroke: #fffdf8; stroke-width: 1.4; pointer-events: none; }
+.graph-legend .ln { border-top-width: 3px; }
+.graph-legend .ln.love { background: none; border-top: 3.5px solid var(--c-wine, #6e1f2e); }
+.graph-legend .ln.like { background: none; border-top: 3px dotted #4f6a45; }
+.graph-legend .ln.apart { border-top: 2px dashed var(--ink-faint); }
+.graph-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.graph { touch-action: pan-x pan-y; }
+.graph .node { touch-action: none; }
+@media (pointer: coarse) { .graph .node circle.dot { r: 9px; } .graph .node.couple circle.dot { r: 11px; } }
+/* link list: change the relationship right here */
+.seg { display: inline-flex; border: 1px solid var(--line-strong); }
+.seg button { border: 0; background: transparent; padding: 3px 9px; font: 500 12px var(--sans); color: var(--ink-soft); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+.seg button[aria-pressed="true"].seg-love { background: var(--c-wine, #6e1f2e); color: #fff; }
+.seg button[aria-pressed="true"].seg-like { background: #4f6a45; color: #fff; }
+.seg button[aria-pressed="true"].seg-apart { background: #7a6e72; color: #fff; }
+@media (max-width: 760px) { .link-list li { flex: 1 1 100%; justify-content: space-between; } .seg button { min-height: 32px; padding: 3px 12px; } }
