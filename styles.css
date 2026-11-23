@@ -3686,3 +3686,6 @@ body[data-route="guests"] { background: #fbfaf8; }
 .lk-chip:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
 @media (pointer: coarse), (max-width: 760px) { .lk-chip { min-height: 44px; } }
 .look-card h3 { margin: 0 0 12px; }
+
+/* Phone: the Layout / Seat guests / Look panel grows to its content (a 46vh cap clipped long lists such as Look, with no way to scroll) */
+@media (max-width: 900px) { .seat-layout.vow, .seat-layout.vow.is-plan { grid-template-rows: minmax(480px, 70vh) max-content; } .seat-layout.vow .vow-side { max-height: none; } }
