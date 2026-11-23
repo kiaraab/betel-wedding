@@ -61,8 +61,9 @@ export const partyDots = (room, pool) => {
   ];
 };
 /** SVG for the dots (drawn with the fixed features). `anim` makes them pop in one after another; a tapped dot shows its name right beside it (no popover). */
-export function partySVG(room, pool, anim, selKey) {
-  return partyDots(room, pool).map((d, k) => `<g class="party-dot ${d.side}${selKey === d.id ? ' sel' : ''}" data-pkey="${esc(d.id)}" transform="translate(${d.x} ${d.y})"><title>${esc(d.label)}</title><g class="pd-in"${anim ? ` style="animation-delay:${k * 40}ms"` : ''}><circle r="${DOT_R}"/><text y=".48">${d.n}</text></g>${selKey === d.id ? `<text class="pd-label" y="-1.9">${esc(d.label)}</text>` : ''}<text class="pd-label pd-hover" y="-1.9">${esc(d.label)}</text></g>`).join('');
+const lightHex = (h) => { const n = parseInt(h.slice(1), 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 150; };
+export function partySVG(room, pool, anim, selKey, tint = () => null) { // tint(id) = a team colour for that person (their Team card colour), or null for the usual dot colour
+  return partyDots(room, pool).map((d, k) => `<g class="party-dot ${d.side}${selKey === d.id ? ' sel' : ''}" data-pkey="${esc(d.id)}" transform="translate(${d.x} ${d.y})"><title>${esc(d.label)}</title><g class="pd-in"${anim ? ` style="animation-delay:${k * 40}ms"` : ''}><circle r="${DOT_R}"${tint(d.id) ? ` style="fill:${tint(d.id)}"` : ''}/><text y=".48"${tint(d.id) && lightHex(tint(d.id)) ? ' style="fill:#2a1a1d"' : ''}>${d.n}</text></g>${selKey === d.id ? `<text class="pd-label" y="-1.9">${esc(d.label)}</text>` : ''}<text class="pd-label pd-hover" y="-1.9">${esc(d.label)}</text></g>`).join('');
 }
 /** Lowest y a row of chairs may start at so it clears the standing party. */
 export function partyBottom(room, pool) {

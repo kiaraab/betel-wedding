@@ -20,6 +20,7 @@ function fresh() {
     links: [],               // guest connections: { a, b, type: 'love' | 'like' | 'apart' (older 'together' = like) }
     room: seedRoom(),
     mood: 'vineyard-dusk',
+    style: {},               // 3D Look choices (js/style-options.js): only what was picked; a missing key = the default look
     milestones: structuredClone(MILESTONES), // sourced dates only; editable on the overview
     morais: MORAIS_PHOTOS.map((p) => p.id), // Morais photo order beside the 3D view (drag to rearrange)
     spaces: seedSpaces(),    // ceremony + cocktail plans; the reception stays in room/tables (older plans get these on load)
@@ -164,7 +165,7 @@ let base = { stamp: null, parts: {} };
 function snapBase() {
   base = { stamp: state.updatedAt || null, parts: Object.fromEntries(Object.keys(state).map((k) => [k, JSON.stringify(state[k])])) };
 }
-import { MERGE_KEYS, mergeById } from './merge-items.js';
+import { MERGE_KEYS, mergeById, mergeFlat } from './merge-items.js';
 const META = new Set(['updatedAt', 'version']);
 /** What to do with one part of the plan when someone else saved a newer copy. Returns { value } to take, or null to keep ours.
  *  Untouched here: take theirs. Untouched there: keep ours. Both changed a list of items: merge item by item (js/merge-items.js). */
@@ -175,6 +176,11 @@ function mergePart(k, localVal, remoteVal) {
   if (MERGE_KEYS.has(k)) {
     let b = null; try { b = JSON.parse(baseJson); } catch { /* no base: fall through */ }
     const merged = mergeById(b, localVal, remoteVal);
+    if (merged) return { value: merged };
+  }
+  if (k === 'style') { // the 3D Look choices: every group is its own pick
+    let b = {}; try { b = JSON.parse(baseJson) || {}; } catch { /* no base: treat as empty */ }
+    const merged = mergeFlat(b, localVal, remoteVal);
     if (merged) return { value: merged };
   }
   return null; // both changed something we can't merge by item: keep ours (as before)

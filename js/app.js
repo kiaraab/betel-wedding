@@ -14,6 +14,7 @@ import { detailsHTML, wireDetails, householdSelectHTML, wireHouseholdSelect } fr
 import { renderAgenda } from './agenda.js';
 import { initGuide, refreshGuide } from './guide.js';
 import { initHistory } from './history.js';
+import { TEAM_COLORS, colorOf } from './team-colors.js';
 import { initSync, mountLive, info as syncInfo } from './sync.js';
 import { mountPaste, openPaste, pasteIsOpen } from './guest-paste.js';
 
@@ -241,9 +242,6 @@ const linkChip = (l, del) => {
 
 /* Team v2 (REQ-51). Bridesmaids' cards are filled with their group colour; anyone else is a plain cream card.
    The colour can be changed per person from the card's menu (stored as p.color: 'pink' | 'burgundy' | 'green' | 'none'). */
-const TEAM_COLORS = { none: 'Default', pink: 'Pink', burgundy: 'Burgundy', green: 'Green', cream: 'Cream', rose: 'Rose', sage: 'Sage', plum: 'Plum', sand: 'Sand' };
-const COLOR_OF = { kiara: 'pink', monica: 'pink', ashlyn: 'burgundy', eden: 'burgundy', noella: 'burgundy', noemi: 'green', morgan: 'green', isabele: 'green' };
-const colorOf = (p) => p.color || COLOR_OF[p.id] || 'none';
 let teamFilter = 'all';   // 'all' | 'st:<status-key>' | 'role:<title>'
 let confirmDel = null;    // person id showing the inline "Remove X?"
 let editingRole = null;  // role id being edited on a team card

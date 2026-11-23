@@ -24,3 +24,16 @@ export function mergeById(base, local, remote) {
   }
   return out;
 }
+
+/** Three-way merge of a plain object of independent choices (state.style): each key is merged on its own, so two people picking
+ *  different things both keep their pick. Same key changed on both sides: this tab wins. Returns null when any of the three is not a plain object. */
+export function mergeFlat(base, local, remote) {
+  const ok = (o) => o && typeof o === 'object' && !Array.isArray(o);
+  if (!ok(base) || !ok(local) || !ok(remote)) return null;
+  const js = JSON.stringify, out = {};
+  new Set([...Object.keys(local), ...Object.keys(remote), ...Object.keys(base)]).forEach((k) => {
+    const v = js(local[k]) !== js(base[k]) ? local[k] : remote[k]; // changed here (added / removed too): ours; untouched here: theirs
+    if (v !== undefined) out[k] = v;
+  });
+  return out;
+}

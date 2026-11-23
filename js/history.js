@@ -11,7 +11,7 @@ const SKIP = new Set(['updatedAt', 'version']);
 const LABEL = {
   guests: 'Guests', links: 'Guests', guestTarget: 'Guests', autoGuests: 'Guests', guestCols: 'Guests', guestColW: 'Guests', teamOrder: 'Team',
   tables: 'Seating', room: 'Seating', spaces: 'Seating', lastStyle: 'Seating', morais: 'Seating',
-  people: 'Team', roles: 'Team', milestones: 'Milestones', agenda: 'Agenda', mood: 'Colors',
+  people: 'Team', roles: 'Team', milestones: 'Milestones', agenda: 'Agenda', mood: 'Colors', style: 'Look',
 };
 
 function hash(str) { // FNV-1a, enough to share identical parts
