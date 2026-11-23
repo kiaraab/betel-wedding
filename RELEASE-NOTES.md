@@ -83,3 +83,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - 3D: evening look from Betel's Pinterest: string lights, chocolate and olive tables with tall candles, new chairs, chiffon and greenery at the ceremony, mirror aisle.
 
 - Seating map: tap a place and a clear "Edit seats" button appears with its details.
+
+- 3D decor options (Look): canopy, aisle, backdrop, arch florals, table dressing, candles, ceiling, centerpieces, grazing/bar, guest extras. Bridesmaid figures use their Team card color. Bell: new entry.
