@@ -14,6 +14,10 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 
 ---
 
+## Unreleased (on main, not tagged yet)
+- **Connections graph (REQ-115):** Love is a thick solid line with a heart, Like is thin and dotted, Apart is long grey dashes (so they differ by shape, not only colour). With a long guest list the canvas grows (phones scroll sideways inside it) and people keep a minimum distance. The list under the graph has Love / Like / Apart buttons per link, so you can change a relationship without redrawing it. Tested with 100 guests and 42 links at 375px.
+- **Clearance (REQ-112):** see below under -b (shipped).
+
 ## v2026.11.23-b  (Nov 23, afternoon)
 **Planning for 100 guests**
 - Default expected guests is 100. At 100, only "Family rows" fits the ballroom (rounds top out at 76 to 88 seats), so Suggest now explains and switches to a style that seats everyone. Ceremony and Hangout spot fit 100; the Tasting room fits only 4 of the 10 high-tops needed. The ballroom size is still an estimate until Morais sends the real plan.
