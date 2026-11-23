@@ -3775,3 +3775,12 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .seg button[aria-pressed="true"].seg-like { background: #4f6a45; color: #fff; }
 .seg button[aria-pressed="true"].seg-apart { background: #7a6e72; color: #fff; }
 @media (max-width: 760px) { .link-list li { flex: 1 1 100%; justify-content: space-between; } .seg button { min-height: 32px; padding: 3px 12px; } }
+
+/* Map gallery: "Show more", and a place filter lights up its area on the map */
+.vm-showmore { position: static; grid-column: 1 / -1; width: auto; border-radius: 0; height: 40px; border: 1px solid var(--line-strong); background: rgba(255, 253, 250, .85); color: var(--ink-soft); font: 500 13px var(--sans); cursor: pointer; }
+.vm-showmore:hover { border-color: var(--c-wine, #6e1f2e); color: var(--c-wine, #6e1f2e); }
+.vm-map .vm-photo { transition: filter .3s ease; }
+.vm-map.filtering .vm-photo { filter: brightness(.62) saturate(.85); }
+.vm-map.filtering .vm-area:not(.hot) .vm-poly { fill-opacity: .03; stroke-opacity: .3; }
+.vm-map.filtering .vm-label:not(.hot) { opacity: .35; }
+.vm-map.filtering .vm-area.hot .vm-poly { fill-opacity: .5; stroke-width: 3; }

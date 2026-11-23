@@ -236,7 +236,7 @@ export function renderVenueMap(root, { signal } = {}) {
 
   /* ---- hover: a quiet highlight only ---- */
   let hot = null, open = null;
-  const setHot = (id) => { hot = id; root.querySelectorAll('.vm-map [data-area]').forEach((el) => el.classList.toggle('hot', el.dataset.area === (open || id))); };
+  const setHot = (id) => { hot = id; const on = open || id || (filter !== 'all' ? filter : null); root.querySelectorAll('.vm-map [data-area]').forEach((el) => el.classList.toggle('hot', el.dataset.area === on)); };
   map.addEventListener('pointerover', (e) => { if (e.pointerType === 'touch') return; const el = e.target.closest('[data-area]'); setHot(el ? el.dataset.area : null); }, { signal });
   map.addEventListener('pointerleave', () => setHot(null), { signal });
   map.addEventListener('focusin', (e) => { const el = e.target.closest('[data-area]'); if (el) setHot(el.dataset.area); }, { signal });
@@ -269,15 +269,27 @@ export function renderVenueMap(root, { signal } = {}) {
   pop.addEventListener('click', (e) => { if (e.target.closest('[data-closepop]')) closePop(); });
 
   /* ---- all photos, shuffled, filter by place ---- */
+  const PAGE = () => (matchMedia('(max-width: 760px)').matches ? 12 : 24);
+  let shown = PAGE(); // photos on screen; "Show more" adds a page (99 at once made the phone page 6,700 px tall)
   const drawAll = () => {
     const counts = Object.fromEntries(AREAS.map((a) => [a.id, photosIn(a.id).length]));
     filters.innerHTML = `<button type="button" class="vm-f${filter === 'all' ? ' on' : ''}" data-f="all" aria-pressed="${filter === 'all'}">All <b>${PHOTOS.length}</b></button>${AREAS.filter((a) => counts[a.id]).map((a) => `<button type="button" class="vm-f${filter === a.id ? ' on' : ''}" data-f="${a.id}" aria-pressed="${filter === a.id}" style="--a:${a.color || '#fff'}"><i aria-hidden="true"></i>${esc(a.name)} <b>${counts[a.id]}</b></button>`).join('')}`;
     const list = order0.map(byId).filter((p) => p && (filter === 'all' || areaOf(p) === filter));
-    allGrid.innerHTML = list.map((p) => cellHTML(p, { chip: filter === 'all' })).join('');
+    allGrid.innerHTML = list.slice(0, shown).map((p) => cellHTML(p, { chip: filter === 'all' })).join('') + (list.length > shown ? `<button type="button" class="vm-showmore" data-more>Show more · ${list.length - shown}</button>` : '');
     wireCells(allGrid);
     AREAS.forEach((a) => { const sEl = map.querySelector(`[data-st="${a.id}"]`); if (sEl) sEl.textContent = statusOf(a); });
   };
-  filters.addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; filter = b.dataset.f; drawAll(); filters.querySelector(`[data-f="${filter}"]`)?.focus({ preventScroll: true }); }, { signal });
+  allGrid.addEventListener('click', (e) => { if (!e.target.closest('[data-more]')) return; shown += PAGE(); drawAll(); }, { signal });
+  filters.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    filter = b.dataset.f; shown = PAGE(); drawAll(); setHot(null);
+    // the map shows which part of the property this filter is about: the rest dims, that area lights up, and a phone pans to it
+    map.classList.toggle('filtering', filter !== 'all');
+    const a = AREAS.find((x) => x.id === filter), mc = root.querySelector('.vm-mapcol');
+    if (a && mc && mc.scrollWidth > mc.clientWidth + 4) mc.scrollTo({ left: Math.max(0, (a.label[0] / 100) * mc.scrollWidth - mc.clientWidth / 2), behavior: 'smooth' });
+    if (a) map.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    filters.querySelector(`[data-f="${filter}"]`)?.focus({ preventScroll: true });
+  }, { signal });
 
   /* ---- lightbox ---- */
   const lb = document.createElement('div');
