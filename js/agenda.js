@@ -144,7 +144,7 @@ function fixedNote() {
   return 'Fixed events already on the day (do not move, rename, duplicate or overlap them; plan the rest of the day around them): ' + own.map((a) => `${toTime(S(a))}-${toTime(E(a))} ${a.title}`).join('; ') + '.';
 }
 
-const AI_SYSTEM = `You plan a wedding-day timeline at Morais Vineyards. Reply with JSON only: an array of {"title","start","end","venue","notes"}. start/end are 24h "HH:MM" and a time past midnight is fine. Events must be in order, must not overlap, and must fit inside the window given. venue must be exactly one of: ${VENUES.map((v) => v[0]).join(', ')} (or ""). Notes are short. The first event starts exactly at the window start.`;
+const AI_SYSTEM = `You plan a wedding-day timeline at Morais Vineyards. Reply with JSON only: an array of {"title","start","end","venue","notes"}. start/end are 24h "HH:MM" and a time past midnight is fine. Events must be in order, must not overlap, and must fit inside the window given. venue must be exactly one of: ${VENUES.map((v) => v[0]).join(', ')} (or ""). Notes are short. The first event starts exactly at the window start. Always include the ceremony as an event named Ceremony starting exactly at the ceremony time you are given. Leave about 10 minutes to walk between places. Golden-hour portraits start about 50 minutes before sunset (mid-June sunset is about 20:35, so about 19:45); first dance and cake cutting come early in the reception, not late.`;
 
 /* ---------- layout ---------- */
 function range() {
@@ -450,7 +450,8 @@ export function renderAgenda(view) {
           const list = blocksFromAi(data, from, to);
           if (!list.length) throw new Error('The AI plan did not fit the window.');
           aiPrev = list;
-        } catch (err) { toast(`${err.message || 'AI failed.'} Using the basic plan.`); aiPrev = null; thinking = false; suggesting = false; return addSuggested(suggestBlocks(from, to)); }
+        } catch (err) { // nothing goes into the shared plan unseen: the basic plan is shown as a preview to review, like an AI one
+          toast(`${err.message || 'AI failed.'} Here is the basic plan to review.`); aiPrev = suggestBlocks(from, to); thinking = false; return rerender(); }
         thinking = false; return rerender();
       }
       const own = prefs; prefs = new Set([...prefs, ...prefsFromText(sug.want)]);
