@@ -308,7 +308,7 @@ export function bubbleSelects(root = document) {
       btn.dataset.v = sel.value;
       btn.title = glyphs ? `${name ? name + ': ' : ''}${label}` : name;
       btn.setAttribute('aria-label', `${name ? name + ': ' : ''}${label}`);
-      btn.innerHTML = (glyphs ? glyphs[sel.value] || '' : `<span class="bs-l">${esc(label)}</span>`) + BS_CHEV;
+      btn.innerHTML = (glyphs ? (glyphs[sel.value] || '') + `<span class="bs-gt">${esc(label)}</span>` : `<span class="bs-l">${esc(label)}</span>`) + BS_CHEV; // glyph selects (RSVP) also carry their word; CSS shows it only where there is room
     };
     paint();
     sel.addEventListener('change', paint);

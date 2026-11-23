@@ -3815,3 +3815,34 @@ body[data-route="guests"] { background: #fbfaf8; }
   .plan-meta, #planMeta { flex-wrap: wrap; gap: 2px 12px; font-size: 12px; }
   #pmClear { white-space: nowrap; }
 }
+
+.bs-gt { display: none; }
+/* Guests on phones, roomier: two lines per guest. Top: the name and the details/remove buttons. Below: Side, RSVP (with its word) and Relationship in three even boxes with full text. */
+@media (max-width: 760px) {
+  body[data-route="guests"] table.guests thead tr { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px !important; padding: 8px 12px 4px !important; }
+  body[data-route="guests"] table.guests thead th:first-child, body[data-route="guests"] table.guests thead th:last-child { display: none !important; }
+  body[data-route="guests"] table.guests thead th.h-side, body[data-route="guests"] table.guests thead th.h-rsvp, body[data-route="guests"] table.guests thead th.h-relation { width: auto !important; padding: 0 2px !important; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+  body[data-route="guests"] table.guests tr.row { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px !important; padding: 10px 12px !important; align-items: center !important; }
+  body[data-route="guests"] table.guests tr.row td { order: 0 !important; width: auto !important; min-width: 0 !important; flex: none !important; }
+  body[data-route="guests"] table.guests tr.row td.c-name { grid-column: 1 / span 2; grid-row: 1; }
+  body[data-route="guests"] table.guests tr.row td.c-name .g-name { font-size: 16px !important; padding: 6px 2px !important; }
+  body[data-route="guests"] table.guests tr.row td.row-actions { grid-column: 3; grid-row: 1; justify-self: end; }
+  body[data-route="guests"] table.guests tr.row td.c-side { grid-column: 1; grid-row: 2; }
+  body[data-route="guests"] table.guests tr.row td.c-rsvp { grid-column: 2; grid-row: 2; }
+  body[data-route="guests"] table.guests tr.row td.c-relation { grid-column: 3; grid-row: 2; }
+  body[data-route="guests"] table.guests tr.row td.c-couple { grid-column: 1 / span 2; grid-row: 2; }
+  body[data-route="guests"] table.guests tr.row td.c-table { grid-column: span 1; grid-row: auto; }
+  body[data-route="guests"] table.guests tr.row td.c-household { grid-column: span 2; grid-row: auto; }
+  body[data-route="guests"] table.guests tr.row td.c-plusOne { grid-column: span 1; grid-row: auto; }
+  body[data-route="guests"] table.guests tr.row td.c-notes { grid-column: 1 / -1; grid-row: auto; }
+  body[data-route="guests"] table.guests tr.row .bs-btn { min-height: 40px !important; padding: 0 10px !important; justify-content: space-between; border: 1px solid #e9e6e1 !important; background: #fff !important; font-size: 13px; border-radius: 3px !important; }
+  body[data-route="guests"] table.guests tr.row .bs-btn .bs-l, body[data-route="guests"] table.guests tr.row .bs-btn .bs-gt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body[data-route="guests"] table.guests tr.row .bs-btn .bs-gt { display: inline; margin-right: auto; margin-left: 6px; }
+}
+@media (max-width: 760px) {
+  body[data-route="guests"] table.guests tr.row td.c-name { grid-column: 1 / span 2 !important; grid-row: 1 !important; }
+  body[data-route="guests"] table.guests tr.row td.c-name .g-name { width: 100% !important; }
+  body[data-route="guests"] table.guests tr.row .bs-btn { padding: 0 8px !important; font-size: 12.5px; }
+  body[data-route="guests"] table.guests tr.row .bs-btn .bs-chev { display: none; }
+  body[data-route="guests"] table.guests tr.row .bs-btn .bs-gt { margin-left: 4px; }
+}
