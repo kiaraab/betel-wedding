@@ -135,3 +135,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - The what-got-easier tour is redone for phones (9 short steps incl. the + Add, the eye, Look) and shows once more; add ?tour=update to the address to replay it.
 
 - Overview: Next up is now three numbered steps with status and date, next to the guest dots.
+
+- Tasks can have a due date (shown on the card and in Next up); the guest-dots legend is tidier.
