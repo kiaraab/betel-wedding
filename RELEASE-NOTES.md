@@ -89,3 +89,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Seating defaults to 100 guests: ceremony has 10 rows a side (100 chairs), new plans start with a 100-seat reception.
 
 - 3D view only redraws while something moves, so phones and laptops stay cooler.
+
+- Suggest now lays out the most the room can seat when it cannot fit everyone, and says how many it holds.
