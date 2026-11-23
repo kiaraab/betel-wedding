@@ -384,8 +384,9 @@ export function mountLive(btn) {
         pop.querySelectorAll('[data-unpre]').forEach((b) => { b.onclick = async () => { await removePreapproved(b.dataset.unpre); draw(); }; });
         pop.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await approve(b.dataset.ok); toast(`${b.dataset.ok} can edit now`); draw(); }; });
       }
-      pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-reset>Start over</button>' + (role === 'owner' ? '<button type="button" class="live-txt" data-fbx>Feedback</button>' : '') + '</div>');
+      pop.insertAdjacentHTML('beforeend', '<div class="live-bottom"><button type="button" class="live-txt" data-fbk>Send feedback</button><button type="button" class="live-txt" data-hist>Revision history</button><button type="button" class="live-txt" data-reset>Start over</button>' + (role === 'owner' ? '<button type="button" class="live-txt" data-fbx>Feedback</button>' : '') + '</div>');
       pop.querySelector('[data-fbx]')?.addEventListener('click', async () => { try { const list = await listFeedback(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' })); a.download = 'betel-feedback.json'; a.click(); URL.revokeObjectURL(a.href); toast(`${list.length} feedback saved to a file`); } catch { toast('Could not read feedback (is the rule published?)'); } });
+      pop.querySelector('[data-fbk]').onclick = () => { close(false); import('./feedback.js').then((m) => m.openFeedback()); };
       pop.querySelector('[data-hist]').onclick = () => { close(false); document.getElementById('historyBtn')?.click(); };
       pop.querySelector('[data-reset]').onclick = () => { close(false); document.getElementById('resetBtn')?.click(); };
       pop.querySelector('[data-out]')?.addEventListener('click', async () => { await signOutLive(); close(true); });
