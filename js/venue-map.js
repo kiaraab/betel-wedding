@@ -221,9 +221,10 @@ export function renderVenueMap(root, { signal } = {}) {
     <div class="vm-mapcol">${mapHTML()}<aside class="vm-pop" id="vmPop" hidden aria-label="Area details"></aside></div>
     <section class="vm-all" aria-label="All venue photos">
       <div class="vm-filters" role="group" aria-label="Filter photos by place" id="vmFilters"></div>
+      <p class="vm-fhead" id="vmHead" hidden></p>
       <div class="vm-allgrid" id="vmAll"></div>
     </section>`;
-  const map = root.querySelector('#vmMap'), pop = root.querySelector('#vmPop'), allGrid = root.querySelector('#vmAll'), filters = root.querySelector('#vmFilters');
+  const map = root.querySelector('#vmMap'), pop = root.querySelector('#vmPop'), allGrid = root.querySelector('#vmAll'), filters = root.querySelector('#vmFilters'), head = root.querySelector('#vmHead');
   const areaById = (id) => AREAS.find((a) => a.id === id);
   const byId = (id) => PHOTOS.find((p) => p.id === id);
 
@@ -272,10 +273,10 @@ export function renderVenueMap(root, { signal } = {}) {
   function closePop() { if (!open) return; const was = open; open = null; pop.classList.remove('on'); pop.hidden = true; setHot(null); map.querySelector(`.vm-label[data-area="${was}"]`)?.focus({ preventScroll: true }); }
   map.addEventListener('click', (e) => {
     const el = e.target.closest('[data-area]');
-    if (!el) { closePop(); return; }
-    if (open === el.dataset.area) { closePop(); return; }
-    openPop(el.dataset.area);
-    if (photosIn(el.dataset.area).length) selectFilter(el.dataset.area, { fromMap: true }); // the gallery below follows the area you picked
+    if (!el) return;
+    const id = el.dataset.area;
+    selectFilter(filter === id ? 'all' : id, { fromMap: true });
+    if (filter !== 'all') root.querySelector('.vm-all').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, { signal });
   pop.addEventListener('click', (e) => {
     if (e.target.closest('[data-closepop]')) closePop();
@@ -287,8 +288,13 @@ export function renderVenueMap(root, { signal } = {}) {
   let expanded = false; // the gallery starts as one page of photos; "See all" shows every photo for the current place (99 at once made the phone page 6,700 px tall)
   const drawAll = () => {
     const counts = Object.fromEntries(AREAS.map((a) => [a.id, photosIn(a.id).length]));
-    filters.innerHTML = `<button type="button" class="vm-f${filter === 'all' ? ' on' : ''}" data-f="all" aria-pressed="${filter === 'all'}">All <b>${PHOTOS.length}</b></button>${AREAS.filter((a) => counts[a.id]).map((a) => `<button type="button" class="vm-f${filter === a.id ? ' on' : ''}" data-f="${a.id}" aria-pressed="${filter === a.id}" style="--a:${a.color || '#fff'}"><i aria-hidden="true"></i>${esc(a.name)} <b>${counts[a.id]}</b></button>`).join('')}`;
+    filters.innerHTML = `<button type="button" class="vm-f${filter === 'all' ? ' on' : ''}" data-f="all" aria-pressed="${filter === 'all'}">All <b>${PHOTOS.length}</b></button>${AREAS.map((a) => `<button type="button" class="vm-f${filter === a.id ? ' on' : ''}" data-f="${a.id}" aria-pressed="${filter === a.id}" style="--a:${a.color || 'var(--c-wine, #6e1f2e)'}">${esc(a.name)} <b>${counts[a.id]}</b></button>`).join('')}`;
+    const onB = filters.querySelector('.on'); if (onB) filters.scrollLeft = Math.max(0, onB.offsetLeft - (filters.clientWidth - onB.offsetWidth) / 2);
+    const fa = areaById(filter);
+    head.hidden = !fa;
+    head.innerHTML = fa ? `<span><b>${esc(fa.name)}</b> · ${esc(fa.place)} · ${esc(statusOf(fa))}</span>${fa.space ? `<a class="vm-edit" href="#seating/${fa.space}">Edit seats</a>` : ''}` : '';
     const list = order0.map(byId).filter((p) => p && (filter === 'all' || areaOf(p) === filter));
+    if (!list.length) { allGrid.innerHTML = '<p class="vm-empty">No photos yet</p>'; AREAS.forEach((a) => { const sEl = map.querySelector(`[data-st="${a.id}"]`); if (sEl) sEl.textContent = statusOf(a); }); return; }
     const shown = expanded ? list.length : PAGE();
     allGrid.innerHTML = list.slice(0, shown).map((p) => cellHTML(p, { chip: filter === 'all' })).join('') + (list.length > PAGE() ? `<button type="button" class="vm-showmore" data-more>${expanded ? 'Show fewer' : `See all ${list.length}`}</button>` : '');
     wireCells(allGrid);
