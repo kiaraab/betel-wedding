@@ -11,7 +11,7 @@ const tableName = (g) => { const t = state.tables.find((x) => x.id === g.tableId
 const address = (g) => [g.street, g.street2, [g.city, g.state].filter(Boolean).join(', '), g.zip].filter(Boolean).join(' ');
 
 function rows() {
-  return state.guests.filter(going).map((g) => ({
+  return state.guests.filter((g) => going(g) && g.meal !== false).map((g) => ({
     name: g.name, table: tableName(g), diet: dietList(g).join(', '), plus: g.plusOne || '', household: g.household || '',
     rsvp: g.party === 'couple' ? 'Couple' : g.rsvp, address: address(g), notes: g.notes || '',
   })).sort((a, b) => (a.table || '~').localeCompare(b.table || '~', undefined, { numeric: true }) || a.name.localeCompare(b.name));
