@@ -3451,3 +3451,17 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
 .gate-card.unlocked { transition: opacity .45s 1.0s var(--ease), transform .5s 1.0s var(--ease); }
 .gate-corner { font-weight: 400; letter-spacing: .16em; }
 @media (prefers-reduced-motion: reduce) { .pin-float { display: none; } .gate-card.unlocked .pin-dots i { animation: none; } }
+
+/* phones: filter and column menus stay on screen and scroll */
+@media (max-width: 760px) {
+  .gfilter .gf-menu, .gcols .gc-menu { left: 0 !important; right: auto !important; transform: none !important; width: min(300px, calc(100vw - 32px)); max-height: min(520px, 60vh); overflow-y: auto; }
+  .tfilter .gf-menu { left: auto !important; right: 0 !important; }
+  .gcols .gc-menu { left: auto !important; right: 0 !important; }
+}
+@media (max-width: 760px) {
+  #gFilter .gf-menu, .gcols .gc-menu { position: fixed !important; left: 50% !important; right: auto !important; top: 50% !important; bottom: auto !important; transform: translate(-50%, -50%) !important; width: min(320px, calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; z-index: 120; box-shadow: 0 0 0 100vmax rgba(20, 12, 14, .35), 0 20px 50px -10px rgba(0, 0, 0, .5); }
+}
+
+/* agenda panels: opaque, above the schedule (the calendar no longer shows through the editor) */
+.ag-panel { z-index: 70 !important; background: #fdfaf4 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border: 1px solid var(--line-strong, rgba(42,26,29,.25)); box-shadow: 0 22px 50px -14px rgba(30, 14, 18, .45), 0 2px 8px rgba(30, 14, 18, .12) !important; }
+.ag-panel .pn-v :is(input, select, textarea) { background-color: transparent; }

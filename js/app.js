@@ -865,6 +865,8 @@ document.getElementById('resetBtn').onclick = async () => {
   if (live && !(await confirmDialog({ title: 'Clear the shared plan?', body: 'Everyone editing together will see an empty plan.', confirmLabel: 'Clear for everyone', cancelLabel: 'Keep the plan' }))) return;
   undoable('Started fresh', reset, toast);
 };
+// the shared AI key arrived after sign-in: show the AI buttons without a refresh (never while someone is typing)
+addEventListener('ai-key-ready', () => { const r = document.body.dataset.route; if ((r === 'guests' || r === 'agenda') && !document.activeElement?.matches?.('input, textarea, select')) route(); });
 document.addEventListener('storage-full', () => toast('Storage full — remove a few photos'));
 
 // Street autocomplete: picking an address fills street, city, state and ZIP for that guest

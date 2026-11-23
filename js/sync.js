@@ -9,7 +9,7 @@
  */
 import { onSave, mergeRemote, snapshot } from './store.js';
 import { esc, toast, promptDialog, heartLoaderHTML } from './util.js';
-import { setSharedKey, registerShare } from './ai.js';
+import { setSharedKey, registerShare, getKey } from './ai.js';
 
 const CONFIG = {
   apiKey: 'AIzaSyC40htk19028Tz86iJni_CPeHrBiZeCkjk',
@@ -60,7 +60,13 @@ async function checkRole() {
 
 const aiRef = () => fb.F.doc(fb.db, 'secrets', 'ai');
 async function loadSharedKey() {
-  try { const d = await fb.F.getDoc(aiRef()); setSharedKey(d.exists() ? d.data().key : ''); } catch { /* none shared, or no access */ }
+  try {
+    const d = await fb.F.getDoc(aiRef());
+    const k = d.exists() ? d.data().key : '';
+    // the owner's own AI key is shared with the approved editors automatically (Betel and Carter use it; the owner can remove it in the keys dialog)
+    if (!k && role === 'owner') { const mine = getKey(); if (mine) await fb.F.setDoc(aiRef(), { key: mine }); }
+    setSharedKey(k);
+  } catch { /* none shared, or no access */ }
 }
 registerShare({
   can: () => role === 'owner',

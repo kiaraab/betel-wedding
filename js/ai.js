@@ -10,7 +10,7 @@ const calls = [];
 
 let sharedKey = ''; // the key the owner shared with everyone who can edit (js/sync.js loads it after sign-in)
 let share = { can: () => false, save: async () => {}, remove: async () => {} };
-export const setSharedKey = (k) => { sharedKey = k || ''; };
+export const setSharedKey = (k) => { const was = !!getKey(); sharedKey = k || ''; if (!was && getKey()) window.dispatchEvent(new CustomEvent('ai-key-ready')); };
 export const registerShare = (h) => { share = h; };
 export const getKey = () => { try { return localStorage.getItem(KEY_NAME) || sharedKey; } catch { return sharedKey; } };
 export function setKey(k) {
