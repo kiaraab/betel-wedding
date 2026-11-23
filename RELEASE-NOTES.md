@@ -16,6 +16,8 @@ Each ticket is a branch (`fb/<ticket>`), tested, then merged into `main` with `-
 
 ## Unreleased (on main, not tagged yet)
 - **Connections graph (REQ-115):** Love is a thick solid line with a heart, Like is thin and dotted, Apart is long grey dashes (so they differ by shape, not only colour). With a long guest list the canvas grows (phones scroll sideways inside it) and people keep a minimum distance. The list under the graph has Love / Like / Apart buttons per link, so you can change a relationship without redrawing it. Tested with 100 guests and 42 links at 375px.
+- **Seating map page on phones (REQ-113):** the photo gallery shows 12 at a time (24 on desktop) with Show more; the page went from about 6,700 px tall to about 1,500 px. The Reception, Ceremony and Hangout editor pages were not changed.
+- **Photo filter lights up its place (REQ-114):** choosing Ceremony, Reception and so on dims the rest of the map and lights up that area; on phones the map pans to it.
 - **Clearance (REQ-112):** see below under -b (shipped).
 
 ## v2026.11.23-b  (Nov 23, afternoon)
