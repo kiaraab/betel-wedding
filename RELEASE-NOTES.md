@@ -143,3 +143,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Guests on phones: a header row (Name, Side, Relationship) stays pinned while you scroll, and the columns line up.
 
 - Guests on phones: smaller type and tighter rows. Task due date control is neater, with a Clear link.
+
+- Overview is more compact; the venue map key moved under the map; the 3D has a button to take the walls and balcony down.

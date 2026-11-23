@@ -88,6 +88,7 @@ const ICONS = {
   photo: '<rect x="3" y="6" width="18" height="13" rx="1.5"/><circle cx="12" cy="12.5" r="3"/>', fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   evening: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', walk: '<circle cx="12" cy="5" r="2"/><path d="M12 8v6l-3 6M12 14l3 6M8 11l4-2 4 2"/>',
   eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  walls: '<path d="M4 20V9l8-5 8 5v11"/><path d="M4 20h16" stroke-dasharray="2 2.5"/><path d="M9 20v-5h6v5"/>',
   light: '<path d="M12 3v3M5 6l2 2M19 6l-2 2"/><circle cx="12" cy="13" r="4"/><path d="M10 19h4"/>',
 };
 const toolIcon = (k, label, attrs = '') => `<button class="tool icon" ${attrs} aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg></button>`;
@@ -676,6 +677,7 @@ export function renderSeating(root) {
             : `${toolIcon('walk', 'Walk through', 'id="walk" aria-pressed="false"')}
                ${toolIcon('light', 'Candlelight', 'id="light"')}
                ${vow ? toolIcon('eye', 'Experience the evening', 'id="evening"') : ''}
+               ${vow ? toolIcon('walls', 'Take the walls down', 'id="shellBtn" aria-pressed="false"') : ''}
                ${document.fullscreenEnabled ? toolIcon('fit', 'Full screen', 'id="full3"') : ''}`}
             <button class="tool" id="hdrUndo" type="button" disabled>Undo</button>
             <button class="btn moss sm icon-btn" id="share" aria-label="Save the layout as a picture" title="Save the layout as a picture"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -1266,6 +1268,8 @@ export function renderSeating(root) {
       const light = root.querySelector('#light');
       light.onclick = () => { const evening = three.toggleLight(); setLbl(light, evening ? 'Afternoon light' : 'Candlelight'); light.classList.toggle('on', evening); };
       const full3 = root.querySelector('#full3'); if (full3) full3.onclick = () => { const w = root.querySelector('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen(); else w.requestFullscreen?.(); };
+      const shellBtn = root.querySelector('#shellBtn');
+      if (shellBtn) { const off = soft?.view?.shell === false; shellBtn.classList.toggle('on', off); shellBtn.setAttribute('aria-pressed', String(off)); setLbl(shellBtn, off ? 'Put the walls back' : 'Take the walls down'); shellBtn.onclick = () => { const on = three.setShell(shellBtn.getAttribute('aria-pressed') === 'true'); shellBtn.classList.toggle('on', !on); shellBtn.setAttribute('aria-pressed', String(!on)); setLbl(shellBtn, on ? 'Take the walls down' : 'Put the walls back'); }; }
       const evening = root.querySelector('#evening');
       if (evening) evening.onclick = () => { three.experience(); setLbl(light, 'Afternoon light'); light.classList.add('on'); const w = root.querySelector('#walk'); setLbl(w, 'Walk through'); w.classList.remove('on'); };
     }).catch((err) => { console.error(err); host.innerHTML = '<p class="muted" style="padding:24px">3D view needs an internet connection.</p>'; });

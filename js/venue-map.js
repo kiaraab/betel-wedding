@@ -191,7 +191,7 @@ function mapHTML() {
     </svg>
     ${AREAS.map((a) => `<button type="button" class="vm-label${a.space ? ' edit' : ''}" data-area="${a.id}" style="left:${a.label[0]}%;top:${a.label[1]}%;--a:${a.color || 'var(--c-on-dark)'}" title="${esc(a.place)}" aria-label="${esc(`${a.name}, ${a.place}${a.space ? ', open the plan' : ', show photos'}`)}">
       <b><i aria-hidden="true"></i>${esc(a.name)}<em class="vm-kind" aria-hidden="true">${svgIcon(a.space ? 'edit' : 'photo', 12)}</em></b><span class="vm-st" data-st="${a.id}">${esc(statusOf(a))}</span></button>`).join('')}
-    <div class="vm-legend" aria-hidden="true"><span><i class="lg-edit"></i>Plan seats here</span><span><i class="lg-photo"></i>Photos only</span></div><span class="vm-cap" aria-live="polite"></span><span class="vm-approx" title="Places are best guesses from photos, not a survey">≈ Approximate</span>
+    <span class="vm-cap" aria-live="polite"></span><span class="vm-approx" title="Places are best guesses from photos, not a survey">≈ Approximate</span>
   </div>`;
 }
 
@@ -218,6 +218,7 @@ export function renderVenueMap(root, { signal } = {}) {
       ${viewIcons()}
     </div></div>
     <div class="vm-mapcol">${mapHTML()}<aside class="vm-pop" id="vmPop" hidden aria-label="Area details"></aside></div>
+    <div class="vm-key" id="vmKey" aria-hidden="true"><span><i class="lg-edit"></i>Plan seats here</span><span><i class="lg-photo"></i>Photos only</span></div>
     <section class="vm-all" aria-label="All venue photos">
       <div class="vm-filters" role="group" aria-label="Filter photos by place" id="vmFilters"></div>
       <p class="vm-fhead" id="vmHead" hidden></p>
@@ -232,6 +233,7 @@ export function renderVenueMap(root, { signal } = {}) {
     const over = b.dataset.view === 'overview';
     root.querySelectorAll('[data-view]').forEach((o) => { const on = o === b; o.classList.toggle('on', on); o.setAttribute('aria-selected', on); });
     map.classList.toggle('plain', over);
+    const key = root.querySelector('#vmKey'); if (key) key.hidden = over;
     if (over) closePop();
     let fr = map.querySelector('.vm-embed');
     if (over && !fr) { fr = document.createElement('iframe'); fr.className = 'vm-embed'; fr.title = 'Satellite map of Morais Vineyards'; fr.loading = 'lazy'; fr.referrerPolicy = 'no-referrer'; fr.src = OVERVIEW_SRC; map.append(fr); }

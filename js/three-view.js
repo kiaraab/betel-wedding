@@ -367,6 +367,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const moldMat = new THREE.MeshStandardMaterial({ color: '#fbf6ea', roughness: 0.7, emissive: '#f1e8d2', emissiveIntensity: 0.5 });
   const glowMat = new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb860', emissiveIntensity: 0.6, side: THREE.DoubleSide });
   const glassMats = [], lamps = [], flames = [], popIns = [];
+  let shell = [], shellOn = true; // the room's walls, windows, doors and balcony (ballroom only), and whether they are showing
 
   /* ---- floor + walls ---- */
   const FLOORS = { lawn: '#74895b', concrete: '#cfc9bd', tile: '#d9ccb6' }; // flat colors for the other spaces
@@ -415,6 +416,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   }
 
   if (ballroom) {
+  const shellFrom = scene.children.length; // everything added from here to the chandeliers is the room's shell (walls, windows, doors, balcony, stage bay): it can be taken down
   // Shimmery gold-taupe walls (a touch of metalness catches the light)
   const wallTex = wallTexture();
   const wallMatFor = (len, height) => { const t = wallTex.clone(); t.repeat.set(len / 9, height / 9); t.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: t, color: '#fff6e2', roughness: 0.6, metalness: 0.06, side: THREE.DoubleSide }); };
@@ -593,6 +595,9 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     const lbl = label('Stage', { size: 1.2 }); lbl.position.set(bx - d + 3, PLATFORM + 4, bz); scene.add(lbl);
   }
 
+  shell = scene.children.slice(shellFrom);
+  shellOn = resume?.shell !== false;
+  if (!shellOn) shell.forEach((o) => { o.visible = false; });
   /* ---- chandeliers ---- */
   // 6 gold tiered chandeliers with amber shades, two rows down the length (one per coffer);
   // only 4 point lights shared between them, to stay light on phones
@@ -1175,7 +1180,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
     }
     popChairs.forEach((p) => { p.t += dt * 4; p.ch.scale.setScalar(1 + Math.max(0, 0.25 * (1 - p.t))); });
     // the ceiling only exists from below: looking down from above you see straight into the room
-    ceilingG.visible = camera.position.y < WH - 1.5;
+    ceilingG.visible = shellOn && camera.position.y < WH - 1.5;
     let moved = false;
     if (walking && !flight) { /* camera already aimed */ }
     else if (!tour) moved = controls.update();
@@ -1192,7 +1197,9 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   return {
     // glide inside the room to look up at the ceiling (it is hidden from above, so a ceiling pick would otherwise show nothing)
     lookUp() { wake(); if (walking) return; flight = { from: camera.position.clone(), to: new THREE.Vector3(0, 6, h / 2 - 5), fromT: controls.target.clone(), toT: new THREE.Vector3(0, WH - 1, -h / 8), t: 0, dur: 1.1 }; },
-    getView() { return { pos: camera.position.toArray(), target: controls.target.toArray(), evening: eveningTarget ? 1 : 0 }; },
+    getView() { return { pos: camera.position.toArray(), target: controls.target.toArray(), evening: eveningTarget ? 1 : 0, shell: shellOn }; },
+    // take the walls, windows, doors and balcony down (a see-through room), or put them back
+    setShell(on) { shellOn = !!on; shell.forEach((o) => { o.visible = shellOn; }); wake(); return shellOn; },
     toggleLight() { wake(); eveningTarget = eveningTarget ? 0 : 1; return !!eveningTarget; },
     walk(on) { wake(); return setWalk(on ?? !walking); },
     experience,
