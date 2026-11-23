@@ -140,7 +140,7 @@ const guestCountHTML = () => `<button type="button" class="gcount" data-gcount t
 function wireGuestCount(root) {
   root.querySelectorAll('[data-gcount]').forEach((btn) => btn.onclick = () => {
     const inp = document.createElement('input');
-    Object.assign(inp, { type: 'number', min: 1, max: 300, value: state.guestTarget, className: 'gcount-in' });
+    Object.assign(inp, { type: 'number', min: 2, max: 300, value: state.guestTarget, className: 'gcount-in' });
     inp.setAttribute('aria-label', 'Expected guests');
     btn.replaceWith(inp);
     inp.focus(); inp.select();
@@ -149,7 +149,7 @@ function wireGuestCount(root) {
       if (done) return;
       done = true;
       const v = Math.round(+inp.value);
-      if (save && v >= 1 && v <= 300 && v !== state.guestTarget) { state.guestTarget = v; commit(); } else inp.replaceWith(btn);
+      if (save && v >= 2 && v <= 300 && v !== state.guestTarget) { state.guestTarget = v; commit(); } else inp.replaceWith(btn);
     };
     inp.onkeydown = (e) => { if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') { e.stopPropagation(); finish(false); } };
     inp.onblur = () => finish(true);

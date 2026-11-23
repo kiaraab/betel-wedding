@@ -3787,3 +3787,9 @@ body[data-route="guests"] .lede { font-weight: 300; }
 
 /* Map: the area pop-up no longer repeats the photos (one gallery below) */
 .vp-see { margin-top: 8px; width: 100%; }
+
+/* Bell footer links and the Home Screen dialog */
+.bell-f { display: flex; gap: 16px; flex-wrap: wrap; }
+.hs-sec h3 { margin: 6px 0 2px; font: 500 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+.hs-sec ol { margin: 0 0 6px; padding-left: 20px; font-size: 14px; color: var(--ink-soft); }
+.hs-sec li { margin: 3px 0; }
