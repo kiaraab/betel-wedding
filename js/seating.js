@@ -535,37 +535,53 @@ async function planPicture(svg) {
   return { img, W, H };
 }
 
-/** Plan + inspo strip + names, as one PNG. Shared via the phone share sheet when possible. */
+/** The layout as one picture: the plan in the middle, Betel's Pinterest photos shuffled in a frame around it (a different mix every save). Shared via the phone share sheet when possible. */
 async function sharePicture(source) {
   const mood = moodNow();
-  const pad = 70, stripH = 210, titleH = 120;
   let plan;
   if (source.kind === 'svg') plan = await planPicture(source.el);
   else { const img = await loadImg(source.el.toDataURL('image/png')); plan = { img, W: 1500, H: Math.round(1500 * img.height / img.width) }; }
-  const inspo = await Promise.all(state.inspo.slice(0, 8).map((p) => loadImg(p.src).catch(() => null)));
+  const pool = (await Promise.all(state.inspo.map((p) => loadImg(p.src).catch(() => null)))).filter(Boolean);
+  const T = 290, gap = 14, M = T + gap;
+  const W = plan.W + M * 2, H = plan.H + M * 2;
   const c = document.createElement('canvas');
-  c.width = plan.W + pad * 2; c.height = titleH + plan.H + stripH + pad * 1.5;
+  c.width = W; c.height = H;
   const x = c.getContext('2d');
-  x.fillStyle = '#f7f3ea'; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = '#f7f3ea'; x.fillRect(0, 0, W, H);
   await document.fonts.ready;
-  x.fillStyle = mood.swatches[0] === '#f7f3ea' ? '#2f3823' : mood.swatches[0];
-  x.font = '400 64px Fraunces, Georgia, serif'; x.textBaseline = 'alphabetic';
-  x.fillText('Betel & Carter', pad, 92);
-  x.font = '500 26px "DM Sans", Helvetica, sans-serif'; x.fillStyle = '#6e705f';
-  const sub = 'June 17, 2027 · Morais Vineyards';
-  x.fillText(sub, c.width - pad - x.measureText(sub).width, 92);
-  x.drawImage(plan.img, pad, titleH, plan.W, plan.H);
-  // inspo strip
-  const shots = inspo.filter(Boolean);
-  const gap = 14, sw = (plan.W - gap * (shots.length - 1)) / Math.max(1, shots.length), sy = titleH + plan.H + 40, sh = stripH - 30;
-  shots.forEach((im, i) => {
-    const sx = pad + i * (sw + gap);
-    const k = Math.max(sw / im.width, sh / im.height);
-    const cw = sw / k, ch = sh / k;
-    x.save(); x.beginPath(); x.roundRect(sx, sy, sw, sh, 14); x.clip();
-    x.drawImage(im, (im.width - cw) / 2, (im.height - ch) / 2, cw, ch, sx, sy, sw, sh);
+  // shuffled photos, cycling when there are fewer than frame spots
+  const order = []; const shuffle = () => { const a = pool.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const next = () => { if (!order.length) order.push(...shuffle()); return order.pop(); };
+  const tile = (rx, ry, rw, rh) => {
+    const im = pool.length ? next() : null;
+    x.save(); x.beginPath(); x.roundRect(rx, ry, rw, rh, 12); x.clip();
+    if (im) { const k = Math.max(rw / im.width, rh / im.height), cw = rw / k, ch = rh / k; x.drawImage(im, (im.width - cw) / 2, (im.height - ch) / 2, cw, ch, rx, ry, rw, rh); }
+    else { x.fillStyle = '#e6dccb'; x.fillRect(rx, ry, rw, rh); }
     x.restore();
-  });
+  };
+  const cols = Math.max(3, Math.round((W + gap) / (T + gap))), tw = (W - gap * (cols - 1)) / cols;
+  const rows = Math.max(2, Math.round((plan.H + gap) / (T + gap))), th = (plan.H - gap * (rows - 1)) / rows;
+  const titleAt = 0;   // the name card takes the top-left spot
+  for (let i = 0; i < cols; i++) {
+    if (i === titleAt) continue;
+    tile(i * (tw + gap), 0, tw, T);
+  }
+  for (let i = 0; i < cols; i++) tile(i * (tw + gap), H - T, tw, T);
+  for (let r = 0; r < rows; r++) { tile(0, M + r * (th + gap), T, th); tile(W - T, M + r * (th + gap), T, th); }
+  // name card
+  x.fillStyle = '#6e1f2e'; x.beginPath(); x.roundRect(0, 0, tw, T, 12); x.fill();
+  x.fillStyle = '#f6eee3'; x.textBaseline = 'alphabetic';
+  x.font = '500 46px Cinzel, Georgia, serif';
+  x.fillText('BETEL &', 34, 120); x.fillText('CARTER', 34, 176);
+  x.font = '400 22px "Pinyon Script", "Cormorant Garamond", Georgia, serif';
+  x.fillText('are getting married', 34, 220);
+  x.font = '500 17px Inter, Helvetica, sans-serif';
+  x.fillText('JUNE 17, 2027', 34, T - 52);
+  x.fillText('MORAIS VINEYARDS', 34, T - 26);
+  // the plan
+  x.save(); x.shadowColor = 'rgba(40,20,24,.3)'; x.shadowBlur = 28; x.shadowOffsetY = 8;
+  x.fillStyle = '#fff'; x.beginPath(); x.roundRect(M, M, plan.W, plan.H, 10); x.fill(); x.restore();
+  x.save(); x.beginPath(); x.roundRect(M, M, plan.W, plan.H, 10); x.clip(); x.drawImage(plan.img, M, M, plan.W, plan.H); x.restore();
   const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
   const file = new File([blob], 'griffin-reception.png', { type: 'image/png' });
   if (navigator.canShare?.({ files: [file] })) {
@@ -672,7 +688,7 @@ export function renderSeating(root) {
                <button class="tool icon" id="zIn3" aria-label="Zoom in" title="Zoom in">+</button><button class="tool icon" id="zOut3" aria-label="Zoom out" title="Zoom out">−</button>
                ${toolIcon('fit', 'Full screen', 'id="full3"')}`}
             <button class="tool" id="hdrUndo" type="button" disabled>Undo</button>
-            <button class="btn moss sm" id="share">Share</button>
+            <button class="btn moss sm icon-btn" id="share" aria-label="Save the layout as a picture" title="Save the layout as a picture"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </div>
 `;
   root.innerHTML = `
@@ -1257,7 +1273,7 @@ export function renderSeating(root) {
 
   root.querySelector('#share').onclick = async (e) => {
     const btn = e.currentTarget;
-    btn.disabled = true; btn.textContent = '…';
+    const label = btn.innerHTML; btn.disabled = true; btn.innerHTML = '…';
     const prevSel = sel; sel = null; closePop(true);
     try {
       let source;
@@ -1267,7 +1283,7 @@ export function renderSeating(root) {
       if (r === 'saved') toast('Picture saved');
     } catch (err) { console.error(err); toast('Could not make the picture'); }
     sel = prevSel; drawPlan();
-    btn.disabled = false; btn.textContent = 'Share';
+    btn.disabled = false; btn.innerHTML = label;
   };
 
   /* ---- reference panel: layout ideas + venue photos ---- */
