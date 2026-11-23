@@ -73,3 +73,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Household is now a dropdown (pick one or add new), so names stay consistent.
 
 - 3D view for Ceremony, Hangout and Tasting (toggle in the seating toolbar). Bell: new entry.
+
+- Seating on phones: bigger tap targets (space tabs, Undo, links).
