@@ -5,8 +5,9 @@ const KEY_NAME = 'betel-ai-key';
 // Google retires models often: try the rolling alias first, then named fallbacks when a model is gone (404) or busy (503)
 const MODELS = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
 const urlFor = (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
-const MAX_PER_MIN = 10, TIMEOUT = 25_000;
+const MAX_PER_MIN = 10, TIMEOUT = 25_000, TURN = 15_000, BENCH = 5 * 60_000;
 const calls = [];
+const benchedUntil = {}; // model -> time it may be tried again (it was slow, gone or busy)
 
 let sharedKey = ''; // the key the owner shared with everyone who can edit (js/sync.js loads it after sign-in)
 let share = { can: () => false, save: async () => {}, remove: async () => {} };
@@ -43,16 +44,27 @@ export async function askGemini({ system = '', prompt = '', images = [], json = 
     contents: [{ role: 'user', parts: [{ text: prompt }, ...images.map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } }))] }],
     generationConfig: { temperature: 0.4, ...(json && { responseMimeType: 'application/json' }) },
   };
-  let res;
-  for (const m of MODELS) {
-    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), TIMEOUT);
+  // A busy model can take ~20s just to say so: give each one a short turn, move on when it's slow, gone or busy,
+  // and skip a busy one for a few minutes so the next request goes straight to a model that answers.
+  let res = null, slow = false;
+  const now = Date.now();
+  const order = MODELS.filter((m) => !(benchedUntil[m] > now));
+  const tryList = order.length ? order : MODELS;
+  for (const [i, m] of tryList.entries()) {
+    const last = i === tryList.length - 1;
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), last ? TIMEOUT : TURN);
     try {
       res = await fetch(`${urlFor(m)}?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
     } catch (e) {
-      throw new AiError(e.name === 'AbortError' ? 'The AI took too long. Try again.' : 'Could not reach the AI. Check your connection.');
+      if (e.name !== 'AbortError') throw new AiError('Could not reach the AI. Check your connection.');
+      benchedUntil[m] = Date.now() + BENCH; res = null; slow = true;
+      continue;
     } finally { clearTimeout(timer); }
     if (res.status !== 404 && res.status !== 503) break; // anything else is final; these two try the next model
+    benchedUntil[m] = Date.now() + BENCH;
   }
+  if (!res) throw new AiError(slow ? 'The AI took too long. Try again.' : 'The AI is busy right now. Try again in a minute.');
+  if (res.status === 503) throw new AiError('The AI is busy right now. Try again in a minute.');
   if (res.status === 429) throw new AiError('The free AI quota is used up for now. Try again in a minute, or tomorrow.');
   if (res.status === 400 || res.status === 403) throw new AiError('The AI key was not accepted. Check it in AI settings.');
   if (!res.ok) throw new AiError(`The AI had a problem (${res.status}).`);

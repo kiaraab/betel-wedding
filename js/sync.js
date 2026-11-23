@@ -3,11 +3,13 @@
  * or was already signed in. Sign-in is a link sent to the email (no passwords). Only editors can read or write
  * the plan (enforced by Firestore rules, see FIRESTORE-RULES.txt); the config below is public by design.
  *
- *  - First time a browser connects: if the shared plan exists it wins (this browser's copy is backed up first);
+ *  - First time a browser connects: if the shared plan exists it wins (this browser's copy is backed up first,
+ *    and anything ADDED here before signing in is kept on top: js/sync-merge.js);
  *    if there is none yet, this browser's plan becomes the shared one. So whoever holds the real plan signs in first.
  *  - After that every save is pushed (debounced); remote changes are merged part by part (store.mergeRemote).
  */
-import { onSave, mergeRemote, snapshot } from './store.js';
+import { onSave, mergeRemote, snapshot, state, commit, ensureAutoGuests } from './store.js';
+import { addedHere } from './sync-merge.js';
 import { esc, toast, promptDialog, heartLoaderHTML } from './util.js';
 import { setSharedKey, registerShare, getKey } from './ai.js';
 
@@ -83,12 +85,31 @@ function take(d) {
   } catch { /* corrupt remote copy: ignore */ } finally { applying = false; }
 }
 
+/*
+ * First sign-in on a device: the shared plan wins, but whatever was ADDED here before signing in is kept and
+ * added on top (js/sync-merge.js). The whole old copy also stays in the backup.
+ */
+function keepAddedHere(keep) {
+  let n = 0;
+  for (const [k, add] of Object.entries(keep)) {
+    state[k] = [...(Array.isArray(state[k]) ? state[k] : []), ...add];
+    n += add.length;
+  }
+  ensureAutoGuests();
+  commit();
+  toast(`Kept ${n} thing${n === 1 ? '' : 's'} you added before signing in`);
+}
+
 async function startLive() {
   const first = await fb.F.getDoc(planRef());
+  let keep = null;
   if (first.exists() && held) {
     await push(true);
   } else if (first.exists()) {
-    if (fetchKey(SYNCED_KEY) !== '1') store('betel-carter-atelier-before-sync', JSON.stringify(snapshot()));
+    if (fetchKey(SYNCED_KEY) !== '1') {
+      store('betel-carter-atelier-before-sync', JSON.stringify(snapshot()));
+      try { keep = addedHere(snapshot(), JSON.parse(first.data().data)); } catch { keep = null; }
+    }
     take(first.data());
   } else {
     await push(true);
@@ -115,6 +136,7 @@ async function startLive() {
   listening = true; denied = false;
   status = 'Live';
   emit();
+  if (keep && Object.keys(keep).length) keepAddedHere(keep); // now Live, so this save is pushed to everyone
 }
 
 function scheduleReconnect() {
