@@ -145,12 +145,20 @@ function partyHTML(room, pool, selKey) {
     <p class="muted small" style="margin:8px 0 4px">Drag names to reorder or across · 1 stands nearest the altar</p>
     <div class="party-cols"><div><b class="muted small">Left · ${p.order.b.length}</b><ol class="plist" data-side="b">${chips('b')}</ol></div><div><b class="muted small">Right · ${p.order.g.length}</b><ol class="plist" data-side="g">${chips('g')}</ol></div></div>`;
 }
+/** "Chairs per row": a − / + for each half of each row (tapping a row on a phone is too small a target). */
+function rowsHTML(tables) {
+  const rows = new Map();
+  tables.filter((t) => t.shape === 'row').forEach((t) => { const m = /^(\d+)([LR])/i.exec(t.name || ''); const n = m ? +m[1] : t.name; (rows.get(n) || rows.set(n, {}).get(n))[m ? m[2].toUpperCase() : t.id] = t; });
+  const half = (t, label) => t ? `<span class="rowhalf"><i>${label}</i><button type="button" data-rstep="${esc(t.id)}" data-d="-1" ${t.seats <= 1 ? 'disabled' : ''} aria-label="Fewer chairs, row ${esc(t.name)}">−</button><b>${t.seats}</b><button type="button" data-rstep="${esc(t.id)}" data-d="1" ${t.seats >= 16 ? 'disabled' : ''} aria-label="More chairs, row ${esc(t.name)}">+</button></span>` : '<span class="rowhalf"></span>';
+  return `<details class="rowsbox"><summary>Chairs per row · ${rows.size}</summary>${[...rows].map(([n, r]) => `<div class="rowstep"><span>Row ${esc(n)}</span>${half(r.L, 'L')}${half(r.R, 'R')}</div>`).join('')}</details>`;
+}
 export function spaceToolsHTML(space, ctx) { // `space` = the kind: 'ceremony' | 'cocktail'
   if (space === 'ceremony') {
     const room = ctx.SP().room;
     return `<section class="card" id="spTools"><h3>Plan tools</h3>
       <div class="field-row"><label class="field">Guests<input class="input" id="cCount" type="number" min="2" max="300" value="${room.chairs ?? ctx.state.guestTarget}"/></label></div>
       <div id="partyBox">${partyHTML(room, ctx.pool(), ctx.partySel?.())}</div>
+      <div id="rowsBox">${rowsHTML(ctx.SP().tables)}</div>
       <div class="acts">
         <div class="act"><button class="btn moss sm" id="cGo">Suggest ceremony</button><span class="tip" tabindex="0" role="note" data-tip="Rows of chairs with a center aisle for this many guests; grows the room if they don't fit. The wedding party stands either side of the altar.">ⓘ</span></div>
         <div class="act"><button class="btn gold sm" id="cSeat">Auto-seat guests</button><span class="tip" tabindex="0" role="note" data-tip="Betel's side on the left, Carter's on the right, parents and close family up front.">ⓘ</span></div>
@@ -186,6 +194,18 @@ export function wireSpaceTools(root, space, ctx) {
         wireParty(); redraw();
       });
     };
+    const rowsBox = root.querySelector('#rowsBox');
+    const wireRows = () => {
+      const was = rowsBox.querySelector('details')?.open;
+      rowsBox.innerHTML = rowsHTML(SP().tables);
+      if (was) rowsBox.querySelector('details').open = true;
+      rowsBox.querySelectorAll('[data-rstep]').forEach((b) => b.onclick = () => {
+        const t = SP().tables.find((x) => x.id === b.dataset.rstep); if (!t) return;
+        t.seats = Math.max(1, Math.min(16, t.seats + +b.dataset.d));
+        wireRows(); redraw();
+      });
+    };
+    wireRows();
     ensureParty(room(), pool());
     { // an older saved ceremony has rows right where the party now stands: slide them back (nothing else changes)
       const rows = SP().tables, top = Math.min(...rows.map((t) => t.y)), need = partyBottom(room(), pool()) - top;

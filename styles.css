@@ -3678,3 +3678,21 @@ body[data-route="guests"] .lede { font-weight: 300; }
   table.guests tr.row td.c-rsvp, table.guests thead th.h-rsvp { width: 42px !important; }
   table.guests tr.row td.c-relation, table.guests thead th.h-relation { width: 78px !important; }
 }
+
+/* Ceremony: chairs per row (works on phones, where the rows are too small to tap) */
+.rowsbox { margin: 10px 0 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+.rowsbox summary { cursor: pointer; font: 500 12px var(--sans); letter-spacing: .04em; color: var(--ink-soft); padding: 4px 0; }
+.rowstep { display: grid; grid-template-columns: 54px 1fr 1fr; gap: 6px; align-items: center; padding: 3px 0; font-size: 12.5px; color: var(--ink-soft); }
+.rowhalf { display: flex; align-items: center; gap: 4px; }
+.rowhalf i { font-style: normal; font-size: 10px; letter-spacing: .08em; color: var(--ink-faint); width: 10px; }
+.rowhalf b { min-width: 18px; text-align: center; font-weight: 500; color: var(--ink); }
+.rowhalf button { width: 30px; height: 30px; padding: 0; border: 1px solid var(--line-strong); background: rgba(255, 253, 250, .8); color: var(--wine); font-size: 17px; line-height: 1; cursor: pointer; }
+.rowhalf button:disabled { opacity: .35; cursor: default; }
+@media (pointer: coarse) { .rowhalf button { width: 36px; height: 36px; } }
+
+/* Agenda on phones: the page scrolls (no scroll box inside the page); events pan vertically, a short hold picks one up */
+@media (max-width: 760px) {
+  .ag-cal { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  .ag-colhead { top: var(--top-h, 60px); }
+  .ab { touch-action: pan-y; }
+}

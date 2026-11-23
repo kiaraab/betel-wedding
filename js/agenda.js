@@ -309,10 +309,16 @@ export function renderAgenda(view) {
   const rerender = () => renderAgenda(view);
   const cal = view.querySelector('#agCal'), col = view.querySelector('#agCol');
   // Opening the page: start an hour before the ceremony (or at the first event)
-  if (keepScroll != null) cal.scrollTop = keepScroll;
-  else {
+  // On phones the calendar grows to its full height and the PAGE scrolls (a nested scroll box traps the finger)
+  const ownScroll = () => getComputedStyle(cal).overflowY !== 'visible';
+  const scrollCalTo = (y, smooth) => {
+    if (ownScroll()) cal.scrollTo({ top: Math.max(0, y), behavior: smooth ? 'smooth' : 'auto' });
+    else scrollTo({ top: Math.max(0, cal.getBoundingClientRect().top + scrollY + y - 130), behavior: smooth ? 'smooth' : 'auto' });
+  };
+  if (keepScroll != null && ownScroll()) cal.scrollTop = keepScroll;
+  else if (keepScroll == null) {
     const first = Math.min(ceremonyMin() - 60, ...state.agenda.map((a) => S(a)));
-    cal.scrollTop = Math.max(0, (first - r.from) * PX - 20);
+    scrollCalTo((first - r.from) * PX - 20, false);
   }
 
   const addEvent = () => {
@@ -331,7 +337,7 @@ export function renderAgenda(view) {
   view.querySelector('[data-addempty]')?.addEventListener('click', addEvent);
   view.querySelector('#agToday').onclick = () => {
     const n = nowMin(), at = n != null ? n : ceremonyMin();
-    cal.scrollTo({ top: Math.max(0, (at - r.from) * PX - cal.clientHeight / 3), behavior: 'smooth' });
+    scrollCalTo((at - r.from) * PX - Math.min(cal.clientHeight, innerHeight) / 3, true);
   };
   view.querySelector('#agSuggest').onclick = () => { suggesting = !suggesting; selId = null; reviewing = false; aiPrev = null; rerender(); };
   view.querySelector('[data-review]')?.addEventListener('click', () => { reviewing = true; suggesting = false; selId = null; rerender(); });
@@ -352,16 +358,30 @@ export function renderAgenda(view) {
   });
 
   /* drag to move, bottom edge to resize, click to edit */
-  let drag = null;
+  let drag = null, hold = null;
+  const clearHold = () => { if (hold) { clearTimeout(hold.t); hold = null; } };
   col.addEventListener('pointerdown', (e) => {
     const el = e.target.closest('.ab');
     if (!el || e.button > 0 || e.target.closest('[data-venue]')) return;
     const a = state.agenda.find((x) => x.id === el.dataset.id);
-    drag = { el, a, y0: e.clientY, s0: S(a), e0: E(a), resize: !!e.target.closest('[data-resize]'), moved: false };
-    try { el.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    const start = () => {
+      drag = { el, a, y0: e.clientY, s0: S(a), e0: E(a), resize: !!e.target.closest('[data-resize]'), moved: false };
+      try { el.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    };
+    if (e.pointerType === 'touch') {
+      // a quick tap opens the event, a swipe scrolls the page, a short hold picks the event up to drag it
+      clearHold();
+      const h = { x: e.clientX, y: e.clientY, a };
+      h.t = setTimeout(() => { hold = null; start(); drag.y0 = h.y; el.classList.add('dragging'); navigator.vibrate?.(8); }, 350);
+      hold = h;
+      return;
+    }
+    start();
     e.preventDefault();
   });
+  col.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { passive: false });
   col.addEventListener('pointermove', (e) => {
+    if (hold) { if (Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 8) clearHold(); return; }
     if (!drag) return;
     const dm = snap((e.clientY - drag.y0) / PX);
     if (!drag.moved && Math.abs(e.clientY - drag.y0) < 4) return;
@@ -385,8 +405,11 @@ export function renderAgenda(view) {
     commit({ silent: true });
     rerender();
   };
-  col.addEventListener('pointerup', end);
-  col.addEventListener('pointercancel', end);
+  col.addEventListener('pointerup', () => {
+    if (hold) { const a = hold.a; clearHold(); selId = a.id; suggesting = false; reviewing = false; return rerender(); }
+    end();
+  });
+  col.addEventListener('pointercancel', () => { clearHold(); if (drag && !drag.moved) { drag.el.classList.remove('dragging'); drag = null; return; } end(); });
   col.addEventListener('keydown', (e) => {
     const el = e.target.closest('.ab');
     if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selId = el.dataset.id; suggesting = false; reviewing = false; rerender(); }
