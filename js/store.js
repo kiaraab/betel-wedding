@@ -116,6 +116,26 @@ export function healSeats() {
       }
     }
   }
+  // The reception still on the 100-guest default WITH its dance floor moves to the default without one (it took too much room). Same rules as above:
+  // only when the dance floor and every table are still exactly where the default put them; table ids and seatings are kept; never fewer tables than she has.
+  if (state.room && Array.isArray(state.room.areas) && Array.isArray(state.tables)) {
+    const dance = state.room.areas.find((a) => a.preset === 'dance');
+    if (dance && dance.x === 15 && dance.y === 28 && dance.w === 20 && dance.h === 20) {
+      const head = headTable(), withDance = seedRoom();
+      withDance.areas = [{ id: 'dance', preset: 'dance', label: 'Dance floor', x: 15, y: 28, w: 20, h: 20 }, ...withDance.areas];
+      const key = (t) => `${t.shape}:${Math.round(t.x * 10)}:${Math.round(t.y * 10)}:${t.rot || 0}`;
+      const was = suggestTables(withDance, 100, 'round8', head).tables, cur = state.tables.filter((t) => t.id !== 'head'), hd = state.tables.find((t) => t.id === 'head');
+      if (hd && key(hd) === key(head) && cur.length === was.length && cur.map(key).sort().join('|') === was.map(key).sort().join('|')) {
+        const next = suggestTables(seedRoom(), 100, 'round8', head).tables;
+        if (next.length >= cur.length) {
+          const sorted = cur.slice().sort((a, b) => (a.o ?? 0) - (b.o ?? 0));
+          state.tables = [hd, ...next.map((t, i) => ({ ...t, id: sorted[i]?.id || `tr${i + 1}`, name: sorted[i]?.name ?? t.name }))];
+          state.room.areas = state.room.areas.filter((a) => a.preset !== 'dance');
+          changed = true;
+        }
+      }
+    }
+  }
   if (Array.isArray(state.guests) && Array.isArray(state.tables)) {
     const real = new Set(state.tables.map((t) => t.id));
     state.guests.forEach((g) => {

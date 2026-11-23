@@ -164,7 +164,7 @@ export function seedRoom() {
       balcony: { depth: 12, bow: 25 },                 // overhead mezzanine across the near wall; the railing bows out ~25 ft in the middle (photo #143; side sections uncertain)
     },
     areas: [
-      { id: 'dance', preset: 'dance', label: 'Dance floor', x: 15, y: 28, w: 20, h: 20 },   // 20 × 20 mid-hall, room for a ~25 ft first-dance ring
+      // (no dance floor by default: it took too much of the room; "+ Dance floor" adds one back)
       { id: 'cake', preset: 'cake', label: 'Cake', x: 36.5, y: 3, w: 4, h: 4 },                // ~4 ft table beside the sweetheart table (in the bay for 'Head on stage')
       { id: 'dj', preset: 'dj', label: 'DJ', x: 0.5, y: 17, w: 4, h: 8 },                    // ~8 × 4 ft on the stage-side long wall, not in the bay
       { id: 'bar', preset: 'bar', label: 'Bar', x: 34.5, y: 71, w: 9, h: 3.5 },             // ~9 × 3.5 ft in the balcony-end wall corner beside the right corner door
