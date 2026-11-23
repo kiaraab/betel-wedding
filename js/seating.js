@@ -680,7 +680,7 @@ export function renderSeating(root) {
     <div class="page-head">
       <div>
         <h1 class="sr-only">${esc(info.label)}</h1>
-        <a class="vm-back" href="#seating" title="Venue map"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Map</a>
+
         <div class="spaces" role="tablist" aria-label="Spaces">
           ${(() => { const tb = (x, c) => `<button role="tab" data-space="${x.id}" aria-selected="${tabOn(x.id)}" class="${c}${tabOn(x.id) ? ' on' : ''}">${x.label}</button>`, l = tabList(); return `<div class="sp-row sp-row-sub">${l.map((x) => tb(x, 'sp-sub')).join('')}</div>`; })()}
           <span class="spaces-ink" aria-hidden="true"></span>
@@ -690,7 +690,8 @@ export function renderSeating(root) {
         ${kindOf() === 'cocktail' ? '<p class="space-note">Optional · just for mingling</p>' : ''}
       </div>
 
-      ${rec ? '<a class="tour-link" href="https://my.matterport.com/show/?m=K76R3QeJThF&brand=0" target="_blank" rel="noopener">Venue 360° tour ↗</a>' : ''}
+      <div class="ph-right"><nav class="vm-crumb" aria-label="Breadcrumb"><a href="#seating" title="Back to the venue map"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Morais map</a><span aria-hidden="true">/</span><b aria-current="page">${esc(info.label)}</b></nav>
+        ${rec ? '<a class="tour-link" href="https://my.matterport.com/show/?m=K76R3QeJThF&brand=0" target="_blank" rel="noopener">Venue 360° tour ↗</a>' : ''}</div>
     </div>
     <div class="seat-layout${vow ? ' vow' : mode === 'plan' ? ' is-plan' : ''}" data-mode="${mode}">
       ${vow ? `<aside class="side-panel vow-side" data-tab="${vsTab}">${vowSideHTML(info)}</aside>` : ''}
@@ -715,6 +716,7 @@ export function renderSeating(root) {
       </aside>`}
       ${vow ? '' : PLANFILE}
     </div>
+    ${venueStripHTML()}
     ${vow ? PLANFILE : ''}`;
 
   const host = root.querySelector('#planHost');
@@ -1426,14 +1428,21 @@ function seatPanelHTML() {
     <ul class="sp-list"></ul><p class="muted small">Drag a name onto a table, or pick one</p></section>`;
 }
 function refHTML(rec) {
-  const tab = rec && mode === 'plan' ? refTab : 'venue';
-  return `<section class="card ref" aria-label="Layout ideas and venue photos">
-    <div class="ref-head">${rec && mode === 'plan' ? `<div class="ref-tabs" role="tablist"><button role="tab" data-ref="ideas" aria-selected="${tab === 'ideas'}" class="${tab === 'ideas' ? 'on' : ''}">Layout ideas</button><button role="tab" data-ref="venue" aria-selected="${tab === 'venue'}" class="${tab === 'venue' ? 'on' : ''}">Venue photos</button></div>` : '<h3>Venue photos</h3>'}</div>
-    ${rec && mode === 'plan' ? `<div class="idea-grid" id="ideasGrid"${tab === 'ideas' ? '' : ' hidden'}>${IDEAS.map((d) => `<figure class="idea"><img src="${d.src}" alt="${esc(TABLE_STYLES[d.key].label)}" loading="lazy" draggable="false"/><figcaption><b>${esc(TABLE_STYLES[d.key].label)}</b><button type="button" class="idea-use" data-idea="${d.key}">Use this layout</button></figcaption></figure>`).join('')}</div>` : ''}
-    <div class="ref-grid morais-grid"${tab === 'venue' ? '' : ' hidden'}>
-      ${moraisOrder(space).map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" width="${p.w}" height="${p.h}" alt="${esc(p.name)}" draggable="false" loading="lazy" decoding="async"/><span class="morais-cap">${esc(p.name)}</span></button>`).join('')}
-    </div>
+  // Side panel: layout ideas only (the venue photos live in their own larger section under the plan: venueStripHTML)
+  if (!(rec && mode === 'plan')) return rec ? `<section class="card ref" aria-label="Layout ideas"><p class="vs-note">Layout ideas are in the floor plan.</p><button type="button" class="btn moss sm" data-mode="plan">Open the floor plan</button></section>` : '';
+  return `<section class="card ref" aria-label="Layout ideas">
+    <div class="ref-head"><h3>Layout ideas</h3></div>
+    <div class="idea-grid" id="ideasGrid">${IDEAS.map((d) => `<figure class="idea"><img src="${d.src}" alt="${esc(TABLE_STYLES[d.key].label)}" loading="lazy" draggable="false"/><figcaption><b>${esc(TABLE_STYLES[d.key].label)}</b><button type="button" class="idea-use" data-idea="${d.key}">Use this layout</button></figcaption></figure>`).join('')}</div>
   </section>`;
+}
+/** The venue photos for this space: a wide, larger gallery under the plan; tap one to see it big. */
+function venueStripHTML() {
+  const list = moraisOrder(space);
+  if (!list.length) return '';
+  return `<section class="card venue-strip" aria-label="Venue photos"><div class="vstrip-head"><h3>Venue photos</h3><span class="vstrip-n">${list.length}</span></div>
+    <div class="ref-grid morais-grid vstrip-grid">
+      ${list.map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" alt="${esc(p.name)}" draggable="false" loading="lazy" decoding="async"/><span class="morais-cap">${esc(p.name)}</span></button>`).join('')}
+    </div></section>`;
 }
 function wireMorais(root, signal) {
   const grid = root.querySelector('.morais-grid');

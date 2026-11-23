@@ -159,6 +159,8 @@ function statusOf(a) {
 }
 
 const ICON = {
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>',
+  photo: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><circle cx="9" cy="10.5" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5 4.5 4"/>',
   open: '<path d="M9 6l6 6-6 6"/>',
   more: '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
@@ -174,8 +176,8 @@ function mapHTML() {
         <polygon class="vm-halo" points="${pts(a.poly)}" vector-effect="non-scaling-stroke"/><polygon class="vm-poly" points="${pts(a.poly)}" vector-effect="non-scaling-stroke"/></g>`).join('')}
     </svg>
     ${AREAS.map((a) => `<button type="button" class="vm-label${a.space ? ' edit' : ''}" data-area="${a.id}" style="left:${a.label[0]}%;top:${a.label[1]}%;--a:${a.color || 'var(--c-on-dark)'}" title="${esc(a.place)}" aria-label="${esc(`${a.name}, ${a.place}${a.space ? ', open the plan' : ', show photos'}`)}">
-      <b><i aria-hidden="true"></i>${esc(a.name)}</b><span class="vm-st" data-st="${a.id}">${esc(statusOf(a))}</span></button>`).join('')}
-    <span class="vm-cap" aria-live="polite"></span><span class="vm-approx" title="Places are best guesses from photos, not a survey">≈ Approximate</span>
+      <b><i aria-hidden="true"></i>${esc(a.name)}<em class="vm-kind" aria-hidden="true">${svgIcon(a.space ? 'edit' : 'photo', 12)}</em></b><span class="vm-st" data-st="${a.id}">${esc(statusOf(a))}</span></button>`).join('')}
+    <div class="vm-legend" aria-hidden="true"><span><i class="lg-edit"></i>Plan seats here</span><span><i class="lg-photo"></i>Photos only</span></div><span class="vm-cap" aria-live="polite"></span><span class="vm-approx" title="Places are best guesses from photos, not a survey">≈ Approximate</span>
   </div>`;
 }
 
