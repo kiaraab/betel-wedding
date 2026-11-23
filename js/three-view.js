@@ -307,8 +307,10 @@ function clothGeo(r, th) {
 }
 
 /** `sp` = { room, tables } of another space (ceremony / hangout / tasting room); omit it for the ballroom reception. `countAt(t)` = guests seated at a table, `pool` = the ceremony's wedding party pool. */
-export async function mount(host, state, mood, { onSeat, unseated = () => [], sp = null, countAt = null, pool = [], style = null } = {}) {
-  host.innerHTML = '';
+export async function mount(host, state, mood, { onSeat, unseated = () => [], sp = null, countAt = null, pool = [], style = null, resume = null } = {}) {
+  // resume = { pos, target, evening } from the scene being replaced: a design change swaps the scene in place (no loader, no intro, same camera and lighting)
+  const olds = resume ? [...host.children] : [];
+  if (!resume) host.innerHTML = '';
   allLabels = [];
   const STY = resolveStyle(style); // the Look choices (js/style-options.js); every default is today's scene
   const ballroom = !sp, ROOM = sp ? sp.room : state.room, TABLES = sp ? sp.tables : state.tables;
@@ -955,7 +957,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
 
   /* ---- light moods ---- */
   const dayGlass = new THREE.Color('#fff4d6'), duskGlass = new THREE.Color('#334063');
-  let evening = 0, eveningTarget = 0;
+  let evening = resume?.evening ? 1 : 0, eveningTarget = evening;
   const LAMP = ballroom ? 55 : 55; // candlelight, not floodlight: the evening should read dim and warm
   const applyLight = (k) => {
     hemi.intensity = 1.3 - 1.05 * k;
@@ -987,13 +989,14 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   const home = calcHome();
   let touched = false; // once someone moves the view themselves, a resize leaves it alone
   controls.addEventListener('start', () => { touched = true; });
-  let flight = { from: new THREE.Vector3(0, h * 1.55, 0.01), to: home.pos.clone(), fromT: new THREE.Vector3(0, 0, 0), toT: home.target.clone(), t: 0, dur: 1.8 };
+  let flight = resume ? null : { from: new THREE.Vector3(0, h * 1.55, 0.01), to: home.pos.clone(), fromT: new THREE.Vector3(0, 0, 0), toT: home.target.clone(), t: 0, dur: 1.8 };
   refitHome = () => {
     const nh = calcHome(); home.pos.copy(nh.pos);
     if (flight && flight.to) flight.to.copy(home.pos);
     if (!touched && !tour && (!flight || flight.t >= 1)) { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); }
   };
-  camera.position.copy(flight.from);
+  if (resume) { camera.position.fromArray(resume.pos); controls.target.fromArray(resume.target); controls.update(); touched = true; }
+  else camera.position.copy(flight.from);
   let tour = null;
 
   function experience() {
@@ -1115,7 +1118,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
 
   /* ---- loop ---- */
   let raf, last = performance.now(), clock = 0, lit = -1;
-  const mountedAt = performance.now(); // tables pop in on REAL time: the frame clock below is capped per frame, so a slow device (or a throttled tab) used to leave them invisible for ages
+  const mountedAt = performance.now() - (resume ? 60000 : 0); // tables pop in on REAL time: the frame clock below is capped per frame, so a slow device (or a throttled tab) used to leave them invisible for ages
   const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
   let popEndN = -1, popEndV = 0; // when the last table finishes popping in (recomputed only when the list changes)
   const popEnd = () => { if (popEndN !== popIns.length) { popEndN = popIns.length; popEndV = popIns.reduce((m, p) => Math.max(m, p.delay), 0) + 0.7; } return popEndV; };
@@ -1185,7 +1188,9 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
   }
   raf = requestAnimationFrame(frame);
 
+  olds.forEach((e) => e.remove()); // the scene being replaced stays on screen until this one is ready
   return {
+    getView() { return { pos: camera.position.toArray(), target: controls.target.toArray(), evening: eveningTarget ? 1 : 0 }; },
     toggleLight() { wake(); eveningTarget = eveningTarget ? 0 : 1; return !!eveningTarget; },
     walk(on) { wake(); return setWalk(on ?? !walking); },
     experience,

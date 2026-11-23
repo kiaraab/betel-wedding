@@ -91,3 +91,5 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - 3D view only redraws while something moves, so phones and laptops stay cooler.
 
 - Suggest now lays out the most the room can seat when it cannot fit everyone, and says how many it holds.
+
+- Changing a look no longer reloads the 3D scene: it swaps in place and keeps your camera and lighting.
