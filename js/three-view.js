@@ -1190,6 +1190,8 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [], sp
 
   olds.forEach((e) => e.remove()); // the scene being replaced stays on screen until this one is ready
   return {
+    // glide inside the room to look up at the ceiling (it is hidden from above, so a ceiling pick would otherwise show nothing)
+    lookUp() { wake(); if (walking) return; flight = { from: camera.position.clone(), to: new THREE.Vector3(0, 6, h / 2 - 5), fromT: controls.target.clone(), toT: new THREE.Vector3(0, WH - 1, -h / 8), t: 0, dur: 1.1 }; },
     getView() { return { pos: camera.position.toArray(), target: controls.target.toArray(), evening: eveningTarget ? 1 : 0 }; },
     toggleLight() { wake(); eveningTarget = eveningTarget ? 0 : 1; return !!eveningTarget; },
     walk(on) { wake(); return setWalk(on ?? !walking); },

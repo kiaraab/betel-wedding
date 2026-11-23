@@ -2,6 +2,7 @@
 // "Seen" is remembered per device (localStorage); the tour can always be replayed from the "?".
 import { trapFocus } from './util.js';
 const SEEN_WELCOME = 'bc-welcome-seen';
+const SEEN_UPDATE = 'bc-update-guide-1123'; // the "what got easier" guide, shown once per device
 const seenKey = (r) => `bc-tour-${r}`;
 const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const write = (k) => { try { localStorage.setItem(k, '1'); } catch { /* storage blocked: shows again next time */ } };
@@ -65,6 +66,7 @@ export function initGuide(getRoute) {
   document.body.append(btn);
   refreshGuide();
   if (!read(SEEN_WELCOME)) setTimeout(welcome, 500);
+  else if (!read(SEEN_UPDATE)) setTimeout(updateGuide, 900);
 }
 
 /** Call after each page render: the "?" breathes gently until that page's tour has been seen. */
@@ -96,6 +98,42 @@ function welcome() {
   scrim.addEventListener('click', (e) => { if (e.target === scrim) close(); });
   scrim.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   scrim.querySelector('[data-w="go"]').focus();
+}
+
+/** One-time "what got easier" guide: one thing per step, skippable any time (built for an ADHD brain: no wall of text). */
+const UPDATE_STEPS = [
+  ['Next up', 'The Overview now starts with the one to three things worth doing next. Tap one to go there.', '#overview'],
+  ['It saves. You can undo.', 'A small check in the footer shows when your changes are saved. Changed your mind? Tap Undo on the message.', null],
+  ['Pick your look', 'Seating, then Reception, then Look. Choose table linens, candles, ceiling and more. The 3D view changes as you pick, and each space has its own looks.', '#seating/reception'],
+  ['One switch for 3D and Plan', 'On every space, 3D and Plan sit first in the toolbar. Same place, same switch.', '#seating/ceremony'],
+  ['Bell and people icon', 'The bell shows what is new. The people icon is where you sign in and send feedback.', null],
+];
+function updateGuide() {
+  if (document.querySelector('.welcome-scrim')) return;
+  let i = 0;
+  const scrim = document.createElement('div');
+  scrim.className = 'welcome-scrim';
+  scrim.innerHTML = '<section class="welcome ug" role="dialog" aria-modal="true" aria-labelledby="ugT"><p class="welcome-k" id="ugT"></p><p class="welcome-p ug-p"></p><div class="ug-dots" aria-hidden="true"></div><div class="welcome-b"><button class="btn line sm" data-u="skip">Skip</button><button class="btn line sm" data-u="go" hidden></button><button class="btn moss sm" data-u="next"></button></div></section>';
+  document.body.append(scrim);
+  const dlg = scrim.querySelector('.welcome'), release = trapFocus(dlg);
+  const $ = (q) => scrim.querySelector(q);
+  const close = () => { write(SEEN_UPDATE); release(); scrim.classList.add('out'); setTimeout(() => scrim.remove(), 260); };
+  const draw = () => {
+    const [t, p, go] = UPDATE_STEPS[i];
+    $('#ugT').textContent = `${i + 1} of ${UPDATE_STEPS.length} · ${t}`;
+    $('.ug-p').textContent = p;
+    $('.ug-dots').innerHTML = UPDATE_STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+    const g = $('[data-u="go"]'); g.hidden = !go; g.textContent = 'Show me'; g.dataset.to = go || '';
+    $('[data-u="next"]').textContent = i === UPDATE_STEPS.length - 1 ? 'Done' : 'Next';
+    $('[data-u="skip"]').hidden = i === UPDATE_STEPS.length - 1;
+  };
+  $('[data-u="next"]').onclick = () => { if (i >= UPDATE_STEPS.length - 1) close(); else { i++; draw(); } };
+  $('[data-u="skip"]').onclick = close;
+  $('[data-u="go"]').onclick = (e) => { const to = e.currentTarget.dataset.to; close(); if (to) location.hash = to; };
+  scrim.addEventListener('click', (e) => { if (e.target === scrim) close(); });
+  scrim.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  draw();
+  $('[data-u="next"]').focus();
 }
 
 export function startTour(route) {

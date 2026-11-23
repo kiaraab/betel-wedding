@@ -653,7 +653,7 @@ export function renderSeating(root) {
   if (vow && mode === 'plan' && vsTab !== 'guests') refTab = vsTab === 'look' ? 'venue' : 'ideas';
   const toolsHTML = `
           <div class="plan-tools">
-            ${!vow && THREE_SPACES.includes(space) ? `<button class="tool" type="button" data-mode="${mode === '3d' ? 'plan' : '3d'}">${mode === '3d' ? 'Plan' : '3D'}</button>` : ''}
+            ${THREE_SPACES.includes(space) ? `<div class="viewseg tool-seg" role="tablist" aria-label="View"><button type="button" role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button><button type="button" role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Plan</button></div>` : ''}
             ${mode === 'plan' ? `
               ${info.add === 'row' ? toolIcon('row', 'Add row', 'data-add="row"')
                 : info.add === 'high' ? toolIcon('high', 'Add high-top', 'data-add="high"')
@@ -710,7 +710,6 @@ export function renderSeating(root) {
             <div class="color-legend" id="legend"${rec && mode === 'plan' && legendHTML() ? '' : ' hidden'}>${rec ? legendHTML() : ''}</div>
             <div class="pop" id="pop" role="dialog" aria-label="Details" hidden></div>
             ${vow && mode === '3d' ? `<p class="hero-stats" id="heroStats">${statsText()}</p>
-            <div class="viewseg view-pill" role="tablist" aria-label="View"><button role="tab" data-mode="3d" aria-selected="true" class="on">3D view</button><button role="tab" data-mode="plan" aria-selected="false">Floor plan</button></div>
             <button class="hero-exp" id="evening">Experience the evening <span aria-hidden="true">↗</span></button>` : ''}
           </div>
         </div>
@@ -878,6 +877,8 @@ export function renderSeating(root) {
       g.append(tri);
     });
   };
+  let wantLookUp = false; // a ceiling pick: glide up to the ceiling once the new scene is in
+  let sceneStyle = ''; // the Look choices the current 3D scene was built with
   let pending3d = false; // a pick made while the scene is still being swapped in: swap once more when it lands
   let open3d = null; // (re)opens the 3D scene; set where the 3D view is built
   const drawPlan = () => {
@@ -1003,6 +1004,8 @@ export function renderSeating(root) {
     commit({ silent: true });
     sel = null; if (!pop.hidden) closePop(true);
     flip = from; drawPlan(); flip = null; lede();
+    // the reception's 3D scene is not rebuilt by plan edits, but a Look change (pick or undo) must show up: swap it in place
+    if (mode === '3d' && open3d && JSON.stringify(state.style || {}) !== sceneStyle) { if (threeInst) { const old = threeInst; threeInst = null; open3d({ view: old.getView(), old }); } else pending3d = true; }
     root.querySelectorAll('#sCount,#hCount').forEach((i) => { i.value = state.guestTarget; });
     root.querySelectorAll('#cCount').forEach((i) => { i.value = SP().room.chairs ?? state.guestTarget; });
     preview(); seatPanelRefresh(); syncLook(root, state.style);
@@ -1236,6 +1239,7 @@ export function renderSeating(root) {
   } else {
     // 3D view (loaded on demand); a quiet loader fades in until the scene is ready
     open3d = (soft = null) => { // soft = { view, old }: a design change replaces the scene in place (no loader, same camera)
+    sceneStyle = JSON.stringify(state.style || {});
     if (!soft) host.innerHTML = `<div class="three-loading">${heartLoaderHTML('Opening the venue…')}</div>`;
     import('./three-view.js').then(async (m) => {
       if (mode !== '3d' || !host.isConnected) return;
@@ -1256,6 +1260,7 @@ export function renderSeating(root) {
         },
       });
       soft?.old?.dispose();
+      if (wantLookUp) { wantLookUp = false; three.lookUp?.(); }
       if (pending3d && mode === '3d') { pending3d = false; const o = threeInst; threeInst = null; open3d({ view: o.getView(), old: o }); return; }
       if (mode !== '3d' || !host.isConnected) { three.dispose(); threeInst = null; return; }
       const setLbl = (b, t) => { b.setAttribute('aria-label', t); b.title = t; };
@@ -1279,6 +1284,7 @@ export function renderSeating(root) {
     if (hd) { toggleLookGroup(hd); return; }
     const b = e.target.closest('.lk-chip');
     if (!b) return;
+    if (b.dataset.lk === 'ceiling') wantLookUp = true;
     localUndo(`Look: ${b.textContent.trim()}`, () => { state.style = withPick(state.style, b.dataset.lk, b.dataset.v); }); // saves, swaps the scene in place, and the toast offers Undo
   }));
 
