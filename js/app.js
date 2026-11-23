@@ -166,11 +166,15 @@ function overview() {
 
   // Guests in ONE picture: a dot per expected guest. Filled = seated, ring = added but not seated, faint = still to add (RSVPs live in RSVPify, so none here)
   const seatedN = Math.min(seated, going.length), addedN = going.length - seatedN, goal = Math.max(state.guestTarget, going.length), openN = Math.max(0, goal - going.length);
-  const dotsOf = (cls, n) => `<i class="${cls}"></i>`.repeat(Math.min(n, 300));
+  // Betel & Carter lead the picture as two hearts (they are in the guest list, so they take their own dots' place)
+  const couple = going.filter((g) => g.party === 'couple'), coupleSeated = couple.filter(isSeated).length;
+  const HEART = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 21.2C6 17 2.2 13.4 2.2 9.1 2.2 6 4.5 4 7.2 4c1.9 0 3.6 1 4.8 2.7C13.2 5 14.9 4 16.8 4c2.7 0 5 2 5 5.1 0 4.3-3.8 7.9-9.8 12.1z"/></svg>';
+  const hearts = couple.slice(0, 2).map(() => `<i class="d-heart">${HEART}</i>`).join('');
+  const dotsOf = (cls, n) => `<i class="${cls}"></i>`.repeat(Math.min(Math.max(0, n), 300));
   const guestDotsHTML = `<section class="stat dotstat" aria-label="${seatedN} seated, ${addedN} added and not seated, ${openN} still to add">
     <div class="ds-head"><div><b>${going.length}<small>/${guestCountHTML()}</small></b><span>Guests added</span></div><a class="ds-seat" href="#seating"><b>${seatedN}</b><span>Seated</span></a></div>
-    <div class="dots" aria-hidden="true">${dotsOf('d-seated', seatedN)}${dotsOf('d-added', addedN)}${dotsOf('d-open', openN)}</div>
-    <ul class="dots-key"><li><i class="d-seated"></i>Seated ${seatedN}</li><li><i class="d-added"></i>Added, not seated ${addedN}</li><li><i class="d-open"></i>Still to add ${openN}</li></ul>
+    <div class="dots" aria-hidden="true">${hearts}${dotsOf('d-seated', seatedN - coupleSeated)}${dotsOf('d-added', addedN - (couple.length - coupleSeated))}${dotsOf('d-open', openN)}</div>
+    <ul class="dots-key">${couple.length ? '<li><i class="d-heart">' + HEART + '</i>Betel &amp; Carter</li>' : ''}<li><i class="d-seated"></i>Seated ${seatedN}</li><li><i class="d-added"></i>Added, not seated ${addedN}</li><li><i class="d-open"></i>Still to add ${openN}</li></ul>
   </section>`;
   // "Next up": the one to three things worth doing now (ADHD rule: show what is next, not everything)
   const unseated = going.filter((g) => !isSeated(g) && g.party !== 'couple').length;
