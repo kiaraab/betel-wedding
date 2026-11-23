@@ -49,7 +49,8 @@ export function lookHTML(spaceId, raw) {
   const groups = groupsFor(spaceId);
   if (!groups.length) return '';
   const cur = resolveStyle(raw);
-  return `<div class="look-pick" data-look="${esc(spaceId)}">${groups.map((g) => `<div class="lk-row" role="group" aria-label="${esc(g.label)}"><span class="lk-lab">${esc(g.label)}</span><div class="lk-chips">${g.opts.map(([id, l]) => `<button type="button" class="lk-chip${isOn(g, cur, id) ? ' on' : ''}" data-lk="${g.id}" data-v="${id}" aria-pressed="${isOn(g, cur, id)}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>`;
+  const now = (g) => g.opts.filter(([id]) => isOn(g, cur, id)).map(([, l]) => l).join(', ') || 'None';
+  return `<div class="look-pick" data-look="${esc(spaceId)}">${groups.map((g, i) => `<div class="lk-row${i ? '' : ' open'}" role="group" aria-label="${esc(g.label)}"><button type="button" class="lk-head" aria-expanded="${!i}"><span class="lk-lab">${esc(g.label)}</span><span class="lk-now" data-now="${g.id}">${esc(now(g))}</span></button><div class="lk-chips">${g.opts.map(([id, l]) => `<button type="button" class="lk-chip${isOn(g, cur, id) ? ' on' : ''}" data-lk="${g.id}" data-v="${id}" aria-pressed="${isOn(g, cur, id)}">${esc(l)}</button>`).join('')}</div></div>`).join('')}</div>`;
 }
 /** Update the chips of every picker under `root` in place (no re-render, so focus stays). */
 export function syncLook(root, raw) {
@@ -58,4 +59,14 @@ export function syncLook(root, raw) {
     const g = BY_ID.get(b.dataset.lk), on = !!g && isOn(g, cur, b.dataset.v);
     b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on));
   });
+  root.querySelectorAll('.lk-now').forEach((n) => { const g = BY_ID.get(n.dataset.now); if (g) n.textContent = g.opts.filter(([id]) => isOn(g, cur, id)).map(([, l]) => l).join(', ') || 'None'; });
+}
+
+/** One group open at a time: tap a group's header to open it (and close the others). */
+export function toggleLookGroup(head) {
+  const row = head.closest('.lk-row'), pick = head.closest('.look-pick');
+  if (!row || !pick) return;
+  const open = !row.classList.contains('open');
+  pick.querySelectorAll('.lk-row').forEach((r) => { r.classList.remove('open'); r.querySelector('.lk-head')?.setAttribute('aria-expanded', 'false'); });
+  if (open) { row.classList.add('open'); head.setAttribute('aria-expanded', 'true'); }
 }

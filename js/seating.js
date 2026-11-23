@@ -5,7 +5,7 @@ import { esc, toast, heartLoaderHTML } from './util.js';
 import { photosForSpace, photoById } from './venue-map.js';
 import { spaceToolsHTML, wireSpaceTools, partySVG, suggestHangout } from './spaces.js';
 import { renderVenueMap, MAP_PHOTO } from './venue-map.js';
-import { lookHTML, syncLook, withPick, resolveStyle, groupsFor } from './style-options.js';
+import { lookHTML, syncLook, withPick, resolveStyle, groupsFor, toggleLookGroup } from './style-options.js';
 import { hexOfPerson } from './team-colors.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -1275,6 +1275,8 @@ export function renderSeating(root) {
 
   // Look pickers (reception sidebar tab, ceremony / hangout side panels): one pick saves, then the 3D scene rebuilds (it eases in again). In the plan view it just saves.
   root.querySelectorAll('.look-pick').forEach((pick) => pick.addEventListener('click', (e) => {
+    const hd = e.target.closest('.lk-head');
+    if (hd) { toggleLookGroup(hd); return; }
     const b = e.target.closest('.lk-chip');
     if (!b) return;
     localUndo(`Look: ${b.textContent.trim()}`, () => { state.style = withPick(state.style, b.dataset.lk, b.dataset.v); }); // saves, swaps the scene in place, and the toast offers Undo
