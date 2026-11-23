@@ -505,7 +505,7 @@ const tableLabel = (g) => { const t = state.tables.find((x) => x.id === g.tableI
 const selectHTML = (g, k, opts, extra = '') => `<select class="select" data-k="${k}" data-bub aria-label="${extra || k}">${opts}</select>`;
 /** One table cell. Couple rows show a single "Couple" tag across Side + RSVP and leave the rest plain. */
 function guestCell(g, k, cols) {
-  const bare = (inner, cls = '') => `<td class="c-${k} ${cls}">${inner}</td>`;
+  const bare = (inner, cls = '') => `<td class="c-${k} ${cls}" data-l="${esc(GCOLS.find((c) => c.k === k)?.label || '')}">${inner}</td>`;
   if (g.party === 'couple') {
     if (k === 'side') return `<td class="c-side c-couple" colspan="${cols.some((c) => c.k === 'rsvp') ? 2 : 1}"><span class="couple-tag">Couple</span></td>`;
     if (k === 'rsvp') return '';

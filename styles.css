@@ -3633,3 +3633,48 @@ body[data-route="guests"] .lede { font-weight: 300; }
 .live-pre-row input { flex: 1; min-width: 0; }
 .live-pre-row .live-plus { flex: none; width: 38px; padding: 0; font-size: 20px; line-height: 1; }
 .live-pop .live-bottom { margin-top: 6px; }
+
+/* Guests on phones: a header row, and the extra columns the person turned on (Table, Household, Plus-one, Notes) show as captioned fields under the name */
+@media (max-width: 760px) {
+  table.guests thead { display: block; }
+  table.guests thead tr { display: flex; align-items: center; gap: 4px; padding: 6px 4px 4px 10px; border-bottom: 1px solid var(--line); }
+  table.guests thead th { display: block; padding: 0; border: 0; font-size: 9.5px; letter-spacing: .1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table.guests thead th:first-child { flex: 1 1 0; min-width: 64px; }
+  table.guests thead th.h-side { width: 64px; flex: none; padding-left: 4px; }
+  table.guests thead th.h-rsvp { width: 48px; flex: none; padding-left: 4px; }
+  table.guests thead th.h-relation { width: 88px; flex: none; padding-left: 4px; }
+  table.guests thead th.h-table, table.guests thead th.h-household, table.guests thead th.h-plusOne, table.guests thead th.h-notes { display: none; }
+  table.guests thead th:last-child { width: 68px; flex: none; }
+  table.guests thead .col-rs { display: none; }
+  table.guests tr.row { flex-wrap: wrap !important; }
+  table.guests tr.row td.c-table, table.guests tr.row td.c-household, table.guests tr.row td.c-plusOne, table.guests tr.row td.c-notes { display: block !important; order: 20 !important; flex: 1 1 calc(50% - 6px) !important; width: auto; margin: 0 !important; }
+  table.guests tr.row td:empty { display: none !important; }
+  table.guests tr.row td.c-table::before, table.guests tr.row td.c-household::before, table.guests tr.row td.c-plusOne::before, table.guests tr.row td.c-notes::before { content: attr(data-l) !important; display: block; font: 400 9.5px/1 var(--caps, var(--sans)); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); margin: 4px 2px 2px; }
+  table.guests tr.row td.c-notes { flex-basis: 100% !important; }
+  table.guests tr.row td.c-table .c-txt { padding: 4px 2px; }
+}
+@media (max-width: 760px) {
+  /* line one (name, side, RSVP, relation, ⋮, ×) must fit at 360px even though rows may now wrap for the extra fields */
+  table.guests tr.row td.c-name { min-width: 48px !important; }
+  table.guests tr.row td.c-side { width: 60px !important; }
+  table.guests tr.row td.c-rsvp { width: 44px !important; }
+  table.guests tr.row td.c-relation { width: 80px !important; }
+  table.guests tr.row td.row-actions .more, table.guests tr.row td.row-actions .x { min-width: 32px; width: 32px; }
+  table.guests thead th.h-side { width: 60px; }
+  table.guests thead th.h-rsvp { width: 44px; }
+  table.guests thead th.h-relation { width: 80px; }
+  table.guests thead th:last-child { width: 64px; }
+}
+@media (max-width: 760px) {
+  table.guests thead th:first-child { min-width: 48px; }
+  table.guests thead th { letter-spacing: .05em; }
+  table.guests thead th.h-relation { padding-left: 2px; }
+}
+@media (max-width: 760px) { table.guests thead th:last-child { width: 70px; } }
+@media (max-width: 760px) {
+  /* 6px less than before so line one also fits at 360px */
+  table.guests tr.row, table.guests thead tr { gap: 3px !important; }
+  table.guests tr.row td.c-side, table.guests thead th.h-side { width: 58px !important; }
+  table.guests tr.row td.c-rsvp, table.guests thead th.h-rsvp { width: 42px !important; }
+  table.guests tr.row td.c-relation, table.guests thead th.h-relation { width: 78px !important; }
+}
