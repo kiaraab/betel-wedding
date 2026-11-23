@@ -164,7 +164,21 @@ let base = { stamp: null, parts: {} };
 function snapBase() {
   base = { stamp: state.updatedAt || null, parts: Object.fromEntries(Object.keys(state).map((k) => [k, JSON.stringify(state[k])])) };
 }
+import { MERGE_KEYS, mergeById } from './merge-items.js';
 const META = new Set(['updatedAt', 'version']);
+/** What to do with one part of the plan when someone else saved a newer copy. Returns { value } to take, or null to keep ours.
+ *  Untouched here: take theirs. Untouched there: keep ours. Both changed a list of items: merge item by item (js/merge-items.js). */
+function mergePart(k, localVal, remoteVal) {
+  const baseJson = base.parts[k], localJson = JSON.stringify(localVal), remoteJson = JSON.stringify(remoteVal);
+  if (localJson === baseJson) return remoteJson !== baseJson ? { value: remoteVal } : null;
+  if (remoteJson === baseJson) return null;
+  if (MERGE_KEYS.has(k)) {
+    let b = null; try { b = JSON.parse(baseJson); } catch { /* no base: fall through */ }
+    const merged = mergeById(b, localVal, remoteVal);
+    if (merged) return { value: merged };
+  }
+  return null; // both changed something we can't merge by item: keep ours (as before)
+}
 const scratch = (k) => k.startsWith('__'); // __keys are throwaway (tests/debug): never saved, never merged
 const persisted = () => Object.fromEntries(Object.entries(state).filter(([k]) => !scratch(k)));
 function readStored() {
@@ -197,7 +211,8 @@ function save() {
     if (!hadEdits) { adopt(stored); return; } // this tab is just stale: never overwrite newer data
     Object.keys(stored).forEach((k) => {
       if (META.has(k) || scratch(k)) return;
-      if (JSON.stringify(state[k]) === base.parts[k] && JSON.stringify(stored[k]) !== base.parts[k]) { state[k] = stored[k]; took = true; }
+      const r = mergePart(k, state[k], stored[k]);
+      if (r) { state[k] = r.value; took = true; }
     });
   } else if (stored) {
     Object.keys(stored).forEach((k) => { if (!META.has(k) && !scratch(k) && !(k in state)) { state[k] = stored[k]; took = true; } });
@@ -285,7 +300,8 @@ export function mergeRemote(next) {
   if (!dirty) { adopt(next); return true; }
   Object.keys(next).forEach((k) => {
     if (META.has(k) || scratch(k)) return;
-    if (JSON.stringify(state[k]) === base.parts[k] && JSON.stringify(next[k]) !== base.parts[k]) state[k] = next[k];
+    const r = mergePart(k, state[k], next[k]);
+    if (r) state[k] = r.value;
   });
   healSeats();
   ensureAutoGuests();
