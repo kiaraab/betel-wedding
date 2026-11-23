@@ -103,3 +103,7 @@ REQ-113 Seating on phone, REQ-115 graph and Love/Like, REQ-111 photo library (ne
 - Phone header is one row with a menu button; the sections open as a list. The Overview title no longer touches the photo on narrower phones.
 
 - Seating pages: the venue photo strip folds away (starts folded on phones, remembers your choice).
+
+- Fixed: Look picks on the Reception now update the 3D scene (and Undo does too); on a phone the 3D stays pinned while you pick; a ceiling pick glides up to show it.
+- One 3D | Plan switch in the same place on every space.
+- A short "what got easier" guide shows once on next open.

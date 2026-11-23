@@ -3746,3 +3746,22 @@ button.vstrip-head { width: 100%; min-height: 44px; padding: 0; border: 0; backg
 .venue-strip.closed button.vstrip-head { margin-bottom: 0; }
 button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .vstrip-chev { transition: none; } }
+
+/* Phone: while Look is open in 3D, the scene stays pinned under the header so every pick shows live */
+@media (max-width: 900px) {
+  .seat-layout.vow[data-mode="3d"]:has(.vow-side[data-tab="look"]) { overflow: clip; grid-template-rows: 42vh max-content; }
+  .seat-layout.vow[data-mode="3d"]:has(.vow-side[data-tab="look"]) .plan-col { position: sticky; top: var(--top-h); z-index: 6; height: 42vh; min-height: 0; }
+  .seat-layout.vow[data-mode="3d"]:has(.vow-side[data-tab="look"]) .plan-col .plan-card, .seat-layout.vow[data-mode="3d"]:has(.vow-side[data-tab="look"]) .plan-col .stage-wrap { height: 42vh !important; min-height: 0 !important; max-height: 42vh; }
+}
+
+/* One view switch for every space: 3D | Plan, first in the toolbar */
+.plan-tools .tool-seg { display: inline-flex; margin-right: 6px; border: 1px solid rgba(35, 37, 28, .22); }
+.plan-tools .tool-seg button { min-width: 44px; min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: inherit; font: 500 14px var(--sans); cursor: pointer; }
+.plan-tools .tool-seg button.on { background: var(--c-wine, #6e1f2e); color: #fff; }
+.plan-tools .tool-seg button:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: -3px; }
+
+/* Update guide: one step at a time, with dots */
+.ug .ug-p { min-height: 4.5em; }
+.ug-dots { display: flex; gap: 6px; margin: 4px 0 14px; }
+.ug-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(35, 37, 28, .22); }
+.ug-dots i.on { background: var(--c-wine, #6e1f2e); }
