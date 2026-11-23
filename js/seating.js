@@ -817,7 +817,7 @@ export function renderSeating(root) {
           } else {
             const f = fromLen(v); if (k === 'x') it.x = Math.max(0, Math.min(r.w, f)); if (k === 'y') it.y = Math.max(0, Math.min(r.h, f));
           }
-          if (!area && collides(it)) { Object.assign(it, before); toast('Needs a little more room there'); }
+          if (!area && collides(it)) { Object.assign(it, before); toast(space === 'reception' ? 'Needs a little more room there' : 'That spot overlaps the building, fountain or another table'); }
           commit({ silent: true }); drawPlan();
         };
         body.querySelectorAll('input[data-k]').forEach((i) => i.onchange = () => apply(i.dataset.k, i.value));
@@ -915,7 +915,7 @@ export function renderSeating(root) {
           Object.assign(d.item, { x: d.start.x, y: d.start.y });
           d.g.classList.add('settle-back');
           d.g.setAttribute('transform', `translate(${d.item.x} ${d.item.y})`);
-          toast('Needs a little more room there');
+          toast(space === 'reception' ? 'Needs a little more room there' : 'That spot overlaps the building, fountain or another table');
           setTimeout(drawPlan, 320);
           return;
         }
@@ -958,7 +958,7 @@ export function renderSeating(root) {
     const fp = footprint(t);
     const others = SP().tables.filter((o) => o.id !== t.id);
     const me = { x1: t.x - fp.hw, x2: t.x + fp.hw, y1: t.y - fp.hh, y2: t.y + fp.hh };
-    return blockers(SP().room, others, { areaPad: 0.5, noStage: t.id === 'head' }).some((z) => me.x1 < z.x2 && me.x2 > z.x1 && me.y1 < z.y2 && me.y2 > z.y1);
+    return blockers(SP().room, others, { areaPad: 0.5, noStage: t.id === 'head', soft: space !== 'reception' }).some((z) => me.x1 < z.x2 && me.x2 > z.x1 && me.y1 < z.y2 && me.y2 > z.y1);
   }
 
   let navLock = null; // stepping with ‹ ›: the popover stays exactly where it is while the plan glides underneath

@@ -106,7 +106,8 @@ const rbox = (r, pad = 0) => ({ x1: r.x - pad, x2: r.x + r.w + pad, y1: r.y - pa
 export const loungeDepth = (room) => (room.fixed?.balcony ? room.fixed.balcony.depth + 6 : 0);
 
 /** Everything a table must stay clear of: stage steps, clear paths at doors, the entrance aisle, areas, other tables. */
-export function blockers(room, tables = [], { areaPad = 4, noStage = false } = {}) {
+/** `soft` (hangout, ceremony, tasting room): only real overlaps block. No extra keep-out ring around decor like the fountain, and 1 ft instead of 2 ft between tables (standing tables need less aisle). */
+export function blockers(room, tables = [], { areaPad = 4, noStage = false, soft = false } = {}) {
   const b = [];
   const st = room.fixed?.stage;
   // The bay is OUTSIDE the hall (x < 0). Only the 3 steps (~4-5 ft) reach in, so keep ~8 ft from the wall, as wide as the arch + 3 ft (photos #061, #124, #100)
@@ -124,14 +125,14 @@ export function blockers(room, tables = [], { areaPad = 4, noStage = false } = {
     b.push(rbox(r, o.kind === 'entrance' ? 0 : 0.5));
   });
   // Fixed decor that takes floor space (fireplace, bar, hedges, statues, trees)
-  (room.fixed?.decor || []).forEach((d) => { if (d.block) b.push(rbox(d, d.pad ?? 0.5)); });
+  (room.fixed?.decor || []).forEach((d) => { if (d.block) b.push(rbox(d, soft ? 0 : (d.pad ?? 0.5))); });
   (room.areas || []).forEach((a) => {
     const r = rotatedHalf(a.w / 2, a.h / 2, a.rot || 0);
     // bar / DJ / cake hug the walls, so chairs may come within ~1 ft of them (the table footprint already includes its chairs)
     b.push(box(a.x + a.w / 2, a.y + a.h / 2, r.hw, r.hh, ['bar', 'dj', 'cake'].includes(a.preset) ? Math.min(areaPad, 1) : areaPad));
   });
   // 2 ft walkway around dining tables; ceremony rows sit back to back (the row pitch is the legroom)
-  tables.forEach((t) => { const f = footprint(t); b.push(box(t.x, t.y, f.hw, f.hh, t.shape === 'row' ? 0 : 2)); });
+  tables.forEach((t) => { const f = footprint(t); b.push(box(t.x, t.y, f.hw, f.hh, t.shape === 'row' ? 0 : soft ? 1 : 2)); });
   return b;
 }
 
