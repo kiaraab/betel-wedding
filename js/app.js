@@ -832,6 +832,15 @@ addEventListener('resize', moveInk);
 document.fonts?.ready.then(moveInk);
 document.fonts?.addEventListener?.('loadingdone', moveInk);
 setTimeout(moveInk, 400);
+{ // phone: the menu button opens the section list under the header; it closes on a pick, Escape, a tap outside, or a page change
+  const mast = document.querySelector('.masthead'), tog = document.getElementById('navToggle');
+  const setMenu = (on) => { mast.classList.toggle('menu-open', on); tog.setAttribute('aria-expanded', String(on)); };
+  tog.addEventListener('click', () => setMenu(!mast.classList.contains('menu-open')));
+  mast.querySelector('.mainnav').addEventListener('click', (e) => { if (e.target.closest('a')) setMenu(false); });
+  document.addEventListener('pointerdown', (e) => { if (mast.classList.contains('menu-open') && !mast.contains(e.target)) setMenu(false); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && mast.classList.contains('menu-open')) { setMenu(false); tog.focus(); } });
+  addEventListener('hashchange', () => setMenu(false));
+}
 setTimeout(() => document.querySelector('.nav-ink')?.classList.add('ready'), 700);   // the nav underline only glides after first paint
 initSlideInk();
 // Mood palettes stay internal (branding) — no page; old #mood links fall back to the overview
