@@ -214,11 +214,11 @@ export function renderVenueMap(root, { signal } = {}) {
   let filter = 'all';
   root.innerHTML = `
     <div class="page-head vm-head"><div class="vm-titlerow">
-      <button type="button" class="vm-title" id="vmTitle" aria-expanded="false" aria-controls="vmTabs" title="Show the areas you can plan">Morais Vineyards<span class="vm-chev" aria-hidden="true">${svgIcon('chev', 20)}</span></button>
-      <nav class="vm-tabs" id="vmTabs" aria-label="Areas you can plan seats in"><div class="vm-tabs-in">${editable.map((a) => `<a href="#seating/${a.space}" style="--a:${a.color || '#fff'}"><i aria-hidden="true"></i>${esc(a.name)}</a>`).join('')}</div></nav>
+      <h1 class="vm-title" id="vmTitle">Morais Vineyards</h1>
       ${viewIcons()}
     </div></div>
     <div class="vm-mapcol">${mapHTML()}<aside class="vm-pop" id="vmPop" hidden aria-label="Area details"></aside></div>
+    <nav class="vm-plan" id="vmPlan" aria-label="Plan seats"><span class="vm-plan-h">Plan seats</span>${editable.map((a) => `<a href="#seating/${a.space}" data-plan="${a.id}" style="--a:${a.color || '#fff'}"><b>${esc(a.name)}</b><small data-planst="${a.id}">${esc(statusOf(a))}</small><i aria-hidden="true">${svgIcon('edit', 16)}</i></a>`).join('')}</nav>
     <section class="vm-all" aria-label="All venue photos">
       <div class="vm-filters" role="group" aria-label="Filter photos by place" id="vmFilters"></div>
       <p class="vm-fhead" id="vmHead" hidden></p>
@@ -227,10 +227,6 @@ export function renderVenueMap(root, { signal } = {}) {
   const map = root.querySelector('#vmMap'), pop = root.querySelector('#vmPop'), allGrid = root.querySelector('#vmAll'), filters = root.querySelector('#vmFilters'), head = root.querySelector('#vmHead');
   const areaById = (id) => AREAS.find((a) => a.id === id);
   const byId = (id) => PHOTOS.find((p) => p.id === id);
-
-  /* ---- the title opens the editable areas as tabs to its right ---- */
-  const title = root.querySelector('#vmTitle'), tabs = root.querySelector('#vmTabs');
-  title.addEventListener('click', () => { const o = !tabs.classList.contains('open'); tabs.classList.toggle('open', o); title.setAttribute('aria-expanded', o); title.classList.toggle('open', o); }, { signal });
 
   /* ---- views: aerial photo with outlines, or the satellite overview ---- */
   root.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
@@ -292,7 +288,8 @@ export function renderVenueMap(root, { signal } = {}) {
     const onB = filters.querySelector('.on'); if (onB) filters.scrollLeft = Math.max(0, onB.offsetLeft - (filters.clientWidth - onB.offsetWidth) / 2);
     const fa = areaById(filter);
     head.hidden = !fa;
-    head.innerHTML = fa ? `<span><b>${esc(fa.name)}</b> · ${esc(fa.place)} · ${esc(statusOf(fa))}</span>${fa.space ? `<a class="vm-edit" href="#seating/${fa.space}">Edit seats</a>` : ''}` : '';
+    root.querySelectorAll('[data-plan]').forEach((el) => { el.classList.toggle('on', el.dataset.plan === filter); const st = root.querySelector(`[data-planst="${el.dataset.plan}"]`); const ar = areaById(el.dataset.plan); if (st && ar) st.textContent = statusOf(ar); });
+    head.innerHTML = fa ? `<span><b>${esc(fa.name)}</b> · ${esc(fa.place)} · ${esc(statusOf(fa))}</span>` : '';
     const list = order0.map(byId).filter((p) => p && (filter === 'all' || areaOf(p) === filter));
     if (!list.length) { allGrid.innerHTML = '<p class="vm-empty">No photos yet</p>'; AREAS.forEach((a) => { const sEl = map.querySelector(`[data-st="${a.id}"]`); if (sEl) sEl.textContent = statusOf(a); }); return; }
     const shown = expanded ? list.length : PAGE();
