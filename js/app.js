@@ -165,6 +165,19 @@ function overview() {
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
   const stat = (href, n, of, label, ofHTML = of) => { const tag = href ? `a class="stat" href="${href}"` : 'div class="stat"'; return `<${tag}><b>${n}<small>/${ofHTML}</small></b><span>${label}</span><div class="meter"><i style="--w:${pct(n, of)}%"></i></div></${href ? 'a' : 'div'}>`; };
 
+  // "Next up": the one to three things worth doing now (ADHD rule: show what is next, not everything)
+  const unseated = going.filter((g) => !isSeated(g) && g.party !== 'couple').length;
+  const notInvited = state.guests.filter((g) => g.rsvp === 'Not invited yet' && g.party !== 'couple').length;
+  const openRole = state.roles.find((r) => r.status === 'In progress') || state.roles.find((r) => r.status === 'Not started');
+  const nextUp = [
+    unseated && state.guests.length > 2 ? { href: '#seating/reception', t: `Seat ${unseated} guest${unseated === 1 ? '' : 's'}`, s: `${seated} of ${going.length} seated` } : null,
+    notInvited ? { href: '#guests', t: `Invite ${notInvited} guest${notInvited === 1 ? '' : 's'}`, s: 'Not invited yet' } : null,
+    openRole ? { href: '#team', t: openRole.title || 'Next task', s: openRole.status } : null,
+    (state.agenda || []).length === 0 ? { href: '#agenda', t: 'Plan the day', s: 'The agenda is empty' } : null,
+    going.length < state.guestTarget ? { href: '#guests', t: 'Add guests', s: `${going.length} of ${state.guestTarget}` } : null,
+  ].filter(Boolean).slice(0, 3);
+  const nextUpHTML = `<section class="nextup" aria-label="Next up"><h2>Next up</h2>${nextUp.length ? `<ul>${nextUp.map((n) => `<li><a href="${n.href}"><b>${esc(n.t)}</b><span>${esc(n.s)}</span><i aria-hidden="true">›</i></a></li>`).join('')}</ul>` : '<p class="nu-done">All caught up</p>'}</section>`;
+
   view.innerHTML = `
     <div class="ov">
       <section class="banner" aria-label="Betel and Carter are getting married">
@@ -178,6 +191,7 @@ function overview() {
       </section>
 
       <div class="ov-side">
+        ${nextUpHTML}
         <div class="stats">
           ${stat('#team', done, state.roles.length, 'Tasks done')}
           ${stat(null, going.length, state.guestTarget, 'Guests', guestCountHTML())}
