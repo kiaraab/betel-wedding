@@ -28,6 +28,8 @@ let colsOpen = false;   // keep the column menu open while toggling several
 let guestView = 'list'; // 'list' | 'graph'
 const openGuests = new Set();
 
+const dueText = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const dueChip = (iso) => { const n = daysUntil(iso); return `<small class="tc-due${n < 0 ? ' late' : n <= 14 ? ' soon' : ''}" title="Due ${esc(dueText(iso))}">Due ${esc(dueText(iso))}</small>`; };
 const rolesOf = (pid) => state.roles.filter((r) => r.people.includes(pid));
 const personName = (id) => state.people.find((p) => p.id === id)?.name || id;
 const statusKey = (s) => s.toLowerCase().replace(/\s+/g, '-');
@@ -176,7 +178,7 @@ function overview() {
   const guestDotsHTML = `<section class="stat dotstat" aria-label="${seatedN} seated, ${addedN} added and not seated, ${openN} still to add">
     <div class="ds-head"><div><b>${going.length}<small>/${guestCountHTML()}</small></b><span>Guests added</span></div><a class="ds-seat" href="#seating"><b>${seatedN}</b><span>Seated</span></a></div>
     <div class="dots" aria-hidden="true">${hearts}${dotsOf('d-seated', seatedN - coupleSeated)}${dotsOf('d-added', addedN - (couple.length - coupleSeated))}${dotsOf('d-open', openN)}</div>
-    <ul class="dots-key">${couple.length ? '<li><i class="d-heart">' + HEART + '</i>Betel &amp; Carter</li>' : ''}<li><i class="d-seated"></i>Seated ${seatedN}</li><li><i class="d-added"></i>Added, not seated ${addedN}</li><li><i class="d-open"></i>Still to add ${openN}</li></ul>
+    <ul class="dots-key">${couple.length ? '<li><i class="d-heart">' + HEART + '</i><span class="k-l">Betel &amp; Carter</span></li>' : ''}<li><i class="d-seated"></i><span class="k-l">Seated</span><span class="k-n">${seatedN}</span></li><li><i class="d-added"></i><span class="k-l">Not seated</span><span class="k-n">${addedN}</span></li><li><i class="d-open"></i><span class="k-l">Still to add</span><span class="k-n">${openN}</span></li></ul>
   </section>`;
   // "Next up": the three most useful things right now, sourced in this order (a dated milestone shows its date and days left):
   // 1 tasks waiting on the bride, 2 a milestone within 45 days, 3 tasks in progress, 4 guests to seat, 5 an empty agenda, 6 guests still to add, 7 tasks not started, 8 the next milestone whenever it is
@@ -185,15 +187,17 @@ function overview() {
   const dateOf = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const nextMs = (state.milestones || []).filter((m) => m.id !== 'wedding' && m.date >= todayIso).sort((x, y) => x.date.localeCompare(y.date))[0];
   const msItem = nextMs && { t: nextMs.label, s: `${dateOf(nextMs.date)} · in ${daysUntil(nextMs.date)} days`, soon: daysUntil(nextMs.date) <= 45 };
-  const roleItem = (r, s) => ({ href: '#team', t: r.title, s });
+  const roleItem = (r, s0) => { const n = r.due ? daysUntil(r.due) : null; const due = r.due && r.status !== 'Done' ? ` · due ${dateOf(r.due)}${n < 0 ? ' (overdue)' : ` · in ${n} day${n === 1 ? '' : 's'}`}` : ''; return { href: '#team', t: r.title, s: s0 + due, n }; };
+  const dueSoon = state.roles.filter((r) => r.due && r.status !== 'Done' && daysUntil(r.due) <= 14).sort((x, y) => x.due.localeCompare(y.due));
   const pool = [
-    ...state.roles.filter((r) => r.status === 'Waiting on bride').slice(0, 2).map((r) => roleItem(r, 'Waiting on you')),
+    ...dueSoon.slice(0, 2).map((r) => roleItem(r, r.status)),
+    ...state.roles.filter((r) => r.status === 'Waiting on bride' && !dueSoon.includes(r)).slice(0, 2).map((r) => roleItem(r, 'Waiting on you')),
     msItem && msItem.soon ? msItem : null,
-    ...state.roles.filter((r) => r.status === 'In progress').slice(0, 2).map((r) => roleItem(r, 'In progress')),
+    ...state.roles.filter((r) => r.status === 'In progress' && !dueSoon.includes(r)).sort((x, y) => (x.due || '9').localeCompare(y.due || '9')).slice(0, 2).map((r) => roleItem(r, 'In progress')),
     unseated && state.guests.length > 2 ? { href: '#seating/reception', t: `Seat ${unseated} guest${unseated === 1 ? '' : 's'}`, s: `${seated} of ${going.length} seated` } : null,
     (state.agenda || []).length === 0 ? { href: '#agenda', t: 'Plan the day', s: 'The agenda is empty' } : null,
     going.length < state.guestTarget ? { href: '#guests', t: 'Add guests', s: `${going.length} of ${state.guestTarget}` } : null,
-    ...state.roles.filter((r) => r.status === 'Not started').slice(0, 2).map((r) => roleItem(r, 'Not started')),
+    ...state.roles.filter((r) => r.status === 'Not started' && !dueSoon.includes(r)).sort((x, y) => (x.due || '9').localeCompare(y.due || '9')).slice(0, 2).map((r) => roleItem(r, 'Not started')),
     msItem && !msItem.soon ? msItem : null,
   ].filter(Boolean);
   const nextUp = pool.slice(0, 3);
@@ -312,9 +316,10 @@ function personCard(p) {
           if (editingRole === r.id) return `<li class="tc-role editing"><form class="tc-redit" data-saverole="${r.id}" autocomplete="off">
             <input name="title" value="${esc(r.title)}" required maxlength="80" aria-label="Role name"/>
             <div class="tc-chips" role="group" aria-label="Who has this role">${state.people.map((x) => `<button type="button" class="tc-chip" data-rwith="${x.id}" aria-pressed="${r.people.includes(x.id)}">${esc(x.name)}</button>`).join('')}</div>
+            <label class="tc-due-f">Due <input type="date" name="due" value="${esc(r.due || '')}" aria-label="Due date (optional)"/></label>
             <div class="tc-redit-foot"><button type="button" class="tc-no" data-delrole="${r.id}">Delete role</button><span class="spacer"></span><button type="button" class="tc-no" data-canceledit>Cancel</button><button class="tc-yes">Save</button></div>
           </form></li>`;
-          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}</span><button class="tc-btn tc-edit" data-editrole="${r.id}" aria-label="Edit role ${esc(r.title)}" title="Edit role">${EDIT_ICON}</button><div class="tc-meta">${statusDots(r)}${w ? `<small class="tc-with">with ${esc(w)}</small>` : ''}</div></li>`;
+          return `<li class="tc-role" data-status="${statusKey(r.status)}"><span class="tc-title">${esc(r.title)}</span><button class="tc-btn tc-edit" data-editrole="${r.id}" aria-label="Edit role ${esc(r.title)}" title="Edit role">${EDIT_ICON}</button><div class="tc-meta">${statusDots(r)}${r.due && r.status !== 'Done' ? dueChip(r.due) : ''}${w ? `<small class="tc-with">with ${esc(w)}</small>` : ''}</div></li>`;
         }).join('')}
       </ul>
       ${agendaOf(p.id)}
@@ -441,6 +446,7 @@ function team() {
     if (!r || !title) return;
     if (!who.length) { toast('Pick at least one person for this role'); return; }
     r.title = title; r.people = who;
+    if (f.elements.due.value) r.due = f.elements.due.value; else delete r.due;
     editingRole = null;
     commit();
     backToEdit(r.id);

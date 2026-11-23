@@ -3944,3 +3944,18 @@ button.vstrip-head:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); ou
 .nextup li > a > i { font-style: normal; font-size: 22px; color: var(--c-wine, #6e1f2e); }
 .nextup li > a:hover .nu-t b { text-decoration: underline; text-underline-offset: 3px; }
 .nextup li > a:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
+
+/* Guest dots legend: two even columns, soft label colour, the count in light grey */
+.dots-key { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 22px; margin-top: 4px; }
+.dots-key li { display: flex; align-items: center; gap: 8px; min-width: 0; font: 400 13px var(--sans); color: #6b6b60; }
+.dots-key .k-l { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dots-key .k-n { margin-left: 10px; font-variant-numeric: tabular-nums; color: #aaa99f; }
+.dots-key i { flex: none; }
+
+/* Task due dates */
+.tc-due-f { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font: 400 13px var(--sans); }
+.tc-due-f input { min-height: 36px; padding: 0 8px; font: 400 14px var(--sans); }
+.tc-due { font: 500 12px var(--sans); color: #6b6b60; margin-left: 8px; white-space: nowrap; }
+.tc-due.soon { color: #8a5a00; }
+.tc-due.late { color: #a32d2d; }
+.dots-key .k-l, .dots-key .k-n { text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 400 !important; }
