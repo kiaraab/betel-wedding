@@ -3927,3 +3927,14 @@ body[data-route="guests"] { background: #fbfaf8; }
 .vm-plan a.on small { color: var(--c-ink-soft, #5a4348); }
 .vm-plan a.on i { background: var(--c-wine, #6e1f2e); color: #fff; }
 @media (max-width: 760px) { .vm-plan { grid-template-columns: 1fr 1fr; max-width: none; } .vm-plan a { min-height: 60px; padding-left: 16px; } .vm-plan a b { font-size: 16px; } }
+
+/* Plan seats bar: compact */
+.vm-plan { gap: 6px; padding: 8px 10px 10px; }
+.vm-plan-h { font-size: 11px; }
+.vm-plan a { min-height: 44px; padding: 6px 8px 6px 14px; column-gap: 6px; box-shadow: inset 4px 0 0 var(--a, #fff); }
+.vm-plan a b { font-size: 14px; }
+.vm-plan a small { font-size: 12px; line-height: 1.2; }
+.vm-plan a i { width: 28px; height: 28px; }
+.vm-plan a i svg { width: 14px; height: 14px; }
+@media (max-width: 760px) { .vm-plan a { min-height: 44px; padding-left: 12px; } .vm-plan a b { font-size: 14px; } }
+@media (max-width: 760px) { .vm-plan a { padding: 5px 6px 5px 11px; column-gap: 4px; } .vm-plan a small { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; } .vm-plan a b { white-space: nowrap; } .vm-plan a i { width: 24px; height: 24px; } }
