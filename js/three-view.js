@@ -458,11 +458,13 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   });
 
   /* ---- size ---- */
+  let refitHome = () => {}; // set below, once the home view exists: re-frames it when the picture changes shape
   const resize = () => {
     const W = host.clientWidth || 600;
     const H = host.closest('.vow') ? Math.max(320, host.clientHeight || innerHeight - 190) : Math.max(320, Math.min(W * 0.8, innerHeight - 230));
     renderer.setSize(W, H, !host.closest('.vow'));
     camera.aspect = W / H; camera.updateProjectionMatrix();
+    refitHome();
   };
   const ro = new ResizeObserver(resize); ro.observe(host); resize();
 
@@ -483,8 +485,22 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
   };
 
   /* ---- intro + "Experience the evening" camera moves ---- */
-  const home = { pos: new THREE.Vector3(0, 52, h * 0.78), target: new THREE.Vector3(0, 0, -4) };
+  // The home view is framed for a wide screen. On a tall narrow one (a phone) the room is wider than the picture, so pull the camera back until the room's width fits.
+  const calcHome = () => {
+    const target = new THREE.Vector3(0, 0, -4), base = new THREE.Vector3(0, 52, h * 0.78), d0 = base.distanceTo(target);
+    const need = (w * 1.12) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(0.3, camera.aspect));
+    const k = Math.min(controls.maxDistance * 0.95 / d0, Math.max(1, need / d0));
+    return { pos: target.clone().add(base.sub(target).multiplyScalar(k)), target };
+  };
+  const home = calcHome();
+  let touched = false; // once someone moves the view themselves, a resize leaves it alone
+  controls.addEventListener('start', () => { touched = true; });
   let flight = { from: new THREE.Vector3(0, h * 1.55, 0.01), to: home.pos.clone(), fromT: new THREE.Vector3(0, 0, 0), toT: home.target.clone(), t: 0, dur: 1.8 };
+  refitHome = () => {
+    const nh = calcHome(); home.pos.copy(nh.pos);
+    if (flight && flight.to) flight.to.copy(home.pos);
+    if (!touched && !tour && (!flight || flight.t >= 1)) { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); }
+  };
   camera.position.copy(flight.from);
   let tour = null;
 
@@ -607,6 +623,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
 
   /* ---- loop ---- */
   let raf, last = performance.now(), clock = 0, lit = -1;
+  const mountedAt = performance.now(); // tables pop in on REAL time: the frame clock below is capped per frame, so a slow device (or a throttled tab) used to leave them invisible for ages
   const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
   function frame(now) {
     if (document.hidden) { last = now; raf = requestAnimationFrame(frame); return; }
@@ -627,7 +644,7 @@ export async function mount(host, state, mood, { onSeat, unseated = () => [] } =
       if (tour.t >= 1) { tour = null; controls.enabled = true; }
     }
     popIns.forEach((p) => {
-      const k = Math.min(1, Math.max(0, (clock - p.delay) / 0.45));
+      const k = Math.min(1, Math.max(0, ((performance.now() - mountedAt) / 1000 - p.delay) / 0.45));
       const s = k === 0 ? 0.001 : 1 + Math.sin(k * Math.PI) * 0.08 * (1 - k) - (1 - ease(k)) * 0.999;
       p.g.scale.setScalar(Math.max(0.001, s));
     });
