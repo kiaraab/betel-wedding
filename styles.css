@@ -4106,3 +4106,22 @@ body[data-route="team"]::before, body:is([data-route="overview"], [data-route="g
 @media (max-width: 640px) {
   html body[data-route="guests"] table.guests tr.row > td:not(.c-name):not(.c-side):not(.c-relation):not(.row-actions) { display: none !important; }
 }
+
+/* Team list view: a real table (flat rows, hairlines, header), not cards */
+html body .tgrid.tv-list { background: rgba(252,249,247,.97) !important; border: 1px solid rgba(94,26,41,.18); backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html body .tgrid.tv-list::before { content: "Name\A"; white-space: pre; display: block; padding: 8px 12px; font: 600 11px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: #8b7b7e; background: #f3ecea; border-bottom: 1px solid rgba(94,26,41,.18); }
+html body .tv-list .tcard { background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border: 0 !important; border-bottom: 1px solid rgba(94,26,41,.12) !important; border-left: 4px solid var(--c-wine) !important; color: #2a1a1d !important; align-items: center; }
+html body .tv-list .tcard.c-green { border-left-color: var(--c-leaf) !important; }
+html body .tv-list .tcard.c-pink { border-left-color: #d9a3ad !important; }
+html body .tv-list .tcard.c-none { border-left-color: #c9a0a6 !important; }
+html body .tv-list .tc-name { color: #2a1a1d !important; font: 600 15px var(--sans); text-align: left; }
+html body .tv-list .tc-tools { position: static; opacity: .6; }
+html body .tv-list .tc-roles { display: flex !important; flex-direction: column; gap: 2px; }
+html body .tv-list .tc-role { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 3px 0 !important; border: 0 !important; background: transparent !important; color: #2a1a1d !important; }
+html body .tv-list .tc-role + .tc-role { border-top: 1px dotted rgba(94,26,41,.15) !important; }
+html body .tv-list .tc-title { color: #2a1a1d !important; text-decoration-color: #8b7b7e; }
+html body .tv-list .tc-meta { color: #5a4348 !important; font-size: 12px; }
+html body .tv-list .tc-edit { display: none; }
+html body .tv-list .tc-add, html body .tv-list .tc-roles + * { color: #6e1f2e !important; }
+html body .tv-list .tc-title { grid-column: 1; grid-row: 1; }
+html body .tv-list .tc-meta { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 8px; margin: 0 !important; white-space: nowrap; }
