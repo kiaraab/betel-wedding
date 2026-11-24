@@ -23,8 +23,8 @@ export const AREAS = [
     poly: [[29, 54], [40, 50], [61, 50], [76, 57], [80, 70], [60, 73], [35, 73], [27, 66]], label: [52, 64] },  // front courtyard with the fountain
   { id: 'tasting', name: 'Tasting room', place: 'Bar · Redondo Room', space: 'tasting', color: 'var(--c-wine)',
     poly: [[27, 40], [29, 33], [37, 31], [40.5, 31], [40.5, 48], [35, 51], [28, 51]], label: [33, 42] },          // left wing (arched French doors onto the courtyard)
-  { id: 'bridal', name: 'Bridal suite', place: 'Suite · French garden', poly: [[61, 43], [66, 34], [74.5, 32.5], [75.5, 52], [61, 54]], label: [68.5, 45] }, // right wing: a guess
-  { id: 'groom', name: 'Groom suite', place: 'Lounge · bar', poly: [[60, 23], [64.5, 23], [64.5, 38], [60, 38]], label: [72, 27] }, // a guess: no photo shows it
+  { id: 'bridal', name: 'Bridal suite', place: 'Suite · French garden', poly: [[61, 41], [75, 36], [76, 53], [61, 55]], label: [68.5, 46] }, // right wing: a guess
+  { id: 'groom', name: 'Groom suite', place: 'Lounge · bar', poly: [[61, 24], [75, 22], [75, 35], [61, 39]], label: [68, 30] }, // a guess: no photo shows it
   { id: 'chapel', name: 'Chapel', place: 'Small · 20-30', poly: [[15, 87], [30, 82.5], [44, 85], [47, 100], [12, 100]], label: [28, 92] }, // the domed roof under the drone: a guess
   { id: 'grounds', name: 'Grounds', place: 'Vineyard · gate · conservatory', poly: [[0, 30], [12, 26], [24, 30], [26, 60], [22, 80], [0, 84]], label: [9.5, 52] },
 ];

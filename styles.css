@@ -3279,8 +3279,9 @@ table.guests .bs-btn .bs-chev, .guest-add .bs-btn .bs-chev { opacity: 1; }
   /* the venue map is wider than the screen: drag sideways to look around */
   .vm-mapcol { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .vm-mapcol::-webkit-scrollbar { display: none; }
-  .vm-map { width: 175%; min-width: 175%; aspect-ratio: 4 / 3; }
-  .vm-map .vm-photo { object-fit: cover; }
+  .vm-map { width: 200%; min-width: 200%; aspect-ratio: 16 / 9; }
+  .vm-map::after { content: ""; position: absolute; inset: 0; border: 3px solid var(--c-wine); pointer-events: none; z-index: 5; }
+  .vm-map .vm-photo { object-fit: fill; }
   .vm-label { padding: 4px 9px 5px; }
   .vm-pop { position: sticky; left: 0; width: calc(100vw - 32px); }
   .vm-legend { position: sticky; left: 0; width: calc(100vw - 32px); }
