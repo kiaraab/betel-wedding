@@ -215,7 +215,6 @@ export function renderVenueMap(root, { signal } = {}) {
   root.innerHTML = `
     <div class="page-head vm-head"><div class="vm-titlerow">
       <h1 class="vm-title" id="vmTitle">Morais Vineyards</h1>
-      ${viewIcons()}
     </div></div>
     <div class="vm-mapcol">${mapHTML()}<aside class="vm-pop" id="vmPop" hidden aria-label="Area details"></aside></div>
     <div class="vm-key" id="vmKey" aria-hidden="true"><span><i class="lg-edit"></i>Plan seats here</span><span><i class="lg-photo"></i>Photos only</span></div>
