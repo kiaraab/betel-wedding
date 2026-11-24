@@ -4126,3 +4126,9 @@ html body .tv-list .tc-edit { display: none; }
 html body .tv-list .tc-add, html body .tv-list .tc-roles + * { color: #6e1f2e !important; }
 html body .tv-list .tc-title { grid-column: 1; grid-row: 1; }
 html body .tv-list .tc-meta { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 8px; margin: 0 !important; white-space: nowrap; }
+
+/* Venue map key: top right, on the title line */
+html body .vm-titlerow { flex-wrap: nowrap !important; justify-content: space-between; }
+html body .vm-titlerow .vm-key { flex-direction: column; flex-wrap: nowrap; gap: 4px; padding: 0; margin-left: auto; font-size: 11px; align-items: flex-start; flex: none; }
+html body .vm-titlerow .vm-key i { width: 16px; }
+html body .vm-titlerow .vm-title { min-width: 0; }
