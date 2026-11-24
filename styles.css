@@ -4101,3 +4101,8 @@ body[data-route="team"]::before, body:is([data-route="overview"], [data-route="g
 /* Connections: key sits above the graph, hint on its own line on phones */
 .graph-legend { border-top: 0; border-bottom: 1px solid var(--line); }
 @media (max-width: 640px) { .graph-legend { gap: 8px 12px; padding: 10px 12px; font-size: 12px; } .graph-legend .legend-tip { flex-basis: 100%; order: 9; } .graph-legend .suggest-btn { margin-left: 0; } }
+
+/* Phone Guests: only Name / Side / Relationship show in the row; every other column (plus-one, diet, etc.) stays hidden so nothing is tappable under a name */
+@media (max-width: 640px) {
+  html body[data-route="guests"] table.guests tr.row > td:not(.c-name):not(.c-side):not(.c-relation):not(.row-actions) { display: none !important; }
+}
