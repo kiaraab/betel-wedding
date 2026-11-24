@@ -37,7 +37,7 @@ const personName = (id) => state.people.find((p) => p.id === id)?.name || id;
 const statusKey = (s) => s.toLowerCase().replace(/\s+/g, '-');
 
 /* ---------------- Overview ---------------- */
-const FIT_OV = '(min-width: 1100px) and (min-height: 640px)'; // desktop: overview fits one screen
+const FIT_OV = '(max-width: 0px)'; // the old one-screen desktop fit is retired (it squeezed Next up); the page just scrolls
 let justAddedMs = null;
 
 function milestoneList() {

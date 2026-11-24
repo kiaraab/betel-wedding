@@ -4187,3 +4187,13 @@ html body[data-route="seating"] .guide-q.inline { color: #fff; }
 html body .vm-titlerow .guide-q.inline { position: static !important; flex: none; margin-left: 8px; }
 html body .page-head:has(> .guide-q.inline), html body .ag-bar:has(> .guide-q.inline) { padding-right: 42px; }
 html body:is([data-route="team"], [data-route="seating"], [data-route="agenda"]) .guide-q.inline { color: #fff; opacity: .9; }
+
+/* Wide screens: Overview is one calm column (Next up + guest dots side by side, then the metrics, then Milestones + Team), not a fit-to-screen grid */
+@media (min-width: 1100px) and (min-height: 640px) {
+  html body[data-route="overview"] .ov { grid-template-rows: auto auto !important; min-height: 0 !important; }
+  html body[data-route="overview"] .ov-side { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto !important; gap: 14px; margin-top: 14px; }
+  html body[data-route="overview"] .ov .stats { grid-template-rows: auto !important; }
+  html body[data-route="overview"] .ov-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html body[data-route="overview"] main { padding-bottom: 24px; }
+  html body[data-route="overview"] .banner { height: auto; min-height: 0; }
+}
