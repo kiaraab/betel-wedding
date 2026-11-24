@@ -4160,3 +4160,15 @@ html body .plan-tools #hdrUndo { flex: none; min-width: 0 !important; width: aut
 html body .plan-tools #hdrUndo { width: 36px !important; padding: 0 !important; margin: 0; }
 @media (max-width: 640px) { html body .seat-layout.vow .stage-wrap > .plan-tools { left: 6px !important; right: 6px !important; } html body .plan-tools > .view-fixed { margin-right: 2px !important; } }
 @media (max-width: 640px) { html body .plan-card .plan-tools, html body .stage-wrap > .plan-tools { gap: 0 !important; padding-right: 4px !important; } html body .plan-tools .tool-seg button { min-width: 36px; padding: 0 8px; } html body .plan-tools .tool.icon { flex-basis: 34px; width: 34px; min-width: 34px; } html body .plan-tools #hdrUndo { width: 34px !important; } }
+
+/* Ceremony / Hangout / Tasting: side cards fold under a title row */
+.side-panel > section.card.fold > h3 { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: 0; cursor: pointer; }
+.side-panel > section.card.fold > h3::after { content: ""; width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); opacity: .7; transition: transform .2s var(--ease); }
+.side-panel > section.card.fold.closed > h3::after { transform: rotate(-45deg); }
+.side-panel > section.card.fold.closed > :not(h3) { display: none !important; }
+.side-panel > section.card.fold > h3:focus-visible { outline: 2px solid var(--c-wine, #6e1f2e); outline-offset: 2px; }
+
+/* Numbers and metrics: Playfair Display (serif, lining figures with a flagged 1, so 11 never reads as II) */
+.stat b, .stat b small, .ds-one b, .ds-one b small, .nextup .nu-n, .team-head .st-tabs b, .countup, .banner-days, .hero-stats b { font-family: "Playfair Display", "Cormorant Garamond", Georgia, serif !important; font-variant-numeric: lining-nums tabular-nums; font-feature-settings: "lnum" 1; font-optical-sizing: auto; }
+.venue-strip button.vstrip-head h3, .venue-strip .vstrip-n { color: #fff; }
+.venue-strip button.vstrip-head { color: #fff; }

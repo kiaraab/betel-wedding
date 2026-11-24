@@ -745,6 +745,7 @@ export function renderSeating(root) {
   threeInst?.dispose(); threeInst = null;
   let three = null;
   wireMorais(root, signal);
+  foldCards(root, signal);
 
   /* ---- spaces: ceremony · cocktail · reception ---- */
   const tabs = root.querySelector('.spaces'), ink = tabs.querySelector('.spaces-ink');
@@ -1504,12 +1505,32 @@ function venueStripHTML() {
   const list = moraisOrder(space);
   if (!list.length) return '';
   // photos are secondary to seating: on a phone the strip starts folded (the choice is remembered on this device)
-  let open = !matchMedia('(max-width: 760px)').matches;
+  let open = false; // folded by default: photos are secondary to seating
   try { const v = localStorage.getItem('bc-vstrip-open'); if (v !== null) open = v === '1'; } catch { /* storage blocked: use the default */ }
   return `<section class="card venue-strip${open ? '' : ' closed'}" aria-label="Venue photos"><button type="button" class="vstrip-head" aria-expanded="${open}"><h3>Venue photos</h3><span class="vstrip-n">${list.length}</span><i class="vstrip-chev" aria-hidden="true"></i></button>
     <div class="ref-grid morais-grid vstrip-grid">
       ${list.map((p, i) => `<button class="morais-th" data-ph="${p.id}" style="--i:${i}" aria-label="${esc(p.name)}, open larger"><img src="${p.src}" alt="${esc(p.name)}" draggable="false" loading="lazy" decoding="async"/><span class="morais-cap">${esc(p.name)}</span></button>`).join('')}
     </div></section>`;
+}
+/** Side cards (Plan tools, Agenda, Look) fold under their title so the page starts calm; the choice is remembered on this device. */
+function foldCards(root, signal) {
+  root.querySelectorAll('.side-panel > section.card').forEach((card) => {
+    const h = card.querySelector(':scope > h3');
+    if (!h) return;
+    const key = 'bc-fold-' + h.textContent.trim().toLowerCase();
+    let open = false;
+    try { open = localStorage.getItem(key) === '1'; } catch { /* default folded */ }
+    card.classList.add('fold');
+    card.classList.toggle('closed', !open);
+    h.tabIndex = 0; h.setAttribute('role', 'button'); h.setAttribute('aria-expanded', String(open));
+    const toggle = () => {
+      const closed = card.classList.toggle('closed');
+      h.setAttribute('aria-expanded', String(!closed));
+      try { localStorage.setItem(key, closed ? '0' : '1'); } catch { /* not remembered */ }
+    };
+    h.addEventListener('click', toggle, { signal });
+    h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }, { signal });
+  });
 }
 function wireMorais(root, signal) {
   const grid = root.querySelector('.morais-grid');
