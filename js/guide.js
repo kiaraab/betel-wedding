@@ -71,6 +71,10 @@ export function initGuide(getRoute) {
 /** Call after each page render: the "?" breathes gently until that page's tour has been seen. */
 export function refreshGuide() {
   if (!btn) return;
+  // the "?" lives at the right end of the page title row (not floating over the content)
+  const host = document.querySelector('.vm-titlerow') || document.querySelector('.page-head') || document.querySelector('.banner') || document.querySelector('.ag-bar');
+  if (host) { if (getComputedStyle(host).position === 'static') host.style.position = 'relative'; host.append(btn); btn.classList.add('inline'); }
+  else { btn.classList.remove('inline'); document.body.append(btn); }
   btn.classList.toggle('new', !read(seenKey(routeNow())));
   if (tour && !tour.multi) endTour();
 }

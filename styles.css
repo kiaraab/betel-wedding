@@ -4176,3 +4176,14 @@ html body .plan-tools #hdrUndo { width: 36px !important; padding: 0 !important; 
 /* Milestones: true-to-scale axis; each dot sits at its real date, the label may nudge to avoid overlap */
 .mtl-item::before { transform: translateY(var(--dy, 0px)); }
 .mtl-line { top: 14px; }
+
+/* "?" help: small, flat, at the right end of the page title row */
+html body .guide-q.inline, html body[data-route] .guide-q.inline { position: absolute !important; top: 6px; right: 0; bottom: auto !important; width: 32px; height: 32px; z-index: 5; background: transparent !important; border: 1px solid currentColor; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--c-wine); opacity: .8; }
+html body .guide-q.inline::before, html body .guide-q.inline::after { content: none !important; }
+html body .guide-q.inline:hover { opacity: 1; background: rgba(110, 31, 46, .08) !important; }
+html body .guide-q.inline svg { width: 16px; height: 16px; }
+html body[data-route="overview"] .banner > .guide-q.inline { top: 10px; right: 10px; color: #fff; background: rgba(0, 0, 0, .25) !important; }
+html body[data-route="seating"] .guide-q.inline { color: #fff; }
+html body .vm-titlerow .guide-q.inline { position: static !important; flex: none; margin-left: 8px; }
+html body .page-head:has(> .guide-q.inline), html body .ag-bar:has(> .guide-q.inline) { padding-right: 42px; }
+html body:is([data-route="team"], [data-route="seating"], [data-route="agenda"]) .guide-q.inline { color: #fff; opacity: .9; }
