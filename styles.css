@@ -4132,3 +4132,14 @@ html body .vm-titlerow { flex-wrap: nowrap !important; justify-content: space-be
 html body .vm-titlerow .vm-key { flex-direction: column; flex-wrap: nowrap; gap: 4px; padding: 0; margin-left: auto; font-size: 11px; align-items: flex-start; flex: none; }
 html body .vm-titlerow .vm-key i { width: 16px; }
 html body .vm-titlerow .vm-title { min-width: 0; }
+
+/* Phone seating toolbar: Undo was squeezed to 12px (letters stacked). Hide it while there is nothing to undo; otherwise keep its width and let the row wrap */
+@media (max-width: 640px) {
+  .plan-tools { flex-wrap: wrap; }
+  .plan-tools #hdrUndo { flex: none; white-space: nowrap; min-width: 52px; }
+  .plan-tools #hdrUndo[disabled] { display: none; }
+}
+
+/* Phone Overview: shorter banner so Next up is on the first screen; lining numerals so 11 doesn't look like II */
+@media (max-width: 640px) { html body[data-route="overview"] .banner { min-height: 0 !important; height: 214px !important; } html body[data-route="overview"] .banner-oval, html body[data-route="overview"] .banner img.oval { max-height: 150px; } }
+.ds-one b, .nu-n, .stat b { font-variant-numeric: lining-nums tabular-nums; font-feature-settings: "lnum" 1; }
