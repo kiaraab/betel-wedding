@@ -111,6 +111,25 @@ function blocksFromAi(data, from, to) {
   }).filter((b) => S(b) >= from && S(b) < to && E(b) > S(b)).sort((a, b) => S(a) - S(b));
 }
 
+/** The day program from the couple's invitation site (Canva). Fixed ids so two devices never add it twice. */
+const PROGRAM = [
+  { id: 'prog-ceremony', start: '15:00', end: '16:00', title: 'Ceremony', venue: 'Pergola' },
+  { id: 'prog-cocktail', start: '16:00', end: '18:00', title: 'Cocktail hour', venue: 'Courtyard' },
+  { id: 'prog-dinner', start: '18:00', end: '19:00', title: 'Dinner', venue: 'Ballroom' },
+  { id: 'prog-dessert', start: '19:00', end: '20:00', title: 'Dessert', venue: 'Ballroom' },
+  { id: 'prog-party', start: '20:00', end: '24:00', title: 'First dance & party', venue: 'Ballroom' },
+  { id: 'prog-farewell', start: '00:00', end: '00:30', title: 'Grand farewell', venue: 'Ballroom', day2: true },
+];
+const programMissing = () => PROGRAM.filter((p) => !state.agenda.some((a) => a.id === p.id));
+function addProgram() {
+  const miss = programMissing();
+  if (!miss.length) return;
+  undoable(`${miss.length} events from the invitation added`, () => {
+    state.agenda.filter((a) => a.suggested).forEach(dropNote);
+    state.agenda = [...state.agenda.filter((a) => !a.suggested), ...miss.map((p) => ({ id: p.id, start: p.start, end: p.end, day2: !!p.day2, title: p.title, place: placeFor(p.venue), venue: p.venue, responsible: '', notes: 'Times from the invitation site: confirm with the venue.', suggested: false }))];
+  }, toast);
+}
+
 /** Replace earlier suggestions with `fresh`, skipping any that overlap your own events or each other. */
 function addSuggested(fresh) {
   const kept = state.agenda.filter((a) => !a.suggested), out = [];
@@ -267,7 +286,9 @@ export function renderAgenda(view) {
   const r = range(), ln = lanes(state.agenda);
   const hours = [];
   for (let m = r.from; m < r.to; m += 60) hours.push(m);
+  if (!state.agenda.length) { let done = false; try { done = localStorage.getItem('bc-program-seeded') === '1'; localStorage.setItem('bc-program-seeded', '1'); } catch { /* ignore */ } if (!done) addProgram(); } // first visit with an empty agenda: fill in the invitation's program
   const open = suggesting || reviewing || !!selId;
+  const progNote = programMissing().length && state.agenda.length && !seen('prog');
   const overlap = overlappingSuggested(), sig = overlap.map((b) => b.id).join(',');
   const showNote = overlap.length && !reviewing && !seen(sig);
   const firstDraw = !view.querySelector('#agCal');
@@ -281,6 +302,7 @@ export function renderAgenda(view) {
         <button type="button" class="ag-tb" id="agSuggest" aria-label="Suggest an agenda" title="Suggest an agenda" aria-pressed="${suggesting}">Suggest</button>
       </div>
     </div>
+    ${progNote ? `<div class="ag-note" role="status"><span>The invitation’s day program (3 PM ceremony to midnight farewell) is not all here. Suggested events make room; yours stay.</span><button type="button" class="linklike" data-addprog>Use it</button><button type="button" class="x" data-dismissprog aria-label="Dismiss" title="Dismiss">×</button></div>` : ''}
     ${showNote ? `<div class="ag-note" role="status"><span>${overlap.length} overlapping suggested event${overlap.length > 1 ? 's' : ''}</span><button type="button" class="linklike" data-review>Review</button><button type="button" class="x" data-dismissnote aria-label="Dismiss" title="Dismiss">×</button></div>` : ''}
     <div class="ag-wrap${open ? ' with-panel' : ''}${firstDraw ? ' ag-first' : ''}">
       <div class="ag-cal" id="agCal">
@@ -340,6 +362,8 @@ export function renderAgenda(view) {
   };
   view.querySelector('#agSuggest').onclick = () => { suggesting = !suggesting; selId = null; reviewing = false; aiPrev = null; rerender(); };
   view.querySelector('[data-review]')?.addEventListener('click', () => { reviewing = true; suggesting = false; selId = null; rerender(); });
+  view.querySelector('[data-addprog]')?.addEventListener('click', () => { addProgram(); rerender(); });
+  view.querySelector('[data-dismissprog]')?.addEventListener('click', () => { markSeen('prog'); rerender(); });
   view.querySelector('[data-dismissnote]')?.addEventListener('click', () => { markSeen(sig); rerender(); });
 
   // Double-click empty time = new event there

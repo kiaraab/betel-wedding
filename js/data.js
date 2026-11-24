@@ -3,7 +3,7 @@ import { suggestTables } from './layout.js';
 export const WEDDING = {
   couple: ['Betel', 'Carter'],
   surname: 'Griffin',
-  date: '2027-06-17T16:00:00-04:00', // ceremony time is a placeholder — edit when confirmed
+  date: '2027-06-17T15:00:00-04:00', // ceremony at 3 PM (from the invitation site)
   venue: 'Morais Vineyards & Winery',
   venueTown: 'Bealeton, Virginia',
   board: 'https://www.pinterest.com/bm202834/wedding-day/',
