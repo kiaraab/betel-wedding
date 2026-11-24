@@ -89,32 +89,31 @@ function milestonesHTML(H = 420) {
   if (!list.length) return '<p class="mtl-empty">No dates yet</p>';
   const now = Date.now();
   const pts = list.map((m) => ({ m, at: dayOf(m.date).getTime() }));
+  // one true-to-scale axis: the first date (the proposal) at the top, the wedding at the bottom, every dot and Today at its real distance in time
+  const GAP = 38;
+  const start = Math.min(...pts.map((p) => p.at));
+  const end = Math.max(dayOf(weddingDay()).getTime(), ...pts.map((p) => p.at), start + 1);
+  const span = end - start;
+  const room = Math.max(H, (pts.length - 1) * GAP);
+  const yOf = (t) => ((t - start) / span) * room;
+  pts.forEach((p) => { p.dot = yOf(p.at); p.y = p.dot; });
+  for (let k = 1; k < pts.length; k++) pts[k].y = Math.max(pts[k].y, pts[k - 1].y + GAP);   // labels never overlap
+  for (let k = pts.length - 2; k >= 0; k--) if (pts[k + 1].y > room) pts[k].y = Math.min(pts[k].y, pts[k + 1].y - GAP);
   const past = pts.filter((p) => p.at < now), next = pts.filter((p) => p.at >= now);
-  const GAP = 40;
-  let y = 0;
-  past.forEach((p) => { p.y = y; y += GAP; });
-  const todayY = past.length ? y - GAP + 48 : 0;
-  const end = Math.max(dayOf(weddingDay()).getTime(), ...next.map((p) => p.at), now + 1);
-  const top = todayY + 16, room = Math.max(H - top, next.length * GAP);
-  let prev = null;
-  next.forEach((p) => {
-    const raw = top + ((p.at - now) / (end - now)) * room;
-    p.y = prev === null ? raw : Math.max(raw, prev + GAP);
-    prev = p.y;
-  });
-  const showToday = now <= end;
+  const todayY = yOf(Math.min(Math.max(now, start), end));
+  const showToday = now >= start && now <= end;
   let i = 0;
-  const item = (p) => `<div class="mtl-item ${p.at < now ? 'past' : ''} ${p.m.id === 'wedding' ? 'big' : ''} ${p.m.id === justAddedMs ? 'fresh' : ''}" style="top:${p.y}px;--i:${i++}">
+  const item = (p) => `<div class="mtl-item ${p.at < now ? 'past' : ''} ${p.m.id === 'wedding' ? 'big' : ''} ${p.m.id === justAddedMs ? 'fresh' : ''}" style="top:${p.y}px;--dy:${p.dot - p.y}px;--i:${i++}">
             <div class="what" title="${esc(p.m.label)}">${esc(p.m.label)}</div>
             <div class="when">${LOCKED_MS.includes(p.m.id) ? shortDate(p.m.date) : dateEdit('ms', p.m.id, p.m.date, shortDate(p.m.date))}</div>
             ${!LOCKED_MS.includes(p.m.id) ? `<button class="x mtl-x" data-delms="${esc(p.m.id)}" aria-label="Remove ${esc(p.m.label)}">×</button>` : ''}
           </div>`;
-  const last = Math.max(todayY, ...pts.map((p) => p.y));
+  const last = Math.max(todayY, room, ...pts.map((p) => p.y));
   return `
     <div class="mtl" style="height:${last + 44}px">
       <div class="mtl-line"></div>
       ${past.map(item).join('')}
-      ${showToday ? `<div class="mtl-today" style="top:${todayY}px"><span>Today</span></div>` : ''}
+      ${showToday ? `<div class="mtl-today" style="top:${todayY + 12}px"><span>Today</span></div>` : ''}
       ${next.map(item).join('')}
     </div>`;
 }

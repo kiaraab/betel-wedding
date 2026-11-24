@@ -4172,3 +4172,7 @@ html body .plan-tools #hdrUndo { width: 36px !important; padding: 0 !important; 
 .stat b, .stat b small, .ds-one b, .ds-one b small, .nextup .nu-n, .team-head .st-tabs b, .countup, .banner-days, .hero-stats b { font-family: "Playfair Display", "Cormorant Garamond", Georgia, serif !important; font-variant-numeric: lining-nums tabular-nums; font-feature-settings: "lnum" 1; font-optical-sizing: auto; }
 .venue-strip button.vstrip-head h3, .venue-strip .vstrip-n { color: #fff; }
 .venue-strip button.vstrip-head { color: #fff; }
+
+/* Milestones: true-to-scale axis; each dot sits at its real date, the label may nudge to avoid overlap */
+.mtl-item::before { transform: translateY(var(--dy, 0px)); }
+.mtl-line { top: 14px; }
