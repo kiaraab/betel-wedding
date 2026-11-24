@@ -4197,3 +4197,4 @@ html body:is([data-route="team"], [data-route="seating"], [data-route="agenda"])
   html body[data-route="overview"] main { padding-bottom: 24px; }
   html body[data-route="overview"] .banner { height: auto; min-height: 0; }
 }
+html body[data-route="overview"] .ov .stats.ov-metrics:has(> :nth-child(3)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }

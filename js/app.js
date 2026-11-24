@@ -42,6 +42,7 @@ let justAddedMs = null;
 
 function milestoneList() {
   if (!Array.isArray(state.milestones)) state.milestones = structuredClone(MILESTONES);
+  if (!state.milestones.some((m) => m.id === 'rsvp')) { state.milestones.push({ id: 'rsvp', label: 'RSVP deadline', date: '2027-02-01' }); commit({ silent: true }); } // from the invitation site; fixed id so devices never add it twice
   return state.milestones.slice().sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -106,7 +107,7 @@ function milestonesHTML(H = 420) {
   const item = (p) => `<div class="mtl-item ${p.at < now ? 'past' : ''} ${p.m.id === 'wedding' ? 'big' : ''} ${p.m.id === justAddedMs ? 'fresh' : ''}" style="top:${p.y}px;--dy:${p.dot - p.y}px;--i:${i++}">
             <div class="what" title="${esc(p.m.label)}">${esc(p.m.label)}</div>
             <div class="when">${LOCKED_MS.includes(p.m.id) ? shortDate(p.m.date) : dateEdit('ms', p.m.id, p.m.date, shortDate(p.m.date))}</div>
-            ${!LOCKED_MS.includes(p.m.id) ? `<button class="x mtl-x" data-delms="${esc(p.m.id)}" aria-label="Remove ${esc(p.m.label)}">×</button>` : ''}
+            ${!LOCKED_MS.includes(p.m.id) && p.m.id !== 'rsvp' ? `<button class="x mtl-x" data-delms="${esc(p.m.id)}" aria-label="Remove ${esc(p.m.label)}">×</button>` : ''}
           </div>`;
   const last = Math.max(todayY, room, ...pts.map((p) => p.y));
   return `
@@ -163,6 +164,7 @@ function wireGuestCount(root) {
 
 function overview() {
   const days = Math.max(0, daysUntil(WEDDING.date));
+  const rsvpMs = milestoneList().find((m) => m.id === 'rsvp'), rsvpDays = rsvpMs ? daysUntil(rsvpMs.date) : null;
   const done = state.roles.filter((r) => r.status === 'Done').length;
   const going = state.guests.filter((g) => g.rsvp !== 'Declined');
   const seated = going.filter(isSeated).length;
@@ -222,6 +224,7 @@ function overview() {
         <div class="stats ov-metrics">
           ${stat('#team', done, state.roles.length, 'Tasks done')}
           <div class="stat"><b>${days}</b><span>Days left</span></div>
+          ${rsvpDays != null && rsvpDays >= 0 ? `<div class="stat"><b>${rsvpDays}</b><span>Days to RSVP deadline</span></div>` : ''}
         </div>
 
         <div class="ov-cards">
