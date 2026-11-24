@@ -4143,3 +4143,20 @@ html body .vm-titlerow .vm-title { min-width: 0; }
 /* Phone Overview: shorter banner so Next up is on the first screen; lining numerals so 11 doesn't look like II */
 @media (max-width: 640px) { html body[data-route="overview"] .banner { min-height: 0 !important; height: 214px !important; } html body[data-route="overview"] .banner-oval, html body[data-route="overview"] .banner img.oval { max-height: 150px; } }
 .ds-one b, .nu-n, .stat b { font-variant-numeric: lining-nums tabular-nums; font-feature-settings: "lnum" 1; }
+
+/* Photo nav under the map: no boxes, just text with one hairline and a thin underline on the current one */
+html body .vm-all { background: transparent !important; box-shadow: none !important; border: 0 !important; }
+html body .vm-filters { padding: 0 !important; gap: 4px !important; border-bottom: 1px solid rgba(255, 255, 255, .22) !important; }
+html body .vm-f { background: transparent !important; border: 0 !important; box-shadow: none !important; color: rgba(255, 255, 255, .72) !important; padding: 0 12px !important; min-height: 40px !important; position: relative; }
+html body .vm-f.on { color: #fff !important; box-shadow: none !important; }
+html body .vm-f.on::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 1px; background: #fff; }
+html body .vm-f b { opacity: .55; }
+
+/* 3D | Plan switch now sits in the toolbar row with the other tools */
+html body .plan-tools > .view-fixed { position: static !important; margin: 0 6px 0 0 !important; background: transparent; flex: none; }
+html body .plan-card .plan-tools, html body .stage-wrap > .plan-tools { padding-left: 8px !important; padding-top: 8px !important; }
+html body .plan-card .plan-tools::before, html body .stage-wrap > .plan-tools::before { display: none !important; content: none !important; }
+html body .plan-tools #hdrUndo { flex: none; min-width: 0 !important; width: auto !important; height: 36px; padding: 0 10px !important; margin: 0 2px; display: inline-flex; align-items: center; justify-content: center; letter-spacing: 0; text-indent: 0; }
+html body .plan-tools #hdrUndo { width: 36px !important; padding: 0 !important; margin: 0; }
+@media (max-width: 640px) { html body .seat-layout.vow .stage-wrap > .plan-tools { left: 6px !important; right: 6px !important; } html body .plan-tools > .view-fixed { margin-right: 2px !important; } }
+@media (max-width: 640px) { html body .plan-card .plan-tools, html body .stage-wrap > .plan-tools { gap: 0 !important; padding-right: 4px !important; } html body .plan-tools .tool-seg button { min-width: 36px; padding: 0 8px; } html body .plan-tools .tool.icon { flex-basis: 34px; width: 34px; min-width: 34px; } html body .plan-tools #hdrUndo { width: 34px !important; } }

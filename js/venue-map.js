@@ -190,7 +190,7 @@ function mapHTML() {
         <polygon class="vm-halo" points="${pts(a.poly)}" vector-effect="non-scaling-stroke"/><polygon class="vm-poly" points="${pts(a.poly)}" vector-effect="non-scaling-stroke"/></g>`).join('')}
     </svg>
     ${AREAS.map((a) => `<button type="button" class="vm-label${a.space ? ' edit' : ''}" data-area="${a.id}" style="left:${a.label[0]}%;top:${a.label[1]}%;--a:${a.color || 'var(--c-on-dark)'}" title="${esc(a.place)}" aria-label="${esc(`${a.name}, ${a.place}${a.space ? ', open the plan' : ', show photos'}`)}">
-      <b><i aria-hidden="true"></i>${esc(a.name)}<em class="vm-kind" aria-hidden="true">${svgIcon(a.space ? 'edit' : 'photo', 12)}</em></b><span class="vm-st" data-st="${a.id}">${esc(statusOf(a))}</span></button>`).join('')}
+      <b>${esc(a.name)}<em class="vm-kind" aria-hidden="true">${svgIcon(a.space ? 'edit' : 'photo', 12)}</em></b><span class="vm-st" data-st="${a.id}">${esc(statusOf(a))}</span></button>`).join('')}
     <span class="vm-cap" aria-live="polite"></span><span class="vm-approx" title="Places are best guesses from photos, not a survey">≈ Approximate</span>
   </div>`;
 }

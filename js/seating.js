@@ -654,8 +654,8 @@ export function renderSeating(root) {
   const PLANFILE = `<div class="plan-file"><span>Plan file</span><button class="linkbtn" id="exportBtn">Export</button><button class="linkbtn" id="importBtn">Import</button><input type="file" id="importFile" accept="application/json" hidden/></div>`;
   if (vow && mode === 'plan' && vsTab !== 'guests') refTab = vsTab === 'look' ? 'venue' : 'ideas';
   const toolsHTML = `
-          ${THREE_SPACES.includes(space) ? `<div class="viewseg tool-seg view-fixed" role="tablist" aria-label="View"><button type="button" role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button><button type="button" role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Plan</button></div>` : ''}
           <div class="plan-tools">
+          ${THREE_SPACES.includes(space) ? `<div class="viewseg tool-seg view-fixed" role="tablist" aria-label="View"><button type="button" role="tab" data-mode="3d" aria-selected="${mode === '3d'}" class="${mode === '3d' ? 'on' : ''}">3D</button><button type="button" role="tab" data-mode="plan" aria-selected="${mode === 'plan'}" class="${mode === 'plan' ? 'on' : ''}">Plan</button></div>` : ''}
             ${mode === 'plan' ? `
               ${info.add === 'row' ? toolIcon('row', 'Add row', 'data-add="row"')
                 : info.add === 'high' ? toolIcon('high', 'Add high-top', 'data-add="high"')
@@ -679,7 +679,7 @@ export function renderSeating(root) {
                ${vow ? toolIcon('eye', 'Experience the evening', 'id="evening"') : ''}
                ${vow ? toolIcon('walls', 'Take the walls down', 'id="shellBtn" aria-pressed="false"') : ''}
                ${document.fullscreenEnabled ? toolIcon('fit', 'Full screen', 'id="full3"') : ''}`}
-            <button class="tool" id="hdrUndo" type="button" disabled>Undo</button>
+            <button class="tool icon" id="hdrUndo" type="button" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button class="btn moss sm icon-btn" id="share" aria-label="Save the layout as a picture" title="Save the layout as a picture"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </div>
 `;
